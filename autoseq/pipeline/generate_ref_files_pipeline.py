@@ -15,6 +15,7 @@ from autoseq.util.path import stripsuffix, normpath
 
 __author__ = 'dankle'
 
+
 class GenerateRefFilesPipeline(PypedreamPipeline):
     outdir = None
     maxcores = None
@@ -160,7 +161,6 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             self.reference_data['targets'][kit_name]['targets-interval_list-slopped20'] = slop_interval_list.output
             self.reference_data['targets'][kit_name]['targets-bed-slopped20'] = interval_list_to_bed.output
             self.reference_data['targets'][kit_name]['msisites'] = intersect_msi.output_msi_sites
-
 
     def prepare_genes(self):
         curl_ensembl_gtf = Curl()

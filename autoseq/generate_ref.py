@@ -32,10 +32,8 @@ def main(genome_resources, outdir, runner_name, loglevel, cores, debug):
     # block thread until done
     p.join()
 
-    # return_code from run_pipeline() will be != 0 if the pipeline fails
-    if p.exitcode != 0:
-        raise OSError("Autoseq Failed")
-
+    # return with exitcode
+    sys.exit(p.exitcode)
 
 if __name__ == "__main__":
     sys.exit(main())
