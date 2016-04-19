@@ -1,0 +1,8 @@
+pip
+pymongo
+pydotplus
+jsonschema
+click
+git+https://github.com/ClinSeq/pypedream.git
+git+https://github.com/ewels/MultiQC.git
+
