@@ -25,7 +25,7 @@ class PicardCollectGcBiasMetrics(Job):
         self.jobname = "picard-gcbias"
 
     def command(self):
-        return "picard CollectGcBiasMetrics CHART=/dev/null" + \
+        return "picard -Xmx5g CollectGcBiasMetrics CHART=/dev/null" + \
                required("I=", self.input) + \
                required("O=", self.output_metrics) + \
                required("S=", self.output_summary) + \
