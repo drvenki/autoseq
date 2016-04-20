@@ -237,22 +237,11 @@ class CurlSplitAndLeftAlign(Job):
 class InstallVep(Job):
     def __init__(self):
         Job.__init__(self)
-        self.ensembl_version = None
-        self.output_bin_dir = None
-        self.output_cache_dir = None
-        self.jobname = "install-vep"
+	self.output_dir = None
+	self.jobname = "fetch-vep-cache"
 
     def command(self):
-        return "mkdir -p " + self.output_bin_dir + " && " + \
-               "mkdir -p " + self.output_cache_dir + " && " + \
-               "cd " + self.output_bin_dir + " && " + \
-               "curl -LO https://github.com/Ensembl/ensembl-tools/archive/release/" + str(
-            self.ensembl_version) + ".tar.gz" + " && " + \
-               """ tar -zxf {}.tar.gz  --starting-file variant_effect_predictor --transform='s|.*/|./|g' && """.format(
-                   self.ensembl_version) + \
-               "export PERL5LIB=$PERL5LIB:" + self.output_bin_dir + " && " + \
-               "perl INSTALL.pl --AUTO acf --SPECIES homo_sapiens_vep " + \
-               required("--VERSION ", self.ensembl_version) + \
-               " --CONVERT " + \
-               required("--CACHEDIR ", self.output_cache_dir) + \
-               required("--DESTDIR ", self.output_bin_dir)
+	return "vep_install.pl --SPECIES homo_sapiens_vep --AUTO c --ASSEMBLY GRCh37 --NO_HTSLIB " + \
+	       required("--CACHEDIR ", self.output_dir) + \
+	       " && vep_convert_cache.pl --dir " + required("--CACHEDIR ", self.output_dir) + \
+	       " --species homo_sapiens --version 83_GRCh37"
