@@ -103,7 +103,7 @@ class VarDict(Job):
         required("", self.input_tumor)
         required("", self.input_normal)
 
-        freq_filter = (" bcftools filter -m '+' -s 'REJECT' -e 'STATUS !~ \".*Somatic\"' 2> /dev/null "
+        freq_filter = (" bcftools filter -e 'STATUS !~ \".*Somatic\"' 2> /dev/null "
                        "| %s -c 'import bcbio.variation.vardict; import sys; print bcbio.variation.vardict.depth_freq_filter(sys.stdin.read(), %s, \"%s\")' " %
                        (sys.executable, 0, 'bwa'))
 
