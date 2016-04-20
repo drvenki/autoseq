@@ -193,8 +193,11 @@ class VcfAddSample(Job):
         return " && ".join([filt_vcf_cmd, vcf_add_sample_cmd, rm_filt_cmd])
 
 
-def vt_split_and_leftaln(reference_sequence):
-    return "vt decompose -s - |vt normalize -r {} -".format(reference_sequence)
+def vt_split_and_leftaln(reference_sequence, allow_ref_mismatches=False):
+    cmd = "vt decompose -s - " + \
+          "|vt normalize " + conditional(allow_ref_mismatches, ' -n ') + \
+          "{} - ".format(reference_sequence)
+    return cmd
 
 
 class VcfFilter(Job):
@@ -226,7 +229,7 @@ class CurlSplitAndLeftAlign(Job):
         required("", self.input_reference_sequence_fai)
         return "curl " + \
                required(" ", self.remote) + \
-               "| gzip -d |" + vt_split_and_leftaln(self.input_reference_sequence) + \
+               "| gzip -d |" + vt_split_and_leftaln(self.input_reference_sequence, allow_ref_mismatches=True) + \
                "| bgzip " + required(" > ", self.output) + \
                " && tabix -p vcf {output}".format(output=self.output)
 
