@@ -233,8 +233,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vep_vardict.input_vcf = vardict.output
         vep_vardict.threads = self.maxcores
         vep_vardict.reference_sequence = self.refdata['reference_genome']
-        vep_vardict.vep_bin_dir = self.refdata['vep_bin_dir']
-        vep_vardict.vep_cache_dir = self.refdata['vep_cache_dir']
+        vep_vardict.vep_dir = self.refdata['vep_dir']
         vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(self.outdir,
                                                                                        self.sampledata[
                                                                                            'PANEL_TUMOR_LIB'],
@@ -247,8 +246,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vep_freebayes.input_vcf = freebayes.output
         vep_freebayes.threads = self.maxcores
         vep_freebayes.reference_sequence = self.refdata['reference_genome']
-        vep_freebayes.vep_bin_dir = self.refdata['vep_bin_dir']
-        vep_freebayes.vep_cache_dir = self.refdata['vep_cache_dir']
+        vep_freebayes.vep_dir = self.refdata['vep_dir']
         vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(self.outdir,
                                                                                            self.sampledata[
                                                                                                'PANEL_TUMOR_LIB'],
