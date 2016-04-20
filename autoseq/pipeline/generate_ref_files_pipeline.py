@@ -46,14 +46,11 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.prepare_intervals()
         self.prepare_variants()
 
-        install_vep = InstallVep()
-        install_vep.ensembl_version = self.ensembl_version
-        install_vep.output_cache_dir = "{}/vep/cache/".format(self.outdir)
-        install_vep.output_bin_dir = "{}/vep/bin/".format(self.outdir)
-        self.add(install_vep)
+        fetch_vep_cache = InstallVep()
+        fetch_vep_cache.output_cache_dir = "{}/vep/".format(self.outdir)
+        self.add(fetch_vep_cache)
 
-        self.reference_data['vep_bin_dir'] = install_vep.output_bin_dir
-        self.reference_data['vep_cache_dir'] = install_vep.output_cache_dir
+        self.reference_data['vep_dir'] = fetch_vep_cache.output_dir
 
         with open("{}/autoseq-genome.json".format(self.outdir), "w") as output_file:
             json.dump(self.reference_data, output_file, indent=4, sort_keys=True)
