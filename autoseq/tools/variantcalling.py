@@ -134,28 +134,27 @@ class VEP(Job):
         self.input_vcf = None
         self.output_vcf = None
         self.reference_sequence = None
-        self.vep_bin_dir = None
-        self.vep_cache_dir = None
+	self.vep_dir = None
         self.jobname = "vep"
 
     def command(self):
         bgzip = ""
         fork = ""
         if self.threads > 1:  # vep does not accept "--fork 1", so need to check.
-            fork = "--fork {}".format(self.threads)
+	    fork = " --fork {} ".format(self.threads)
         if self.output_vcf.endswith('gz'):
-            bgzip = "| bgzip"
-        required("", self.vep_bin_dir)  # assert that vep_bin_dir is set
-        return "perl {}/variant_effect_predictor.pl ".format(self.vep_bin_dir) + \
-               required('-i ', self.input_vcf) + \
-               " --vcf --offline --output_file STDOUT " + \
-               required('--dir ', self.vep_cache_dir) + \
-               required('--fasta ', self.reference_sequence) + \
-               " --check_alleles --check_existing " + \
-               " --total_length --allele_number --no_escape --no_stats --everything " + \
-               fork + \
-               bgzip + " > " + required("", self.output_vcf) + \
-               " && tabix -p vcf {}".format(self.output_vcf)
+	    bgzip = " | bgzip "
+	required("", self.vep_dir)  # assert that vep_bin_dir is set
+	cmdstr = "variant_effect_predictor.pl --vcf --offline --output_file STDOUT " + \
+		 required("--dir ", self.vep_dir) + \
+		 required("--fasta ", self.reference_sequence) + \
+		 required("-i ", self.input_vcf) + \
+		 " --check_alleles --check_existing  --total_length --allele_number " + \
+		 " --no_escape --no_stats --everything " + \
+		 fork + bgzip + " > " + required("", self.output_vcf) + \
+		 " && tabix -p vcf {}".format(self.output_vcf)
+
+	return cmdstr
 
 
 class VcfAddSample(Job):
