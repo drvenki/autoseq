@@ -44,10 +44,10 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.prepare_reference_genome()
         self.prepare_genes()
         self.prepare_intervals()
-        self.prepare_variants()
+	self.prepare_variants()
 
 	fetch_vep_cache = InstallVep()
-	fetch_vep_cache.output_cache_dir = "{}/vep/".format(self.outdir)
+	fetch_vep_cache.output_dir = "{}/vep/".format(self.outdir)
 	self.add(fetch_vep_cache)
 
 	self.reference_data['vep_dir'] = fetch_vep_cache.output_dir
