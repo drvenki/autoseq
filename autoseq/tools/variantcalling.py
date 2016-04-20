@@ -196,7 +196,7 @@ class VcfAddSample(Job):
 def vt_split_and_leftaln(reference_sequence, allow_ref_mismatches=False):
     cmd = "vt decompose -s - " + \
           "|vt normalize " + conditional(allow_ref_mismatches, ' -n ') + \
-          "{} - ".format(reference_sequence)
+          " -r {} - ".format(reference_sequence)
     return cmd
 
 
