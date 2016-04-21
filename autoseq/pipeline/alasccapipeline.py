@@ -88,10 +88,10 @@ class AlasccaPipeline(PypedreamPipeline):
                                   self.sampledata['WGS_TUMOR_LIB'], self.refdata['bwaIndex'], self.outdir + "/bams/wgs",
                                   maxcores=self.maxcores)
 
-	nbam = self.align_library(self.sampledata['WGS_NORMAL_FQ1'], self.sampledata['WGS_NORMAL_FQ2'],
-				  self.sampledata['WGS_NORMAL_LIB'], self.refdata['bwaIndex'],
-				  self.outdir + "/bams/wgs",
-				  maxcores=self.maxcores)
+        nbam = self.align_library(self.sampledata['WGS_NORMAL_FQ1'], self.sampledata['WGS_NORMAL_FQ2'],
+                                  self.sampledata['WGS_NORMAL_LIB'], self.refdata['bwaIndex'],
+                                  self.outdir + "/bams/wgs",
+                                  maxcores=self.maxcores)
 
         qdnaseq_t = QDNASeq()
         qdnaseq_t.input = tbam
@@ -108,7 +108,7 @@ class AlasccaPipeline(PypedreamPipeline):
                                                                           self.sampledata['WGS_TUMOR_LIB'])
         genomeplot.jobname = "alascca-genomeplot-{}".format(self.sampledata['WGS_TUMOR_LIB'])
 
-	return {'tbam': tbam, 'nbam': nbam}
+        return {'tbam': tbam, 'nbam': nbam}
 
     def analyze_panel(self, debug=False):
         if self.sampledata['PANEL_TUMOR_LIB'] is None or self.sampledata['PANEL_TUMOR_LIB'] == "NA":
@@ -233,7 +233,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vep_vardict.input_vcf = vardict.output
         vep_vardict.threads = self.maxcores
         vep_vardict.reference_sequence = self.refdata['reference_genome']
-	vep_vardict.vep_dir = self.refdata['vep_dir']
+        vep_vardict.vep_dir = self.refdata['vep_dir']
         vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(self.outdir,
                                                                                        self.sampledata[
                                                                                            'PANEL_TUMOR_LIB'],
@@ -246,7 +246,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vep_freebayes.input_vcf = freebayes.output
         vep_freebayes.threads = self.maxcores
         vep_freebayes.reference_sequence = self.refdata['reference_genome']
-	vep_freebayes.vep_dir = self.refdata['vep_dir']
+        vep_freebayes.vep_dir = self.refdata['vep_dir']
         vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(self.outdir,
                                                                                            self.sampledata[
                                                                                                'PANEL_TUMOR_LIB'],
@@ -375,7 +375,7 @@ class AlasccaPipeline(PypedreamPipeline):
             self.add(alascca_coverage_hist)
 
             qc_files += [isize.output_metrics, oxog.output_metrics,
-			 hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
+                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
             if not debug:
                 qc_files += [gcbias.output_summary, gcbias.output_metrics]
 

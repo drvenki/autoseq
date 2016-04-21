@@ -32,7 +32,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.reference_data = dict()
 
         self.exac_remote = "ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3.1/ExAC.r0.3.1.sites.vep.vcf.gz"
-	self.dbsnp_remote = "ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/All_20160408.vcf.gz"
+        self.dbsnp_remote = "ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/All_20160408.vcf.gz"
         self.clinvar_remote = "ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/archive/2016/clinvar_20160203.vcf.gz"
         self.icgc_somatic_remote = "https://dcc.icgc.org/api/v1/download?fn=/release_20/Summary/simple_somatic_mutation.aggregated.vcf.gz"
         self.ypar_remote = "https://raw.githubusercontent.com/dakl/genome/master/ypars.bed"
@@ -44,13 +44,13 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.prepare_reference_genome()
         self.prepare_genes()
         self.prepare_intervals()
-	self.prepare_variants()
+        self.prepare_variants()
 
-	fetch_vep_cache = InstallVep()
-	fetch_vep_cache.output_dir = "{}/vep/".format(self.outdir)
-	self.add(fetch_vep_cache)
+        fetch_vep_cache = InstallVep()
+        fetch_vep_cache.output_dir = "{}/vep/".format(self.outdir)
+        self.add(fetch_vep_cache)
 
-	self.reference_data['vep_dir'] = fetch_vep_cache.output_dir
+        self.reference_data['vep_dir'] = fetch_vep_cache.output_dir
 
         with open("{}/autoseq-genome.json".format(self.outdir), "w") as output_file:
             json.dump(self.reference_data, output_file, indent=4, sort_keys=True)

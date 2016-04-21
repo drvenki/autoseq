@@ -103,7 +103,7 @@ class VarDict(Job):
         required("", self.input_tumor)
         required("", self.input_normal)
 
-	freq_filter = (" bcftools filter -e 'STATUS !~ \".*Somatic\"' 2> /dev/null "
+        freq_filter = (" bcftools filter -e 'STATUS !~ \".*Somatic\"' 2> /dev/null "
                        "| %s -c 'import bcbio.variation.vardict; import sys; print bcbio.variation.vardict.depth_freq_filter(sys.stdin.read(), %s, \"%s\")' " %
                        (sys.executable, 0, 'bwa'))
 
@@ -134,27 +134,27 @@ class VEP(Job):
         self.input_vcf = None
         self.output_vcf = None
         self.reference_sequence = None
-	self.vep_dir = None
+        self.vep_dir = None
         self.jobname = "vep"
 
     def command(self):
         bgzip = ""
         fork = ""
         if self.threads > 1:  # vep does not accept "--fork 1", so need to check.
-	    fork = " --fork {} ".format(self.threads)
+            fork = " --fork {} ".format(self.threads)
         if self.output_vcf.endswith('gz'):
-	    bgzip = " | bgzip "
-	required("", self.vep_dir)  # assert that vep_bin_dir is set
-	cmdstr = "variant_effect_predictor.pl --vcf --offline --output_file STDOUT " + \
-		 required("--dir ", self.vep_dir) + \
-		 required("--fasta ", self.reference_sequence) + \
-		 required("-i ", self.input_vcf) + \
-		 " --check_alleles --check_existing  --total_length --allele_number " + \
-		 " --no_escape --no_stats --everything " + \
-		 fork + bgzip + " > " + required("", self.output_vcf) + \
-		 " && tabix -p vcf {}".format(self.output_vcf)
+            bgzip = " | bgzip "
+        required("", self.vep_dir)  # assert that vep_bin_dir is set
+        cmdstr = "variant_effect_predictor.pl --vcf --offline --output_file STDOUT " + \
+                 required("--dir ", self.vep_dir) + \
+                 required("--fasta ", self.reference_sequence) + \
+                 required("-i ", self.input_vcf) + \
+                 " --check_alleles --check_existing  --total_length --allele_number " + \
+                 " --no_escape --no_stats --everything " + \
+                 fork + bgzip + " > " + required("", self.output_vcf) + \
+                 " && tabix -p vcf {}".format(self.output_vcf)
 
-	return cmdstr
+        return cmdstr
 
 
 class VcfAddSample(Job):
@@ -194,8 +194,8 @@ class VcfAddSample(Job):
 
 def vt_split_and_leftaln(reference_sequence, allow_ref_mismatches=False):
     cmd = "vt decompose -s - " + \
-	  "|vt normalize " + conditional(allow_ref_mismatches, ' -n ') + \
-	  " -r {} - ".format(reference_sequence)
+          "|vt normalize " + conditional(allow_ref_mismatches, ' -n ') + \
+          " -r {} - ".format(reference_sequence)
     return cmd
 
 
@@ -228,7 +228,7 @@ class CurlSplitAndLeftAlign(Job):
         required("", self.input_reference_sequence_fai)
         return "curl " + \
                required(" ", self.remote) + \
-	       "| gzip -d |" + vt_split_and_leftaln(self.input_reference_sequence, allow_ref_mismatches=True) + \
+               "| gzip -d |" + vt_split_and_leftaln(self.input_reference_sequence, allow_ref_mismatches=True) + \
                "| bgzip " + required(" > ", self.output) + \
                " && tabix -p vcf {output}".format(output=self.output)
 
@@ -236,11 +236,11 @@ class CurlSplitAndLeftAlign(Job):
 class InstallVep(Job):
     def __init__(self):
         Job.__init__(self)
-	self.output_dir = None
-	self.jobname = "fetch-vep-cache"
+        self.output_dir = None
+        self.jobname = "fetch-vep-cache"
 
     def command(self):
-	return "vep_install.pl --SPECIES homo_sapiens_vep --AUTO c --ASSEMBLY GRCh37 --NO_HTSLIB " + \
-	       required("--CACHEDIR ", self.output_dir) + \
-	       " && vep_convert_cache.pl --dir " + required("--CACHEDIR ", self.output_dir) + \
-	       " --species homo_sapiens --version 83_GRCh37"
+        return "vep_install.pl --SPECIES homo_sapiens_vep --AUTO c --ASSEMBLY GRCh37 --NO_HTSLIB " + \
+               required("--CACHEDIR ", self.output_dir) + \
+               " && vep_convert_cache.pl --dir " + required("--CACHEDIR ", self.output_dir) + \
+               " --species homo_sapiens --version 83_GRCh37"
