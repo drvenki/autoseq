@@ -97,7 +97,7 @@ class AlasccaPipeline(PypedreamPipeline):
         qdnaseq_t.input = tbam
         qdnaseq_t.output_bed = self.outdir + "/cnv/qdnaseq.bed"
         qdnaseq_t.output_segments = self.outdir + "/cnv/qdnaseq.segments.txt"
-        qdnaseq_t.genes_gtf = self.refdata['sortedGtf']
+        qdnaseq_t.genes_gtf = self.refdata['genesGtfGenesOnly']
         qdnaseq_t.background = self.refdata["qdnaseq_background"]
         self.add(qdnaseq_t)
 
