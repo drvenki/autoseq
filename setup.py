@@ -13,7 +13,7 @@ setup(name='pyautoseq',
       install_requires=reqs,
       entry_points={
           'console_scripts': [
-              'pyautoseq = autoseq.cli:main',
+              'pyautoseq = autoseq.cli:cli',
               'report2json = autoseq.report2json:main',
               'generate-ref = autoseq.generate_ref:main'
           ]

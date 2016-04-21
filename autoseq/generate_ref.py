@@ -3,7 +3,8 @@ import logging
 import sys
 import click
 
-from autoseq.cli import setup_logging, mkdir, get_runner
+from autoseq.cli import setup_logging, get_runner
+from autoseq.util.path import mkdir
 from autoseq.pipeline.generate_ref_files_pipeline import GenerateRefFilesPipeline
 
 __author__ = 'dankle'
