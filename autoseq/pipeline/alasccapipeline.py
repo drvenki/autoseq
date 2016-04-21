@@ -82,17 +82,19 @@ class AlasccaPipeline(PypedreamPipeline):
     def analyze_lowpass_wgs(self):
         if self.sampledata['WGS_TUMOR_LIB'] is None or self.sampledata['WGS_TUMOR_LIB'] == "NA":
             logging.info("No low-pass WGS data found.")
-            return {}
+            return {'tbam': None, 'nbam': None}
 
         tbam = self.align_library(self.sampledata['WGS_TUMOR_FQ1'], self.sampledata['WGS_TUMOR_FQ2'],
                                   self.sampledata['WGS_TUMOR_LIB'], self.refdata['bwaIndex'], self.outdir + "/bams/wgs",
                                   maxcores=self.maxcores)
-
-        nbam = self.align_library(self.sampledata['WGS_NORMAL_FQ1'], self.sampledata['WGS_NORMAL_FQ2'],
-                                  self.sampledata['WGS_NORMAL_LIB'], self.refdata['bwaIndex'],
-                                  self.outdir + "/bams/wgs",
-                                  maxcores=self.maxcores)
-
+        if self.sampledata['WGS_NORMAL_FQ1']:
+            nbam = self.align_library(self.sampledata['WGS_NORMAL_FQ1'], self.sampledata['WGS_NORMAL_FQ2'],
+                                      self.sampledata['WGS_NORMAL_LIB'], self.refdata['bwaIndex'],
+                                      self.outdir + "/bams/wgs",
+                                      maxcores=self.maxcores)
+        else:
+            nbam = None
+            
         qdnaseq_t = QDNASeq()
         qdnaseq_t.input = tbam
         qdnaseq_t.output_bed = self.outdir + "/cnv/qdnaseq.bed"
