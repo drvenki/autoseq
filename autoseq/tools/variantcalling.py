@@ -35,8 +35,8 @@ class Mutect2(Job):
                      optional("--cosmic ", self.cosmic)
         leftaln_cmd = "gzip -cd {} ".format(tmpf) + \
                       " | " + vt_split_and_leftaln(self.reference_sequence) + \
+                      " | bcftools view --apply-filters .,PASS " + \
                       " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
-        # TODO also filter so only variants with PASS remain
         rmtmp_cmd = "rm {}".format(tmpf)
         return " && ".join([mutect_cmd, leftaln_cmd, rmtmp_cmd])
 
@@ -79,7 +79,7 @@ class Freebayes(Job):
                                     " -tumorid {}".format(self.tumorid) +
                                     " -normalid {}".format(self.normalid)) + \
                         " | " + vt_split_and_leftaln(self.reference_sequence) + \
-                        " | vcfuniq " + \
+                        " | vcfuniq | bcftools view --apply-filters .,PASS " + \
                         " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         # reason for 'vcfuniq': freebayes sometimes report duplicate variants that need to be uniqified.
         rm_regions_cmd = "rm {}".format(regions_file)
@@ -123,7 +123,7 @@ class VarDict(Job):
               " | var2vcf_paired.pl -P 0.9 -m 4.25 -M " + required("-f ", self.min_alt_frac) + \
               " -N \"{}|{}\" ".format(self.tumorid, self.normalid) + \
               " | " + freq_filter + " | " + somatic_filter + " | " + fix_ambig + " | " + remove_dup + \
-              " | vcfstreamsort -w 1000 " + \
+              " | vcfstreamsort -w 1000 | bcftools view --apply-filters .,PASS " + \
               " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         return cmd
 
