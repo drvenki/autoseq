@@ -12,26 +12,26 @@ from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
 from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict
+from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
 
 
-class AlasccaPipeline(PypedreamPipeline):
+class ProCapPipeline(PypedreamPipeline):
     analysis_id = None
     sampledata = None
     refdata = None
     outdir = None
     maxcores = None
 
-    def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, debug=False, **kwargs):
+    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, debug=False, **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
-        logging.debug("Unnormalized outdir is {}".format(outdir))
-        logging.debug("self.outdir is {}".format(self.outdir))
         self.sampledata = sampledata
         self.refdata = refdata
         self.maxcores = maxcores
         self.analysis_id = analysis_id
+        self.libdir = libdir
 
         panel_bams = self.analyze_panel(debug=debug)
         wgs_bams = self.analyze_lowpass_wgs()
@@ -50,144 +50,197 @@ class AlasccaPipeline(PypedreamPipeline):
 
         # per-fastq qc
         fqs = self.get_all_fastqs()
+        logging.debug("fqs = {}".format(fqs))
         qc_files += self.run_fastq_qc(fqs)
 
         multiqc = MultiQC()
         multiqc.input_files = qc_files
         multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['REPORTID'])
-        multiqc.jobname = "multiqc-{}".format(self.sampledata['REPORTID'])
+        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
+        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
 
     def get_all_fastqs(self):
         fqs = []
+        fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[0])
+        fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[1])
+        fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[0])
+        fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[1])
+        for plib in self.sampledata['panel']['P']:
+            fqs.extend(self.find_fastqs(plib)[0])
+            fqs.extend(self.find_fastqs(plib)[1])
 
-        def add_item(item, lst):
-            if item != [] and item is not None:
-                return lst + item
-            else:
-                return lst
+        return [fq for fq in fqs if fq is not None]
 
-        fqs = add_item(self.sampledata['PANEL_TUMOR_FQ1'], fqs)
-        fqs = add_item(self.sampledata['PANEL_TUMOR_FQ2'], fqs)
-        fqs = add_item(self.sampledata['PANEL_NORMAL_FQ1'], fqs)
-        fqs = add_item(self.sampledata['PANEL_NORMAL_FQ2'], fqs)
-        fqs = add_item(self.sampledata['WGS_TUMOR_FQ1'], fqs)
-        fqs = add_item(self.sampledata['WGS_TUMOR_FQ2'], fqs)
-        fqs = add_item(self.sampledata['WGS_NORMAL_FQ1'], fqs)
-        fqs = add_item(self.sampledata['WGS_NORMAL_FQ2'], fqs)
+    def find_fastqs(self, lib):
+        """Find fastq files for a given library id, return a tuple of lists for _1 and _2 files."""
+        d = os.path.join(self.libdir, lib)
+        logging.debug("Looking for fastq files for library {} in {}".format(
+            lib, d
+        ))
+        fq1s = ["{}/{}".format(d, f) for f in os.listdir(d) if
+                f.endswith("_1.fastq.gz") or f.endswith("_1.fq.gz")]
 
-        return fqs
+        fq2s = ["{}/{}".format(d, f) for f in os.listdir(d) if
+                f.endswith("_2.fastq.gz") or f.endswith("_2.fq.gz")]
+
+        logging.debug("Found {}".format((fq1s, fq2s)))
+        return fq1s, fq2s
 
     def analyze_lowpass_wgs(self):
-        if self.sampledata['WGS_TUMOR_LIB'] is None or self.sampledata['WGS_TUMOR_LIB'] == "NA":
-            logging.info("No low-pass WGS data found.")
-            return {'tbam': None, 'nbam': None}
+        tbam = None
+        nbam = None
+        pbams = []
 
-        tbam = self.align_library(self.sampledata['WGS_TUMOR_FQ1'], self.sampledata['WGS_TUMOR_FQ2'],
-                                  self.sampledata['WGS_TUMOR_LIB'], self.refdata['bwaIndex'], self.outdir + "/bams/wgs",
-                                  maxcores=self.maxcores)
-        if self.sampledata['WGS_NORMAL_FQ1']:
-            nbam = self.align_library(self.sampledata['WGS_NORMAL_FQ1'], self.sampledata['WGS_NORMAL_FQ2'],
-                                      self.sampledata['WGS_NORMAL_LIB'], self.refdata['bwaIndex'],
-                                      self.outdir + "/bams/wgs",
-                                      maxcores=self.maxcores)
-        else:
-            nbam = None
+        tlib = self.sampledata['wgs']['T']
+        nlib = self.sampledata['wgs']['N']
+        plibs = self.sampledata['wgs']['P']
 
-        qdnaseq_t = QDNASeq()
-        qdnaseq_t.input = tbam
-        qdnaseq_t.output_bed = self.outdir + "/cnv/qdnaseq.bed"
-        qdnaseq_t.output_segments = self.outdir + "/cnv/qdnaseq.segments.txt"
-        qdnaseq_t.genes_gtf = self.refdata['genesGtfGenesOnly']
-        qdnaseq_t.background = self.refdata["qdnaseq_background"]
-        self.add(qdnaseq_t)
+        if nlib:
+            nfiles = self.align_and_qdnaseq(nlib)
+            nbam = nfiles['bam']
 
-        genomeplot = AlasccaGenomePlot()
-        genomeplot.input_segments = qdnaseq_t.output_segments
-        genomeplot.chrsizes = self.refdata['chrsizes']
-        genomeplot.output_jpg = "{}/cnv/{}.alascca-genomeplot.jpg".format(self.outdir,
-                                                                          self.sampledata['WGS_TUMOR_LIB'])
-        genomeplot.jobname = "alascca-genomeplot-{}".format(self.sampledata['WGS_TUMOR_LIB'])
+        if tlib:
+            tfiles = self.align_and_qdnaseq(tlib)
+            tbam = tfiles['bam']
 
-        return {'tbam': tbam, 'nbam': nbam}
+        for plib in plibs:
+            pfiles = self.align_and_qdnaseq(plib)
+            pbam = pfiles['bam']
+            pbams.append(pbam)
+
+        # genomeplot = AlasccaGenomePlot()
+        # genomeplot.input_segments = qdnaseq_t.output_segments
+        # genomeplot.chrsizes = self.refdata['chrsizes']
+        # genomeplot.output_jpg = "{}/cnv/{}.alascca-genomeplot.jpg".format(self.outdir,
+        #                                                                   self.sampledata['WGS_TUMOR_LIB'])
+        # genomeplot.jobname = "alascca-genomeplot-{}".format(self.sampledata['WGS_TUMOR_LIB'])
+
+        return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams}
+
+    def align_and_qdnaseq(self, lib):
+        bam = self.align_library(fq1_files=self.find_fastqs(lib)[0],
+                                 fq2_files=self.find_fastqs(lib)[1],
+                                 lib=lib,
+                                 ref=self.refdata['bwaIndex'],
+                                 outdir=self.outdir + "/bams/wgs",
+                                 maxcores=self.maxcores)
+
+        qdnaseq = QDNASeq()
+        qdnaseq.input = bam
+        qdnaseq.output_bed = "{}/cnv/{}-qdnaseq.bed".format(self.outdir, lib)
+        qdnaseq.output_segments = "{}/cnv/{}-qdnaseq.segments.txt".format(self.outdir, lib)
+        qdnaseq.genes_gtf = self.refdata['genesGtfGenesOnly']
+        qdnaseq.background = self.refdata["qdnaseq_background"]
+        self.add(qdnaseq)
+
+        return {'bam': bam, 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
 
     def analyze_panel(self, debug=False):
-        if self.sampledata['PANEL_TUMOR_LIB'] is None or self.sampledata['PANEL_TUMOR_LIB'] == "NA":
-            logging.info("No panel data found.")
-            return {}
+        if not self.sampledata['panel']['N']:
+            raise ValueError("Running the pipeline without a germline sample is not supported.")
+        tbam = None
+        pbams = []
 
-        tbam = self.align_library(fq1_files=self.sampledata['PANEL_TUMOR_FQ1'],
-                                  fq2_files=self.sampledata['PANEL_TUMOR_FQ2'],
-                                  lib=self.sampledata['PANEL_TUMOR_LIB'],
+        tlib = self.sampledata['panel']['T']
+        nlib = self.sampledata['panel']['N']
+
+        nbam = self.align_library(fq1_files=self.find_fastqs(nlib)[0],
+                                  fq2_files=self.find_fastqs(nlib)[1],
+                                  lib=nlib,
                                   ref=self.refdata['bwaIndex'],
                                   outdir=self.outdir + "/bams/panel",
                                   maxcores=self.maxcores)
 
-        nbam = self.align_library(fq1_files=self.sampledata['PANEL_NORMAL_FQ1'],
-                                  fq2_files=self.sampledata['PANEL_NORMAL_FQ2'],
-                                  lib=self.sampledata['PANEL_NORMAL_LIB'],
-                                  ref=self.refdata['bwaIndex'],
-                                  outdir=self.outdir + "/bams/panel",
-                                  maxcores=self.maxcores)
+        if tlib:
+            tbam = self.align_library(fq1_files=self.find_fastqs(tlib)[0],
+                                      fq2_files=self.find_fastqs(tlib)[1],
+                                      lib=tlib,
+                                      ref=self.refdata['bwaIndex'],
+                                      outdir=self.outdir + "/bams/panel",
+                                      maxcores=self.maxcores)
 
         somatic_vcfs = self.call_somatic_variants(tbam, nbam)
-        germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
+
+        for plib in self.sampledata['panel']['P']:
+            pbam = self.align_library(fq1_files=self.find_fastqs(plib)[0],
+                                      fq2_files=self.find_fastqs(plib)[1],
+                                      lib=plib,
+                                      ref=self.refdata['bwaIndex'],
+                                      outdir=self.outdir + "/bams/panel",
+                                      maxcores=self.maxcores)
+
+            somatic_vcfs.extend(self.call_somatic_variants(pbam, nbam))
+            pbams.append(pbam)
+
+        germline_vcf = self.call_germline_variants(nbam, library=nlib)
+
+        targets = get_libdict(tlib)['capture_kit_name']
 
         hzconcordance = HeterzygoteConcordance()
         hzconcordance.input_vcf = germline_vcf
         hzconcordance.input_bam = tbam
         hzconcordance.reference_sequence = self.refdata['reference_genome']
-        hzconcordance.target_regions = self.refdata['targets'][self.sampledata['TARGETS']][
-            'targets-interval_list-slopped20']
-        hzconcordance.normalid = self.sampledata['PANEL_NORMAL_LIB']
+        hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
+        hzconcordance.normalid = nlib
         hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
-                                                                        self.sampledata['PANEL_NORMAL_LIB'])
+        hzconcordance.jobname = "hzconcordance-{}".format(tlib)
+        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, tlib, nlib)
         self.add(hzconcordance)
 
-        vcfaddsample = VcfAddSample()
-        vcfaddsample.input_bam = tbam
-        vcfaddsample.input_vcf = germline_vcf
-        vcfaddsample.samplename = self.sampledata['PANEL_TUMOR_LIB']
-        vcfaddsample.filter_hom = True
-        vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
-                                                                             self.sampledata['PANEL_TUMOR_LIB'],
-                                                                             self.sampledata['PANEL_NORMAL_LIB'])
-        vcfaddsample.jobname = "vcf-add-sample-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        self.add(vcfaddsample)
+        # vcfaddsample = VcfAddSample()
+        # vcfaddsample.input_bam = tbam
+        # vcfaddsample.input_vcf = germline_vcf
+        # vcfaddsample.samplename = self.sampledata['PANEL_TUMOR_LIB']
+        # vcfaddsample.filter_hom = True
+        # vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
+        #                                                                      self.sampledata['PANEL_TUMOR_LIB'],
+        #                                                                      self.sampledata['PANEL_NORMAL_LIB'])
+        # vcfaddsample.jobname = "vcf-add-sample-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        # self.add(vcfaddsample)
+        #
+        # msisensor = MsiSensor()
+        # msisensor.msi_sites = self.refdata['targets'][self.sampledata['TARGETS']]['msisites']
+        # msisensor.input_normal_bam = nbam
+        # msisensor.input_tumor_bam = tbam
+        # msisensor.output = "{}/msisensor.tsv".format(self.outdir)
+        # msisensor.threads = self.maxcores
+        # msisensor.jobname = "msisensor-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        # if not debug:
+        #     self.add(msisensor)
 
-        msisensor = MsiSensor()
-        msisensor.msi_sites = self.refdata['targets'][self.sampledata['TARGETS']]['msisites']
-        msisensor.input_normal_bam = nbam
-        msisensor.input_tumor_bam = tbam
-        msisensor.output = "{}/msisensor.tsv".format(self.outdir)
-        msisensor.threads = self.maxcores
-        msisensor.jobname = "msisensor-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        if not debug:
-            self.add(msisensor)
-
-        return {'tbam': tbam, 'nbam': nbam}
+        return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams,
+                'somatic_vcfs': somatic_vcfs}
 
     def call_germline_variants(self, bam, library):
         """
-        Call germline variants from a bam
+        Call germline variants from a bam and run VEP on it
         :param bam:
         :return:
         """
+        targets = get_libdict(library)['capture_kit_name']
         freebayes = Freebayes()
         freebayes.input_bams = [bam]
         freebayes.normalid = library
         freebayes.somatic_only = False
         freebayes.params = None
         freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+        freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
         freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
         freebayes.jobname = "freebayes-germline-{}".format(library)
         self.add(freebayes)
-        return freebayes.output
+
+        vep_freebayes = VEP()
+        vep_freebayes.input_vcf = freebayes.output
+        vep_freebayes.threads = self.maxcores
+        vep_freebayes.reference_sequence = self.refdata['reference_genome']
+        vep_freebayes.vep_dir = self.refdata['vep_dir']
+        vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
+        vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
+        self.add(vep_freebayes)
+
+        return vep_freebayes.output_vcf
 
     def call_somatic_variants(self, tbam, nbam):
         """
@@ -196,52 +249,70 @@ class AlasccaPipeline(PypedreamPipeline):
         :param nbam: normal bam
         :return:
         """
+        tlib = stripsuffix(os.path.basename(tbam), ".bam")
+        nlib = stripsuffix(os.path.basename(nbam), ".bam")
+
+        targets = get_libdict(tlib)['capture_kit_name']
+
         mutect2 = Mutect2()
         mutect2.input_tumor = tbam
         mutect2.input_normal = nbam
         mutect2.reference_sequence = self.refdata['reference_genome']
-        mutect2.target_regions = self.refdata['targets'][self.sampledata['TARGETS']]['targets-interval_list-slopped20']
-        mutect2.jobname = "mutect2-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        mutect2.output = "{}/variants/{}-{}.mutect.vcf.gz".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
-                                                                  self.sampledata['PANEL_NORMAL_LIB'])
+        mutect2.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
+        mutect2.jobname = "mutect2-{}".format(tlib)
+        mutect2.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vcf.gz".format(outdir=self.outdir,
+                                                                                        tlib=tlib,
+                                                                                        nlib=nlib)
+        self.add(mutect2)
 
         freebayes = Freebayes()
         freebayes.input_bams = [tbam, nbam]
-        freebayes.tumorid = self.sampledata['PANEL_TUMOR_LIB']
-        freebayes.normalid = self.sampledata['PANEL_NORMAL_LIB']
+        freebayes.tumorid = tlib
+        freebayes.normalid = nlib
         freebayes.somatic_only = True
         freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+        freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
-        freebayes.jobname = "freebayes-somatic-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(self.outdir,
-                                                                               self.sampledata['PANEL_TUMOR_LIB'],
-                                                                               self.sampledata['PANEL_NORMAL_LIB'])
+        freebayes.jobname = "freebayes-somatic-{}".format(tlib)
+        freebayes.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vcf.gz".format(outdir=self.outdir,
+                                                                                                    tlib=tlib,
+                                                                                                    nlib=nlib)
+
         self.add(freebayes)
 
-        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=self.sampledata['PANEL_TUMOR_LIB'],
-                          normalid=self.sampledata['PANEL_NORMAL_LIB'],
+        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tlib, normalid=nlib,
                           reference_sequence=self.refdata['reference_genome'],
-                          target_bed=self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20'],
-                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(self.outdir,
-                                                                                   self.sampledata['PANEL_TUMOR_LIB'],
-                                                                                   self.sampledata['PANEL_NORMAL_LIB']
-                                                                                   )
+                          target_bed=self.refdata['targets'][targets]['targets-bed-slopped20'],
+                          output="{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vcf.gz".format(
+                              outdir=self.outdir,
+                              tlib=tlib,
+                              nlib=nlib)
                           )
-        vardict.jobname = "vardict-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        vardict.jobname = "vardict-{}".format(tlib)
         self.add(vardict)
+
+        vep_mutect2 = VEP()
+        vep_mutect2.input_vcf = vardict.output
+        vep_mutect2.threads = self.maxcores
+        vep_mutect2.reference_sequence = self.refdata['reference_genome']
+        vep_mutect2.vep_dir = self.refdata['vep_dir']
+        vep_mutect2.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vep.vcf.gz".format(
+            outdir=self.outdir,
+            tlib=tlib,
+            nlib=nlib)
+        vep_mutect2.jobname = "vep-mutect2-{}".format(tlib)
+        self.add(vep_mutect2)
 
         vep_vardict = VEP()
         vep_vardict.input_vcf = vardict.output
         vep_vardict.threads = self.maxcores
         vep_vardict.reference_sequence = self.refdata['reference_genome']
         vep_vardict.vep_dir = self.refdata['vep_dir']
-        vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(self.outdir,
-                                                                                       self.sampledata[
-                                                                                           'PANEL_TUMOR_LIB'],
-                                                                                       self.sampledata[
-                                                                                           'PANEL_NORMAL_LIB'])
-        vep_vardict.jobname = "vep-vardict-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        vep_vardict.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vep.vcf.gz".format(
+            outdir=self.outdir,
+            tlib=tlib,
+            nlib=nlib)
+        vep_vardict.jobname = "vep-vardict-{}".format(tlib)
         self.add(vep_vardict)
 
         vep_freebayes = VEP()
@@ -249,15 +320,14 @@ class AlasccaPipeline(PypedreamPipeline):
         vep_freebayes.threads = self.maxcores
         vep_freebayes.reference_sequence = self.refdata['reference_genome']
         vep_freebayes.vep_dir = self.refdata['vep_dir']
-        vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(self.outdir,
-                                                                                           self.sampledata[
-                                                                                               'PANEL_TUMOR_LIB'],
-                                                                                           self.sampledata[
-                                                                                               'PANEL_NORMAL_LIB'])
-        vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        vep_freebayes.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vep.vcf.gz".format(
+            outdir=self.outdir,
+            tlib=tlib,
+            nlib=nlib)
+        vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(tlib)
         self.add(vep_freebayes)
 
-        return [vep_freebayes, vep_vardict]
+        return [vep_freebayes, vep_vardict, vep_mutect2]
 
     def run_fastq_qc(self, fastq_files):
         """
@@ -494,11 +564,3 @@ class AlasccaPipeline(PypedreamPipeline):
         self.add(bwa)
 
         return bwa.output
-
-    def load_sampledata(self, json_file):
-        with open(json_file, 'r') as f:
-            self.sampledata = json.load(f)
-
-    def load_refdata(self, json_file):
-        with open(json_file, 'r') as f:
-            self.refdata = json.load(f)
