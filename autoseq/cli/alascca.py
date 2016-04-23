@@ -24,22 +24,18 @@ def alascca(ctx, sample):
     if ctx.obj['jobdb']:
         mkdir(os.path.dirname(ctx.obj['jobdb']))
 
-    # sampledata, refdata, outdir, maxcores=1, scriptdir="/tmp/.pypedream", debug=False
-    p = AlasccaPipeline(sampledata=ctx.obj['sampledata_to_use'], refdata=ctx.obj['refdata'],
-                        outdir=ctx.obj['outdir_to_use'], maxcores=ctx.obj['cores'],
+    ctx.obj['pipeline'] = AlasccaPipeline(sampledata=sampledata, refdata=ctx.obj['refdata'],
+                        outdir=ctx.obj['outdir'], maxcores=ctx.obj['cores'],
                         debug=ctx.obj['debug'], runner=ctx.obj['runner'],
                         jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'])
 
-    logging.debug("outdir = {}".format(p.outdir))
-
     # start main analysis
-    logging.info("Starting AlasccaPipeline.")
-    p.start()
+    ctx.obj['pipeline'].start()
 
     logging.info("Waiting for AlasccaPipeline to finish.")
-    while p.is_alive():
+    while ctx.obj['pipeline'].is_alive():
         logging.debug("Waiting for AutoseqPipeline")
         time.sleep(5)
 
     # return_code from run_pipeline() will be != 0 if the pipeline fails
-    sys.exit(p.exitcode)
+    sys.exit(ctx.obj['pipeline'].exitcode)

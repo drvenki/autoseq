@@ -1,10 +1,12 @@
 import json
 import logging
 import signal
-import time
 
 import click
 from pypedream import runners
+
+from .alascca import alascca as alascca_cmd
+from .procap import procap as procap_cmd
 
 __author__ = 'dankle'
 
@@ -32,6 +34,7 @@ def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, tmpdir,
     ctx.obj['runner'] = get_runner(runner_name, cores)
     ctx.obj['jobdb'] = jobdb
     ctx.obj['dot_file'] = dot_file
+    ctx.obj['cores'] = cores
     ctx.obj['tmpdir'] = tmpdir
     ctx.obj['debug'] = debug
 
@@ -85,6 +88,5 @@ def setup_logging(loglevel="INFO"):
                         format='%(levelname)s %(asctime)s %(funcName)s - %(message)s')
     logging.info("Started log with loglevel %(loglevel)s" % {"loglevel": loglevel})
 
-from .alascca import alascca as alascca_cmd
-
 cli.add_command(alascca_cmd)
+cli.add_command(procap_cmd)
