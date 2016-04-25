@@ -3,12 +3,7 @@ import sys
 import uuid
 
 from pypedream.job import Job, repeat, required, optional, conditional
-
 from autoseq.util.vcfutils import vt_split_and_leftaln, fix_ambiguous_cl, remove_dup_cl
-
-
-from bcbio.variation.freebayes import call_somatic
-# call_somatic()
 
 
 class Mutect2(Job):
