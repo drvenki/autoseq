@@ -3,6 +3,7 @@ def get_prep_kit_name_from_id(prep_id):
     prep_kit_lookup = {"BN": "BIOO_NEXTFLEX",
                        "KH": "KAPA_HYPERPREP",
                        "TD": "THRUPLEX_DNASEQ",
+                       "TP": "THRUPLEX_PLASMASEQ",
                        "TF": "THRUPLEX_FD",
                        "TS": "TRUSEQ_RNA",
                        "NN": "NEBNEXT_RNA",
