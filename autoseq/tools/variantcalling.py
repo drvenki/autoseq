@@ -1,11 +1,14 @@
 import logging
-import os
+import sys
 import uuid
 
-import sys
-
-from bcbio.variation import vcfutils
 from pypedream.job import Job, repeat, required, optional, conditional
+
+from autoseq.util.vcfutils import vt_split_and_leftaln, fix_ambiguous_cl, remove_dup_cl
+
+
+from bcbio.variation.freebayes import call_somatic
+# call_somatic()
 
 
 class Mutect2(Job):
@@ -65,6 +68,9 @@ class Freebayes(Job):
 
         regions_file = "{scratch}/{uuid}.regions".format(scratch=self.scratch, uuid=uuid.uuid4())
         bed_to_regions_cmd = "cat {} | bed_to_regions.py > {}".format(self.target_bed, regions_file)
+
+        call_somatic_cmd = " | {} -c 'from autoseq.util.bcbio import call_somatic; import sys; print call_somatic(sys.stdin.read())' ".format(sys.executable)
+
         freebayes_cmd = "freebayes-parallel {} {} ".format(regions_file, self.threads) + \
                         required("-f ", self.reference_sequence) + " --use-mapping-quality " + \
                         optional("--min-alternate-fraction ", self.min_alt_frac) + \
@@ -74,10 +80,7 @@ class Freebayes(Job):
                         repeat(" ", self.input_bams) + \
                         """| bcftools filter -i 'ALT="<*>" || QUAL > 5' """ + \
                         "| filter_erroneus_alt.py -V /dev/stdin " + \
-                        conditional(self.somatic_only,
-                                    " | freebayes-somatic-filter.py -V - " +
-                                    " -tumorid {}".format(self.tumorid) +
-                                    " -normalid {}".format(self.normalid)) + \
+                        conditional(self.somatic_only, call_somatic_cmd) + \
                         " | " + vt_split_and_leftaln(self.reference_sequence) + \
                         " | vcfuniq | bcftools view --apply-filters .,PASS " + \
                         " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
@@ -104,15 +107,12 @@ class VarDict(Job):
         required("", self.input_normal)
 
         freq_filter = (" bcftools filter -e 'STATUS !~ \".*Somatic\"' 2> /dev/null "
-                       "| %s -c 'import bcbio.variation.vardict; import sys; print bcbio.variation.vardict.depth_freq_filter(sys.stdin.read(), %s, \"%s\")' " %
+                       "| %s -c 'from autoseq.util.bcbio import depth_freq_filter; import sys; print depth_freq_filter(sys.stdin.read(), %s, \"%s\")' " %
                        (sys.executable, 0, 'bwa'))
 
         somatic_filter = (" sed 's/\\.*Somatic\\\"/Somatic/' "  # changes \".*Somatic\" to Somatic
                           "| sed 's/REJECT,Description=\".*\">/REJECT,Description=\"Not Somatic via VarDict\">/' "
-                          "| %s -c 'import bcbio.variation.freebayes; import sys; print bcbio.variation.freebayes.call_somatic(sys.stdin.read())' " % sys.executable)
-
-        fix_ambig = vcfutils.fix_ambiguous_cl()
-        remove_dup = vcfutils.remove_dup_cl()
+                          "| %s -c 'from autoseq.util.bcbio import call_somatic; import sys; print call_somatic(sys.stdin.read())' " % sys.executable)
 
         cmd = "vardict-java " + required("-G ", self.reference_sequence) + \
               optional("-f ", self.min_alt_frac) + \
@@ -122,7 +122,7 @@ class VarDict(Job):
               " | testsomatic.R " + \
               " | var2vcf_paired.pl -P 0.9 -m 4.25 -M " + required("-f ", self.min_alt_frac) + \
               " -N \"{}|{}\" ".format(self.tumorid, self.normalid) + \
-              " | " + freq_filter + " | " + somatic_filter + " | " + fix_ambig + " | " + remove_dup + \
+              " | " + freq_filter + " | " + somatic_filter + " | " + fix_ambiguous_cl() + " | " + remove_dup_cl() + \
               " | vcfstreamsort -w 1000 | bcftools view --apply-filters .,PASS " + \
               " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         return cmd
@@ -192,13 +192,6 @@ class VcfAddSample(Job):
         return " && ".join([filt_vcf_cmd, vcf_add_sample_cmd, rm_filt_cmd])
 
 
-def vt_split_and_leftaln(reference_sequence, allow_ref_mismatches=False):
-    cmd = "vt decompose -s - " + \
-          "|vt normalize " + conditional(allow_ref_mismatches, ' -n ') + \
-          " -r {} - ".format(reference_sequence)
-    return cmd
-
-
 class VcfFilter(Job):
     def __init__(self):
         Job.__init__(self)
@@ -244,3 +237,4 @@ class InstallVep(Job):
                required("--CACHEDIR ", self.output_dir) + \
                " && vep_convert_cache.pl --dir " + required("--CACHEDIR ", self.output_dir) + \
                " --species homo_sapiens --version 83_GRCh37"
+
