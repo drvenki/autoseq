@@ -33,7 +33,7 @@ class ProCapPipeline(PypedreamPipeline):
         self.analysis_id = analysis_id
         self.libdir = libdir
 
-        panel_bams = self.analyze_panel(debug=debug)
+        panel_files = self.analyze_panel(debug=debug)
         wgs_bams = self.analyze_lowpass_wgs()
 
         ################################################
@@ -42,11 +42,12 @@ class ProCapPipeline(PypedreamPipeline):
 
         # per-bam qc
         # panel
-        all_panel_bams = [bam for bam in panel_bams.values() if bam is not None]
+        all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
+        all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
         qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
         # wgs
-        all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
+        #all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
+        #qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
 
         # per-fastq qc
         fqs = self.get_all_fastqs()
@@ -392,6 +393,8 @@ class ProCapPipeline(PypedreamPipeline):
         :param bams: list of bams
         :return: list of generated files
         """
+        tlib = self.sampledata['panel']['T']
+        targets = get_libdict(tlib)['capture_kit_name']
 
         qc_files = []
         for bam in bams:
@@ -423,17 +426,17 @@ class ProCapPipeline(PypedreamPipeline):
             hsmetrics = PicardCalculateHsMetrics()
             hsmetrics.input = bam
             hsmetrics.reference_sequence = self.refdata['reference_genome']
-            hsmetrics.target_regions = self.refdata['targets'][self.sampledata['TARGETS']][
+            hsmetrics.target_regions = self.refdata['targets'][targets][
                 'targets-interval_list-slopped20']
-            hsmetrics.bait_regions = self.refdata['targets'][self.sampledata['TARGETS']][
+            hsmetrics.bait_regions = self.refdata['targets'][targets][
                 'targets-interval_list-slopped20']
-            hsmetrics.bait_name = self.sampledata['TARGETS']
+            hsmetrics.bait_name = targets
             hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
             hsmetrics.jobname = "picard-hsmetrics-{}".format(basefn)
             self.add(hsmetrics)
 
             sambamba = SambambaDepth()
-            sambamba.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+            sambamba.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
             sambamba.input = bam
             sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
             sambamba.jobname = "sambamba-depth-{}".format(basefn)
