@@ -8,7 +8,7 @@ install_reqs = parse_requirements("requirements.txt", session=False)
 reqs = [str(ir.req) for ir in install_reqs if ir.req is not None]
 
 setup(name='pyautoseq',
-      version='0.3.3',
+      version='0.3.4',
       packages=['autoseq', 'autoseq.pipeline', 'autoseq.tools', 'autoseq.util'],
       install_requires=reqs,
       entry_points={
