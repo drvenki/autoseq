@@ -11,18 +11,15 @@ from autoseq.util.path import mkdir
 
 
 @click.command()
-@click.argument('files', type=click.File('r'))
+@click.argument('samples', type=str)
 @click.pass_context
-def hopkins(ctx, libdir, sample):
+def hopkins(ctx, samples):
     logging.info("Running Hopkins mapping pipeline")
-
-    logging.debug("Reading sample config from {}".format(sample))
-    sampledata = json.load(sample)
 
     if ctx.obj['jobdb']:
         mkdir(os.path.dirname(ctx.obj['jobdb']))
 
-    ctx.obj['pipeline'] = HopkinsMappingPipeline(sampledata=sampledata, refdata=ctx.obj['refdata'],
+    ctx.obj['pipeline'] = HopkinsMappingPipeline(sampledata=samples, refdata=ctx.obj['refdata'],
                                                  outdir=ctx.obj['outdir'], maxcores=ctx.obj['cores'],
                                                  debug=ctx.obj['debug'], runner=ctx.obj['runner'],
                                                  jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'])
