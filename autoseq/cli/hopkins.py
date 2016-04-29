@@ -23,9 +23,9 @@ def hopkins(ctx, libdir, sample):
         mkdir(os.path.dirname(ctx.obj['jobdb']))
 
     ctx.obj['pipeline'] = HopkinsMappingPipeline(sampledata=sampledata, refdata=ctx.obj['refdata'],
-                                         outdir=ctx.obj['outdir'], libdir=libdir, maxcores=ctx.obj['cores'],
-                                         debug=ctx.obj['debug'], runner=ctx.obj['runner'],
-                                         jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'])
+                                                 outdir=ctx.obj['outdir'], maxcores=ctx.obj['cores'],
+                                                 debug=ctx.obj['debug'], runner=ctx.obj['runner'],
+                                                 jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'])
 
     # start main analysis
     ctx.obj['pipeline'].start()
@@ -37,4 +37,3 @@ def hopkins(ctx, libdir, sample):
 
     # # return_code from run_pipeline() will be != 0 if the pipeline fails
     sys.exit(ctx.obj['pipeline'].exitcode)
-

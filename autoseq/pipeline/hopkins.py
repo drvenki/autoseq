@@ -25,13 +25,13 @@ class HopkinsMappingPipeline(PypedreamPipeline):
     outdir = None
     maxcores = None
 
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, debug=False, **kwargs):
+    def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, debug=False, **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         self.sampledata = sampledata
         self.refdata = refdata
         self.maxcores = maxcores
         self.analysis_id = analysis_id
-        self.libdir = libdir
+
         bams = []
         fqs = []
         with open(self.sampledata, 'r') as f:
@@ -39,6 +39,9 @@ class HopkinsMappingPipeline(PypedreamPipeline):
                 if "COUNT" in ln:
                     continue
                 parts = ln.strip().split("\t")
+                if len(parts) < 9:
+                    continue
+                    
                 lib = parts[3]
                 fq1 = parts[9]
                 fq2 = parts[10]
@@ -95,7 +98,7 @@ class HopkinsMappingPipeline(PypedreamPipeline):
         qc_files = []
         for bam in bams:
             lib = stripsuffix(os.path.basename(bam), ".bam")
-            targets = get_libdict(lib)['capture_kit_name']
+            targets = 'clinseq_v1_targets'
             logging.debug("Adding QC jobs for {}".format(bam))
             basefn = stripsuffix(os.path.basename(bam), ".bam")
             isize = PicardCollectInsertSizeMetrics()
