@@ -5,7 +5,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from pypedream.tools.unix import Cat
 
 from autoseq.tools.alignment import Bwa, SkewerSE, SkewerPE
-from autoseq.tools.cnvcalling import QDNASeq, AlasccaGenomePlot
+from autoseq.tools.cnvcalling import QDNASeq
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
@@ -18,7 +18,7 @@ from autoseq.util.path import normpath, stripsuffix
 __author__ = 'dankle'
 
 
-class ProCapPipeline(PypedreamPipeline):
+class LiqBioPipeline(PypedreamPipeline):
     analysis_id = None
     sampledata = None
     refdata = None
@@ -44,6 +44,7 @@ class ProCapPipeline(PypedreamPipeline):
         # panel
         all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
         all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
+        logging.debug("Bam files are {}".format(all_panel_bams))
         qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
         # wgs
         #all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
@@ -63,10 +64,12 @@ class ProCapPipeline(PypedreamPipeline):
 
     def get_all_fastqs(self):
         fqs = []
-        fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[0])
-        fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[1])
-        fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[0])
-        fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[1])
+        if self.sampledata['panel']['T']:
+            fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[0])
+            fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[1])
+        if self.sampledata['panel']['N']:
+            fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[0])
+            fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[1])
         for plib in self.sampledata['panel']['P']:
             fqs.extend(self.find_fastqs(plib)[0])
             fqs.extend(self.find_fastqs(plib)[1])
@@ -142,10 +145,11 @@ class ProCapPipeline(PypedreamPipeline):
             raise ValueError("Running the pipeline without a germline sample is not supported.")
         tbam = None
         pbams = []
+        somatic_vcfs = []
+
 
         tlib = self.sampledata['panel']['T']
         nlib = self.sampledata['panel']['N']
-
         nbam = self.align_library(fq1_files=self.find_fastqs(nlib)[0],
                                   fq2_files=self.find_fastqs(nlib)[1],
                                   lib=nlib,
@@ -161,7 +165,7 @@ class ProCapPipeline(PypedreamPipeline):
                                       outdir=self.outdir + "/bams/panel",
                                       maxcores=self.maxcores)
 
-        somatic_vcfs = self.call_somatic_variants(tbam, nbam)
+            somatic_vcfs.append(self.call_somatic_variants(tbam, nbam))
 
         for plib in self.sampledata['panel']['P']:
             pbam = self.align_library(fq1_files=self.find_fastqs(plib)[0],
@@ -176,18 +180,19 @@ class ProCapPipeline(PypedreamPipeline):
 
         germline_vcf = self.call_germline_variants(nbam, library=nlib)
 
-        targets = get_libdict(tlib)['capture_kit_name']
+        if tlib:
+            targets = get_libdict(tlib)['capture_kit_name']
 
-        hzconcordance = HeterzygoteConcordance()
-        hzconcordance.input_vcf = germline_vcf
-        hzconcordance.input_bam = tbam
-        hzconcordance.reference_sequence = self.refdata['reference_genome']
-        hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
-        hzconcordance.normalid = nlib
-        hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance-{}".format(tlib)
-        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, tlib, nlib)
-        self.add(hzconcordance)
+            hzconcordance = HeterzygoteConcordance()
+            hzconcordance.input_vcf = germline_vcf
+            hzconcordance.input_bam = tbam
+            hzconcordance.reference_sequence = self.refdata['reference_genome']
+            hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
+            hzconcordance.normalid = nlib
+            hzconcordance.filter_reads_with_N_cigar = True
+            hzconcordance.jobname = "hzconcordance-{}".format(tlib)
+            hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, tlib, nlib)
+            self.add(hzconcordance)
 
         # vcfaddsample = VcfAddSample()
         # vcfaddsample.input_bam = tbam
@@ -393,11 +398,11 @@ class ProCapPipeline(PypedreamPipeline):
         :param bams: list of bams
         :return: list of generated files
         """
-        tlib = self.sampledata['panel']['T']
-        targets = get_libdict(tlib)['capture_kit_name']
 
         qc_files = []
         for bam in bams:
+            lib = stripsuffix(os.path.basename(bam), ".bam")
+            targets = get_libdict(lib)['capture_kit_name']
             logging.debug("Adding QC jobs for {}".format(bam))
             basefn = stripsuffix(os.path.basename(bam), ".bam")
             isize = PicardCollectInsertSizeMetrics()

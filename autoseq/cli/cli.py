@@ -6,7 +6,7 @@ import click
 from pypedream import runners
 
 from .alascca import alascca as alascca_cmd
-from .procap import procap as procap_cmd
+from .liqbio import liqbio as procap_cmd
 
 __author__ = 'dankle'
 
