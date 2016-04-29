@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from pip.req import parse_requirements
 
 # parse_requirements() returns generator of pip.req.InstallRequirement objects
@@ -9,7 +9,7 @@ reqs = [str(ir.req) for ir in install_reqs if ir.req is not None]
 
 setup(name='pyautoseq',
       version='0.3.4',
-      packages=['autoseq', 'autoseq.pipeline', 'autoseq.tools', 'autoseq.util'],
+      packages=find_packages(exclude=('tests*', 'docs', 'examples')),
       install_requires=reqs,
       entry_points={
           'console_scripts': [
