@@ -33,6 +33,8 @@ class LiqBioPipeline(PypedreamPipeline):
         self.analysis_id = analysis_id
         self.libdir = libdir
 
+        self.check_sampledata()
+
         panel_files = self.analyze_panel(debug=debug)
         wgs_bams = self.analyze_lowpass_wgs()
 
@@ -61,6 +63,28 @@ class LiqBioPipeline(PypedreamPipeline):
         multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
         multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
+
+    def check_sampledata(self):
+        def check_lib(lib):
+            if not os.path.exists(os.path.join(self.libdir, lib)):
+                return None
+            if self.find_fastqs(lib) == (None,None):
+                return None
+            return lib
+
+        for type in ['panel', 'wgs']:
+            self.sampledata[type]['T'] = check_lib(self.sampledata[type]['T'])
+            self.sampledata[type]['N'] = check_lib(self.sampledata[type]['T'])
+            plibs_with_data = []
+            for plib in self.sampledata[type]['P']:
+                plib_checked = check_lib(self.sampledata[type]['T'])
+                if plib_checked:
+                    plibs_with_data.append(plib_checked)
+
+            self.sampledata[type]['P'] = plibs_with_data
+
+
+
 
     def get_all_fastqs(self):
         fqs = []
