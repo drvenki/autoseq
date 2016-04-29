@@ -68,7 +68,7 @@ class LiqBioPipeline(PypedreamPipeline):
         def check_lib(lib):
             if not os.path.exists(os.path.join(self.libdir, lib)):
                 return None
-            if self.find_fastqs(lib) == (None,None):
+            if self.find_fastqs(lib) == (None, None):
                 return None
             return lib
 
@@ -82,9 +82,6 @@ class LiqBioPipeline(PypedreamPipeline):
                     plibs_with_data.append(plib_checked)
 
             self.sampledata[type]['P'] = plibs_with_data
-
-
-
 
     def get_all_fastqs(self):
         fqs = []
