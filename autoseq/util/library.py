@@ -43,4 +43,5 @@ def get_libdict(library_id):
     d = dict(zip(elem_nms, elems))
     d['prep_kit_name'] = get_prep_kit_name_from_id(d['prep_id'])
     d['capture_kit_name'] = get_capture_kit_name_from_id(d['capture_id'])
+    d['library_id'] = library_id
     return d

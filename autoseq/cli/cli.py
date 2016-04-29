@@ -6,7 +6,8 @@ import click
 from pypedream import runners
 
 from .alascca import alascca as alascca_cmd
-from .liqbio import liqbio as procap_cmd
+from .liqbio import liqbio as liqbio_cmd
+from .liqbio import liqbio_prepare as liqbio_prepare_cmd
 
 __author__ = 'dankle'
 
@@ -89,4 +90,5 @@ def setup_logging(loglevel="INFO"):
     logging.info("Started log with loglevel %(loglevel)s" % {"loglevel": loglevel})
 
 cli.add_command(alascca_cmd)
-cli.add_command(procap_cmd)
+cli.add_command(liqbio_cmd)
+cli.add_command(liqbio_prepare_cmd)
