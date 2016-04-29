@@ -5,7 +5,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from pypedream.tools.unix import Cat
 
 from autoseq.tools.alignment import Bwa, SkewerSE, SkewerPE
-from autoseq.tools.cnvcalling import QDNASeq, AlasccaGenomePlot
+from autoseq.tools.cnvcalling import QDNASeq, CNVkit, AlasccaCNAPlot
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
@@ -168,6 +168,28 @@ class AlasccaPipeline(PypedreamPipeline):
         if not debug:
             self.add(msisensor)
 
+        # If we have a CNVkit reference
+        if self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']:
+            cnvkit = CNVkit(input_bam=tbam,
+                            reference=self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref'],
+                            output_cnr="{}/variants/{}.cnr".format(self.outdir,
+                                                                   self.sampledata['PANEL_TUMOR_LIB']),
+                            output_cns="{}/variants/{}.cns".format(self.outdir,
+                                                                   self.sampledata['PANEL_TUMOR_LIB'])
+                            )
+            cnvkit.jobname = "cnvkit-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+            self.add(cnvkit)
+
+            alascca_cna = AlasccaCNAPlot()
+            alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
+            alascca_cna.input_germline_vcf = germline_vcf
+            alascca_cna.input_cnr = cnvkit.output_cnr
+            alascca_cna.input_cns = cnvkit.output_cns
+            alascca_cna.chrsizes = self.refdata['chrsizes']
+            alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
+            alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
+            self.add(alascca_cna)
+
         return {'tbam': tbam, 'nbam': nbam}
 
     def call_germline_variants(self, bam, library):
@@ -257,7 +279,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         self.add(vep_freebayes)
 
-        return [vep_freebayes, vep_vardict]
+        return {'freebayes':vep_freebayes.output_vcf, 'vardict':vep_vardict.output_vcf}
 
     def run_fastq_qc(self, fastq_files):
         """
