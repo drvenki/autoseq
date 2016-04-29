@@ -47,8 +47,8 @@ class LiqBioPipeline(PypedreamPipeline):
         logging.debug("Bam files are {}".format(all_panel_bams))
         qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
         # wgs
-        #all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        #qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
+        # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
+        # qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
 
         # per-fastq qc
         fqs = self.get_all_fastqs()
@@ -141,21 +141,25 @@ class LiqBioPipeline(PypedreamPipeline):
         return {'bam': bam, 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
 
     def analyze_panel(self, debug=False):
-        if not self.sampledata['panel']['N']:
-            raise ValueError("Running the pipeline without a germline sample is not supported.")
         tbam = None
+        nbam = None
         pbams = []
         somatic_vcfs = []
-
+        germline_vcf = None
 
         tlib = self.sampledata['panel']['T']
         nlib = self.sampledata['panel']['N']
-        nbam = self.align_library(fq1_files=self.find_fastqs(nlib)[0],
-                                  fq2_files=self.find_fastqs(nlib)[1],
-                                  lib=nlib,
-                                  ref=self.refdata['bwaIndex'],
-                                  outdir=self.outdir + "/bams/panel",
-                                  maxcores=self.maxcores)
+        plibs = self.sampledata['panel']['P']
+
+        if nlib:
+            nbam = self.align_library(fq1_files=self.find_fastqs(nlib)[0],
+                                      fq2_files=self.find_fastqs(nlib)[1],
+                                      lib=nlib,
+                                      ref=self.refdata['bwaIndex'],
+                                      outdir=self.outdir + "/bams/panel",
+                                      maxcores=self.maxcores)
+
+            germline_vcf = self.call_germline_variants(nbam, library=nlib)
 
         if tlib:
             tbam = self.align_library(fq1_files=self.find_fastqs(tlib)[0],
@@ -165,22 +169,22 @@ class LiqBioPipeline(PypedreamPipeline):
                                       outdir=self.outdir + "/bams/panel",
                                       maxcores=self.maxcores)
 
-            somatic_vcfs.append(self.call_somatic_variants(tbam, nbam))
+            if nlib:
+                somatic_vcfs.append(self.call_somatic_variants(tbam, nbam))
 
-        for plib in self.sampledata['panel']['P']:
+        for plib in plibs:
             pbam = self.align_library(fq1_files=self.find_fastqs(plib)[0],
                                       fq2_files=self.find_fastqs(plib)[1],
                                       lib=plib,
                                       ref=self.refdata['bwaIndex'],
                                       outdir=self.outdir + "/bams/panel",
                                       maxcores=self.maxcores)
-
-            somatic_vcfs.extend(self.call_somatic_variants(pbam, nbam))
             pbams.append(pbam)
 
-        germline_vcf = self.call_germline_variants(nbam, library=nlib)
+            if nlib:
+                somatic_vcfs.extend(self.call_somatic_variants(pbam, nbam))
 
-        if tlib:
+        if tlib and nlib:
             targets = get_libdict(tlib)['capture_kit_name']
 
             hzconcordance = HeterzygoteConcordance()
