@@ -89,7 +89,6 @@ class LiqBioPipeline(PypedreamPipeline):
             self.sampledata[datatype]['P'] = plibs_with_data
 
 
-
     def get_all_fastqs(self):
         fqs = []
         if self.sampledata['panel']['T']:
