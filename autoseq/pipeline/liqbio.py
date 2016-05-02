@@ -33,8 +33,10 @@ class LiqBioPipeline(PypedreamPipeline):
         self.analysis_id = analysis_id
         self.libdir = libdir
 
+        self.check_sampledata()
+
         panel_files = self.analyze_panel(debug=debug)
-        wgs_bams = self.analyze_lowpass_wgs()
+        wgs_bams = [] #self.analyze_lowpass_wgs()
 
         ################################################
         # QC
@@ -61,6 +63,32 @@ class LiqBioPipeline(PypedreamPipeline):
         multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
         multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
+
+    def check_sampledata(self):
+        def check_lib(lib):
+            if lib:
+                dir = os.path.join(self.libdir, lib)
+                if not os.path.exists(dir):
+                    logging.warn("Dir {} does not exists for {}. Not using library.".format(dir, lib))
+                    return None
+                if self.find_fastqs(lib) == (None,None):
+                    logging.warn("No fastq files found for {} in dir {}".format(lib, dir))
+                    return None
+            logging.debug("Library {} has data. Using it.".format(lib))
+            return lib
+            
+        for datatype in ['panel', 'wgs']:
+            self.sampledata[datatype]['T'] = check_lib(self.sampledata[datatype]['T'])
+            self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['T'])
+            plibs_with_data = []
+            for plib in self.sampledata[datatype]['P']:
+                plib_checked = check_lib(plib)
+                if plib_checked:
+                    plibs_with_data.append(plib_checked)
+
+            self.sampledata[datatype]['P'] = plibs_with_data
+
+
 
     def get_all_fastqs(self):
         fqs = []
