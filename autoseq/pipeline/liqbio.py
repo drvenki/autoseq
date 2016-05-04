@@ -36,7 +36,7 @@ class LiqBioPipeline(PypedreamPipeline):
         self.check_sampledata()
 
         panel_files = self.analyze_panel(debug=debug)
-        wgs_bams = [] #self.analyze_lowpass_wgs()
+        wgs_bams = self.analyze_lowpass_wgs()
 
         ################################################
         # QC
@@ -49,8 +49,8 @@ class LiqBioPipeline(PypedreamPipeline):
         logging.debug("Bam files are {}".format(all_panel_bams))
         qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
         # wgs
-        # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        # qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
+        all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
+        qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
 
         # per-fastq qc
         fqs = self.get_all_fastqs()
@@ -71,12 +71,12 @@ class LiqBioPipeline(PypedreamPipeline):
                 if not os.path.exists(dir):
                     logging.warn("Dir {} does not exists for {}. Not using library.".format(dir, lib))
                     return None
-                if self.find_fastqs(lib) == (None,None):
+                if self.find_fastqs(lib) == (None, None):
                     logging.warn("No fastq files found for {} in dir {}".format(lib, dir))
                     return None
             logging.debug("Library {} has data. Using it.".format(lib))
             return lib
-            
+
         for datatype in ['panel', 'wgs']:
             self.sampledata[datatype]['T'] = check_lib(self.sampledata[datatype]['T'])
             self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['T'])
@@ -87,7 +87,6 @@ class LiqBioPipeline(PypedreamPipeline):
                     plibs_with_data.append(plib_checked)
 
             self.sampledata[datatype]['P'] = plibs_with_data
-
 
     def get_all_fastqs(self):
         fqs = []
@@ -139,13 +138,6 @@ class LiqBioPipeline(PypedreamPipeline):
             pfiles = self.align_and_qdnaseq(plib)
             pbam = pfiles['bam']
             pbams.append(pbam)
-
-        # genomeplot = AlasccaGenomePlot()
-        # genomeplot.input_segments = qdnaseq_t.output_segments
-        # genomeplot.chrsizes = self.refdata['chrsizes']
-        # genomeplot.output_jpg = "{}/cnv/{}.alascca-genomeplot.jpg".format(self.outdir,
-        #                                                                   self.sampledata['WGS_TUMOR_LIB'])
-        # genomeplot.jobname = "alascca-genomeplot-{}".format(self.sampledata['WGS_TUMOR_LIB'])
 
         return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams}
 

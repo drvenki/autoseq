@@ -43,7 +43,7 @@ def liqbio(ctx, libdir, sample):
 
 
 @click.command()
-@click.option('--outdir', default=None, help="directory to write config files")
+@click.option('--outdir', required=True, help="directory to write config files")
 @click.argument('orderform', type=str)
 @click.pass_context
 def liqbio_prepare(ctx, outdir, orderform):
@@ -52,13 +52,19 @@ def liqbio_prepare(ctx, outdir, orderform):
     sdids = set([lib['sdid'] for lib in libs])
     for sdid in sdids:
         logging.debug("Creating config file for SDID {}".format(sdid))
-        panel_t_lib = [lib['library_id'] for lib in libs if lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] != "WGS"]
-        panel_n_lib = [lib['library_id'] for lib in libs if lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] != "WGS"]
-        panel_p_libs = [lib['library_id'] for lib in libs if lib['sdid'] == sdid and lib['type'] == "P" and lib['capture_id'] != "WGS"]
+        panel_t_lib = [lib['library_id'] for lib in libs if
+                       lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] != "WGS"]
+        panel_n_lib = [lib['library_id'] for lib in libs if
+                       lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] != "WGS"]
+        panel_p_libs = [lib['library_id'] for lib in libs if
+                        lib['sdid'] == sdid and lib['type'] == "P" and lib['capture_id'] != "WGS"]
 
-        wgs_t_lib = [lib['library_id'] for lib in libs if lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] == "WGS"]
-        wgs_n_lib = [lib['library_id'] for lib in libs if lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] == "WGS"]
-        wgs_p_libs = [lib['library_id'] for lib in libs if lib['sdid'] == sdid and lib['type'] == "P" and lib['capture_id'] == "WGS"]
+        wgs_t_lib = [lib['library_id'] for lib in libs if
+                     lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] == "WGS"]
+        wgs_n_lib = [lib['library_id'] for lib in libs if
+                     lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] == "WGS"]
+        wgs_p_libs = [lib['library_id'] for lib in libs if
+                      lib['sdid'] == sdid and lib['type'] == "P" and lib['capture_id'] == "WGS"]
 
         def fix_lib(lib):
             """lib is a vector of libraries.
@@ -122,6 +128,9 @@ def parse_orderform(xlsx):
 
             lib = get_libdict(library_name)
             logging.debug("Parsed library {}".format(lib))
+            if lib['type'] not in ['T', 'N', 'P']:
+                logging.warning(
+                    "Unexpected library type detected: {} for library {}".format(lib['type'], lib['library_id']))
             libraries.append(lib)
 
     return libraries
