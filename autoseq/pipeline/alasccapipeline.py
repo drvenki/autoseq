@@ -103,13 +103,6 @@ class AlasccaPipeline(PypedreamPipeline):
         qdnaseq_t.background = self.refdata["qdnaseq_background"]
         self.add(qdnaseq_t)
 
-        genomeplot = AlasccaGenomePlot()
-        genomeplot.input_segments = qdnaseq_t.output_segments
-        genomeplot.chrsizes = self.refdata['chrsizes']
-        genomeplot.output_jpg = "{}/cnv/{}.alascca-genomeplot.jpg".format(self.outdir,
-                                                                          self.sampledata['WGS_TUMOR_LIB'])
-        genomeplot.jobname = "alascca-genomeplot-{}".format(self.sampledata['WGS_TUMOR_LIB'])
-
         return {'tbam': tbam, 'nbam': nbam}
 
     def analyze_panel(self, debug=False):
