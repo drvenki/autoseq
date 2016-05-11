@@ -66,7 +66,6 @@ class MsiSensor(Job):
         self.input_normal_bam = None
         self.input_tumor_bam = None
         self.output = None
-        self.scratch = "/tmp/"
         self.jobname = "msisensor"
 
     def command(self):

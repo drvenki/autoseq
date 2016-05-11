@@ -16,7 +16,6 @@ class Mutect2(Job):
         self.cosmic = None
         self.dbsnp = None
         self.output = None
-        self.scratch = "/tmp/"
         self.jobname = "mutect2"
 
     def command(self):
@@ -52,7 +51,6 @@ class Freebayes(Job):
         self.min_coverage = 20
         self.min_alt_frac = 0.01
         self.use_harmonic_indel_quals = False
-        self.scratch = "/tmp/"
         self.output = ""
         self.jobname = "freebayes-somatic"
 
@@ -164,7 +162,6 @@ class VcfAddSample(Job):
         self.samplename = None
         self.filter_hom = True
         self.output = None
-        self.scratch = "/tmp"
         self.jobname = "vcf-add-sample"
 
     def command(self):

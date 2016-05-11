@@ -24,14 +24,17 @@ class LiqBioPipeline(PypedreamPipeline):
     refdata = None
     outdir = None
     maxcores = None
+    scratch = None
 
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, debug=False, **kwargs):
+    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp", debug=False,
+                 **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         self.sampledata = sampledata
         self.refdata = refdata
         self.maxcores = maxcores
         self.analysis_id = analysis_id
         self.libdir = libdir
+        self.scratch = scratch
 
         self.check_sampledata()
 
@@ -256,6 +259,7 @@ class LiqBioPipeline(PypedreamPipeline):
         freebayes.reference_sequence = self.refdata['reference_genome']
         freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
+        freebayes.scratch = self.scratch
         freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
         freebayes.jobname = "freebayes-germline-{}".format(library)
         self.add(freebayes)
@@ -288,6 +292,7 @@ class LiqBioPipeline(PypedreamPipeline):
         mutect2.input_normal = nbam
         mutect2.reference_sequence = self.refdata['reference_genome']
         mutect2.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
+        mutect2.scratch = self.scratch
         mutect2.jobname = "mutect2-{}".format(tlib)
         mutect2.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vcf.gz".format(outdir=self.outdir,
                                                                                         tlib=tlib,
@@ -302,6 +307,7 @@ class LiqBioPipeline(PypedreamPipeline):
         freebayes.reference_sequence = self.refdata['reference_genome']
         freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
+        freebayes.scratch = self.scratch
         freebayes.jobname = "freebayes-somatic-{}".format(tlib)
         freebayes.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vcf.gz".format(outdir=self.outdir,
                                                                                                     tlib=tlib,
@@ -512,6 +518,7 @@ class LiqBioPipeline(PypedreamPipeline):
             skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
             skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
             skewer.threads = maxcores
+            skewer.scratch = self.scratch
             skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
             skewer.is_intermediate = True
             fq1_trimmed.append(skewer.output)
@@ -530,6 +537,7 @@ class LiqBioPipeline(PypedreamPipeline):
         bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
         bwa.threads = maxcores
         bwa.output = "{}/{}.bam".format(outdir, lib)
+        bwa.scratch = self.scratch
         bwa.jobname = "bwa-{}".format(lib)
         bwa.is_intermediate = False
         self.add(bwa)
@@ -553,6 +561,7 @@ class LiqBioPipeline(PypedreamPipeline):
             skewer.output2 = outdir + "/skewer/libs/{}".format(os.path.basename(fq2))
             skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
             skewer.threads = maxcores
+            skewer.scratch = self.scratch
             skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
             skewer.is_intermediate = True
             fq1_trimmed.append(skewer.output1)
@@ -591,6 +600,7 @@ class LiqBioPipeline(PypedreamPipeline):
         bwa.threads = maxcores
         bwa.output = "{}/{}.bam".format(outdir, lib)
         bwa.jobname = "bwa-{}".format(lib)
+        bwa.scratch = self.scratch
         bwa.is_intermediate = False
         self.add(bwa)
 

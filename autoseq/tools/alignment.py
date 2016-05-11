@@ -12,7 +12,6 @@ class Bwa(Job):
         self.mark_secondary = None
         self.remove_duplicates = True
         self.readgroup = None
-        self.scratch = "/tmp/"
         self.output = None  # output ports must start with "output", can be "output_metrics", "output", etc
         self.duplication_metrics = None
         self.jobname = "bwa"
@@ -51,7 +50,6 @@ class SkewerPE(Job):
         self.output1 = ""
         self.output2 = ""
         self.stats = ""
-        self.scratch = "/tmp/"
         self.jobname = "skewer"
 
     def command(self):
@@ -80,7 +78,6 @@ class SkewerSE(Job):
         self.input = None
         self.output = None
         self.stats = None
-        self.scratch = "/tmp/"
         self.jobname = "skewer"
 
     def command(self):
@@ -108,7 +105,6 @@ class CatAndSkewer(Job):
         self.output1 = ""
         self.output2 = ""
         self.stats = ""
-        self.scratch = "/tmp/"
         self.downsample = -1
         self.jobname = "skewer"
 

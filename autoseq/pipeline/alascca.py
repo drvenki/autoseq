@@ -23,8 +23,10 @@ class AlasccaPipeline(PypedreamPipeline):
     refdata = None
     outdir = None
     maxcores = None
+    scratch = "/tmp"
 
-    def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, debug=False, **kwargs):
+    def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, scratch="/tmp/", debug=False,
+                 **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         logging.debug("Unnormalized outdir is {}".format(outdir))
         logging.debug("self.outdir is {}".format(self.outdir))
@@ -32,6 +34,7 @@ class AlasccaPipeline(PypedreamPipeline):
         self.refdata = refdata
         self.maxcores = maxcores
         self.analysis_id = analysis_id
+        self.scratch = scratch
 
         panel_bams = self.analyze_panel(debug=debug)
         wgs_bams = self.analyze_lowpass_wgs()
@@ -145,6 +148,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vcfaddsample.input_vcf = germline_vcf
         vcfaddsample.samplename = self.sampledata['PANEL_TUMOR_LIB']
         vcfaddsample.filter_hom = True
+        vcfaddsample.scratch = self.scratch
         vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
                                                                              self.sampledata['PANEL_TUMOR_LIB'],
                                                                              self.sampledata['PANEL_NORMAL_LIB'])
@@ -157,6 +161,7 @@ class AlasccaPipeline(PypedreamPipeline):
         msisensor.input_tumor_bam = tbam
         msisensor.output = "{}/msisensor.tsv".format(self.outdir)
         msisensor.threads = self.maxcores
+        msisensor.scratch = self.scratch
         msisensor.jobname = "msisensor-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         if not debug:
             self.add(msisensor)
@@ -168,7 +173,8 @@ class AlasccaPipeline(PypedreamPipeline):
                             output_cnr="{}/variants/{}.cnr".format(self.outdir,
                                                                    self.sampledata['PANEL_TUMOR_LIB']),
                             output_cns="{}/variants/{}.cns".format(self.outdir,
-                                                                   self.sampledata['PANEL_TUMOR_LIB'])
+                                                                   self.sampledata['PANEL_TUMOR_LIB']),
+                            scratch=self.scratch
                             )
             cnvkit.jobname = "cnvkit-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
             self.add(cnvkit)
@@ -179,7 +185,8 @@ class AlasccaPipeline(PypedreamPipeline):
             alascca_cna.input_cnr = cnvkit.output_cnr
             alascca_cna.input_cns = cnvkit.output_cns
             alascca_cna.chrsizes = self.refdata['chrsizes']
-            alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
+            alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
+                                                                               self.sampledata['PANEL_TUMOR_LIB'])
             alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
             self.add(alascca_cna)
 
@@ -199,6 +206,7 @@ class AlasccaPipeline(PypedreamPipeline):
         freebayes.reference_sequence = self.refdata['reference_genome']
         freebayes.target_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
+        freebayes.scratch = self.scratch
         freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
         freebayes.jobname = "freebayes-germline-{}".format(library)
         self.add(freebayes)
@@ -216,6 +224,7 @@ class AlasccaPipeline(PypedreamPipeline):
         mutect2.input_normal = nbam
         mutect2.reference_sequence = self.refdata['reference_genome']
         mutect2.target_regions = self.refdata['targets'][self.sampledata['TARGETS']]['targets-interval_list-slopped20']
+        mutect2.scratch = self.scratch
         mutect2.jobname = "mutect2-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         mutect2.output = "{}/variants/{}-{}.mutect.vcf.gz".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
                                                                   self.sampledata['PANEL_NORMAL_LIB'])
@@ -228,6 +237,7 @@ class AlasccaPipeline(PypedreamPipeline):
         freebayes.reference_sequence = self.refdata['reference_genome']
         freebayes.target_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
+        freebayes.scratch = self.scratch
         freebayes.jobname = "freebayes-somatic-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(self.outdir,
                                                                                self.sampledata['PANEL_TUMOR_LIB'],
@@ -272,7 +282,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         self.add(vep_freebayes)
 
-        return {'freebayes':vep_freebayes.output_vcf, 'vardict':vep_vardict.output_vcf}
+        return {'freebayes': vep_freebayes.output_vcf, 'vardict': vep_vardict.output_vcf}
 
     def run_fastq_qc(self, fastq_files):
         """
@@ -427,6 +437,7 @@ class AlasccaPipeline(PypedreamPipeline):
             skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
             skewer.threads = maxcores
             skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+            skewer.scratch = self.scratch
             skewer.is_intermediate = True
             fq1_trimmed.append(skewer.output)
             self.add(skewer)
@@ -444,6 +455,7 @@ class AlasccaPipeline(PypedreamPipeline):
         bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
         bwa.threads = maxcores
         bwa.output = "{}/{}.bam".format(outdir, lib)
+        bwa.scratch = self.scratch
         bwa.jobname = "bwa-{}".format(lib)
         bwa.is_intermediate = False
         self.add(bwa)
@@ -468,6 +480,7 @@ class AlasccaPipeline(PypedreamPipeline):
             skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
             skewer.threads = maxcores
             skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+            skewer.scratch = self.scratch
             skewer.is_intermediate = True
             fq1_trimmed.append(skewer.output1)
             fq2_trimmed.append(skewer.output2)
@@ -505,6 +518,7 @@ class AlasccaPipeline(PypedreamPipeline):
         bwa.threads = maxcores
         bwa.output = "{}/{}.bam".format(outdir, lib)
         bwa.jobname = "bwa-{}".format(lib)
+        bwa.scratch = self.scratch
         bwa.is_intermediate = False
         self.add(bwa)
 

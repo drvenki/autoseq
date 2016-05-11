@@ -24,9 +24,9 @@ __author__ = 'dankle'
 @click.option('--dot_file', default=None, help="write graph to dot file with this name")
 @click.option('--cores', default=1, help="write graph to dot file with this name")
 @click.option('--debug', default=False, is_flag=True)
-@click.option('--tmpdir', default=None, help="node-local tmpdir to use")
+@click.option('--scratch', default=None, help="scratch dir to use")
 @click.pass_context
-def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, tmpdir, debug):
+def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, scratch, debug):
     setup_logging(loglevel)
     logging.debug("Reading reference data from {}".format(ref))
     ctx.obj = {}
@@ -37,7 +37,7 @@ def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, tmpdir,
     ctx.obj['jobdb'] = jobdb
     ctx.obj['dot_file'] = dot_file
     ctx.obj['cores'] = cores
-    ctx.obj['tmpdir'] = tmpdir
+    ctx.obj['scratch'] = scratch
     ctx.obj['debug'] = debug
 
     def capture_sigint(sig, frame):

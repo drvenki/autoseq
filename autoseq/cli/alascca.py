@@ -8,7 +8,7 @@ import time
 import sys
 
 from autoseq.util.path import mkdir
-from autoseq.pipeline.alasccapipeline import AlasccaPipeline
+from autoseq.pipeline.alascca import AlasccaPipeline
 
 
 @click.command()
@@ -25,9 +25,10 @@ def alascca(ctx, sample):
         mkdir(os.path.dirname(ctx.obj['jobdb']))
 
     ctx.obj['pipeline'] = AlasccaPipeline(sampledata=sampledata, refdata=ctx.obj['refdata'],
-                        outdir=ctx.obj['outdir'], maxcores=ctx.obj['cores'],
-                        debug=ctx.obj['debug'], runner=ctx.obj['runner'],
-                        jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'])
+                                          outdir=ctx.obj['outdir'], maxcores=ctx.obj['cores'],
+                                          debug=ctx.obj['debug'], runner=ctx.obj['runner'],
+                                          jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'],
+                                          scratch=ctx.obj['scratch'])
 
     # start main analysis
     ctx.obj['pipeline'].start()
