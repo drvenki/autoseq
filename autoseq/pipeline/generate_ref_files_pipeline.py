@@ -1,6 +1,7 @@
 import json
 import logging
 
+import sys
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from pypedream.runners.shellrunner import Shellrunner
 
@@ -51,6 +52,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.add(fetch_vep_cache)
 
         self.reference_data['vep_dir'] = fetch_vep_cache.output_dir
+
+        self.relativeify_ref_paths()
 
         with open("{}/autoseq-genome.json".format(self.outdir), "w") as output_file:
             json.dump(self.reference_data, output_file, indent=4, sort_keys=True)
@@ -237,3 +240,14 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.reference_data['chrsizes'] = create_chrsizes.output
         self.reference_data['bwaIndex'] = bwa_index.input_fasta
         self.reference_data['qdnaseq_background'] = copy_qdnaseq_bg.output
+
+    def relativeify_ref_paths(self):
+        def myprint(d):
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    myprint(v)
+                else:
+                    if v and self.outdir in v:
+                        d[k] = os.path.relpath(v, self.outdir)
+                        #print "{0} : {1}".format(k, v)
+        myprint(self.reference_data)
