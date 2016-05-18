@@ -18,7 +18,7 @@ __author__ = 'dankle'
 @click.option('--ref', default='/nfs/ALASCCA/autoseq-genome/autoseq-genome.json',
               help='json with reference files to use',
               type=str)
-@click.option('--outdir', default='/tmp/pyautoseq-test', help='output directory', type=click.Path())
+@click.option('--outdir', default='/tmp/autoseq-test', help='output directory', type=click.Path())
 @click.option('--runner_name', default='shellrunner', help='Runner to use.')
 @click.option('--loglevel', default='INFO', help='level of logging')
 @click.option('--jobdb', default=None, help="sqlite3 database to write job info and stats")
