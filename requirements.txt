@@ -5,5 +5,6 @@ pydotplus
 jsonschema
 click
 git+https://github.com/ClinSeq/pypedream.git
+git+https://github.com/dakl/genomicassertions.git
 multiqc
 
