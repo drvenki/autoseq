@@ -39,33 +39,34 @@ class LiqBioPipeline(PypedreamPipeline):
         self.check_sampledata()
 
         panel_files = self.analyze_panel(debug=debug)
+
         wgs_bams = self.analyze_lowpass_wgs()
 
         ################################################
         # QC
-        qc_files = []
-
-        # per-bam qc
-        # panel
-        all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
-        all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
-        logging.debug("Bam files are {}".format(all_panel_bams))
-        qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
-        # wgs
-        all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
-
-        # per-fastq qc
-        fqs = self.get_all_fastqs()
-        logging.debug("fqs = {}".format(fqs))
-        qc_files += self.run_fastq_qc(fqs)
-
-        multiqc = MultiQC()
-        multiqc.input_files = qc_files
-        multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
-        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
-        self.add(multiqc)
+        # qc_files = []
+        #
+        # # per-bam qc
+        # # panel
+        # all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
+        # all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
+        # logging.debug("Bam files are {}".format(all_panel_bams))
+        # #qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
+        # # wgs
+        # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
+        # #qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
+        #
+        # # per-fastq qc
+        # fqs = self.get_all_fastqs()
+        # logging.debug("fqs = {}".format(fqs))
+        # qc_files += self.run_fastq_qc(fqs)
+        #
+        # multiqc = MultiQC()
+        # multiqc.input_files = qc_files
+        # multiqc.search_dir = self.outdir
+        # multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
+        # multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
+        # self.add(multiqc)
 
     def check_sampledata(self):
         def check_lib(lib):
@@ -82,7 +83,7 @@ class LiqBioPipeline(PypedreamPipeline):
 
         for datatype in ['panel', 'wgs']:
             self.sampledata[datatype]['T'] = check_lib(self.sampledata[datatype]['T'])
-            self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['T'])
+            self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['N'])
             plibs_with_data = []
             for plib in self.sampledata[datatype]['P']:
                 plib_checked = check_lib(plib)
@@ -168,11 +169,11 @@ class LiqBioPipeline(PypedreamPipeline):
         pbams = []
         somatic_vcfs = []
         germline_vcf = None
-
         tlib = self.sampledata['panel']['T']
         nlib = self.sampledata['panel']['N']
         plibs = self.sampledata['panel']['P']
 
+        # align germline normal
         if nlib:
             nbam = self.align_library(fq1_files=self.find_fastqs(nlib)[0],
                                       fq2_files=self.find_fastqs(nlib)[1],
@@ -183,63 +184,52 @@ class LiqBioPipeline(PypedreamPipeline):
 
             germline_vcf = self.call_germline_variants(nbam, library=nlib)
 
-        if tlib:
-            tbam = self.align_library(fq1_files=self.find_fastqs(tlib)[0],
-                                      fq2_files=self.find_fastqs(tlib)[1],
-                                      lib=tlib,
-                                      ref=self.refdata['bwaIndex'],
-                                      outdir=self.outdir + "/bams/panel",
-                                      maxcores=self.maxcores)
-
+        # process tumor and plasma samples
+        libs = [x for x in plibs + [tlib] if x is not None]
+        for lib in libs:
+            bam = self.align_library(fq1_files=self.find_fastqs(lib)[0],
+                                     fq2_files=self.find_fastqs(lib)[1],
+                                     lib=lib,
+                                     ref=self.refdata['bwaIndex'],
+                                     outdir=self.outdir + "/bams/panel",
+                                     maxcores=self.maxcores)
             if nlib:
-                somatic_vcfs.append(self.call_somatic_variants(tbam, nbam))
+                #  If we have a normal, call variants, verify identity and run msisensor
 
-        for plib in plibs:
-            pbam = self.align_library(fq1_files=self.find_fastqs(plib)[0],
-                                      fq2_files=self.find_fastqs(plib)[1],
-                                      lib=plib,
-                                      ref=self.refdata['bwaIndex'],
-                                      outdir=self.outdir + "/bams/panel",
-                                      maxcores=self.maxcores)
-            pbams.append(pbam)
+                somatic_vcfs.append(self.call_somatic_variants(bam, nbam))
 
-            if nlib:
-                somatic_vcfs.extend(self.call_somatic_variants(pbam, nbam))
+                targets = get_libdict(lib)['capture_kit_name']
+                hzconcordance = HeterzygoteConcordance()
+                hzconcordance.input_vcf = germline_vcf
+                hzconcordance.input_bam = bam
+                hzconcordance.reference_sequence = self.refdata['reference_genome']
+                hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
+                hzconcordance.normalid = nlib
+                hzconcordance.filter_reads_with_N_cigar = True
+                hzconcordance.jobname = "hzconcordance-{}".format(lib)
+                hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, lib, nlib)
+                self.add(hzconcordance)
 
-        if tlib and nlib:
-            targets = get_libdict(tlib)['capture_kit_name']
+                vcfaddsample = VcfAddSample()
+                vcfaddsample.input_bam = bam
+                vcfaddsample.input_vcf = germline_vcf
+                vcfaddsample.samplename = lib
+                vcfaddsample.filter_hom = True
+                vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
+                                                                                     lib,
+                                                                                     nlib)
+                vcfaddsample.jobname = "vcf-add-sample-{}".format(lib)
+                self.add(vcfaddsample)
 
-            hzconcordance = HeterzygoteConcordance()
-            hzconcordance.input_vcf = germline_vcf
-            hzconcordance.input_bam = tbam
-            hzconcordance.reference_sequence = self.refdata['reference_genome']
-            hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
-            hzconcordance.normalid = nlib
-            hzconcordance.filter_reads_with_N_cigar = True
-            hzconcordance.jobname = "hzconcordance-{}".format(tlib)
-            hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, tlib, nlib)
-            self.add(hzconcordance)
-
-        # vcfaddsample = VcfAddSample()
-        # vcfaddsample.input_bam = tbam
-        # vcfaddsample.input_vcf = germline_vcf
-        # vcfaddsample.samplename = self.sampledata['PANEL_TUMOR_LIB']
-        # vcfaddsample.filter_hom = True
-        # vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
-        #                                                                      self.sampledata['PANEL_TUMOR_LIB'],
-        #                                                                      self.sampledata['PANEL_NORMAL_LIB'])
-        # vcfaddsample.jobname = "vcf-add-sample-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        # self.add(vcfaddsample)
-        #
-        # msisensor = MsiSensor()
-        # msisensor.msi_sites = self.refdata['targets'][self.sampledata['TARGETS']]['msisites']
-        # msisensor.input_normal_bam = nbam
-        # msisensor.input_tumor_bam = tbam
-        # msisensor.output = "{}/msisensor.tsv".format(self.outdir)
-        # msisensor.threads = self.maxcores
-        # msisensor.jobname = "msisensor-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        # if not debug:
-        #     self.add(msisensor)
+                msisensor = MsiSensor()
+                msisensor.msi_sites = self.refdata['targets'][targets]['msisites']
+                msisensor.input_normal_bam = nbam
+                msisensor.input_tumor_bam = bam
+                msisensor.output = "{}/msisensor.tsv".format(self.outdir)
+                msisensor.threads = self.maxcores
+                msisensor.jobname = "msisensor-{}".format(lib)
+                if not debug:
+                    self.add(msisensor)
 
         return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams,
                 'somatic_vcfs': somatic_vcfs}
@@ -264,16 +254,19 @@ class LiqBioPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(library)
         self.add(freebayes)
 
-        vep_freebayes = VEP()
-        vep_freebayes.input_vcf = freebayes.output
-        vep_freebayes.threads = self.maxcores
-        vep_freebayes.reference_sequence = self.refdata['reference_genome']
-        vep_freebayes.vep_dir = self.refdata['vep_dir']
-        vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
-        vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
-        self.add(vep_freebayes)
+        if self.refdata['vep_dir']:
+            vep_freebayes = VEP()
+            vep_freebayes.input_vcf = freebayes.output
+            vep_freebayes.threads = self.maxcores
+            vep_freebayes.reference_sequence = self.refdata['reference_genome']
+            vep_freebayes.vep_dir = self.refdata['vep_dir']
+            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
+            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
+            self.add(vep_freebayes)
 
-        return vep_freebayes.output_vcf
+            return vep_freebayes.output_vcf
+        else:
+            return freebayes.output
 
     def call_somatic_variants(self, tbam, nbam):
         """
@@ -326,43 +319,46 @@ class LiqBioPipeline(PypedreamPipeline):
         vardict.jobname = "vardict-{}".format(tlib)
         self.add(vardict)
 
-        vep_mutect2 = VEP()
-        vep_mutect2.input_vcf = vardict.output
-        vep_mutect2.threads = self.maxcores
-        vep_mutect2.reference_sequence = self.refdata['reference_genome']
-        vep_mutect2.vep_dir = self.refdata['vep_dir']
-        vep_mutect2.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vep.vcf.gz".format(
-            outdir=self.outdir,
-            tlib=tlib,
-            nlib=nlib)
-        vep_mutect2.jobname = "vep-mutect2-{}".format(tlib)
-        self.add(vep_mutect2)
+        if self.refdata['vep_dir']:
+            vep_mutect2 = VEP()
+            vep_mutect2.input_vcf = vardict.output
+            vep_mutect2.threads = self.maxcores
+            vep_mutect2.reference_sequence = self.refdata['reference_genome']
+            vep_mutect2.vep_dir = self.refdata['vep_dir']
+            vep_mutect2.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vep.vcf.gz".format(
+                outdir=self.outdir,
+                tlib=tlib,
+                nlib=nlib)
+            vep_mutect2.jobname = "vep-mutect2-{}".format(tlib)
+            self.add(vep_mutect2)
 
-        vep_vardict = VEP()
-        vep_vardict.input_vcf = vardict.output
-        vep_vardict.threads = self.maxcores
-        vep_vardict.reference_sequence = self.refdata['reference_genome']
-        vep_vardict.vep_dir = self.refdata['vep_dir']
-        vep_vardict.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vep.vcf.gz".format(
-            outdir=self.outdir,
-            tlib=tlib,
-            nlib=nlib)
-        vep_vardict.jobname = "vep-vardict-{}".format(tlib)
-        self.add(vep_vardict)
+            vep_vardict = VEP()
+            vep_vardict.input_vcf = vardict.output
+            vep_vardict.threads = self.maxcores
+            vep_vardict.reference_sequence = self.refdata['reference_genome']
+            vep_vardict.vep_dir = self.refdata['vep_dir']
+            vep_vardict.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vep.vcf.gz".format(
+                outdir=self.outdir,
+                tlib=tlib,
+                nlib=nlib)
+            vep_vardict.jobname = "vep-vardict-{}".format(tlib)
+            self.add(vep_vardict)
 
-        vep_freebayes = VEP()
-        vep_freebayes.input_vcf = freebayes.output
-        vep_freebayes.threads = self.maxcores
-        vep_freebayes.reference_sequence = self.refdata['reference_genome']
-        vep_freebayes.vep_dir = self.refdata['vep_dir']
-        vep_freebayes.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vep.vcf.gz".format(
-            outdir=self.outdir,
-            tlib=tlib,
-            nlib=nlib)
-        vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(tlib)
-        self.add(vep_freebayes)
+            vep_freebayes = VEP()
+            vep_freebayes.input_vcf = freebayes.output
+            vep_freebayes.threads = self.maxcores
+            vep_freebayes.reference_sequence = self.refdata['reference_genome']
+            vep_freebayes.vep_dir = self.refdata['vep_dir']
+            vep_freebayes.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vep.vcf.gz".format(
+                outdir=self.outdir,
+                tlib=tlib,
+                nlib=nlib)
+            vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(tlib)
+            self.add(vep_freebayes)
 
-        return [vep_freebayes, vep_vardict, vep_mutect2]
+            return [vep_freebayes.output_vcf, vep_vardict.output_vcf, vep_mutect2.output_vcf]
+        else:
+            return [freebayes.output, vardict.output, mutect2.output]
 
     def run_fastq_qc(self, fastq_files):
         """
@@ -476,15 +472,8 @@ class LiqBioPipeline(PypedreamPipeline):
             sambamba.jobname = "sambamba-depth-{}".format(basefn)
             self.add(sambamba)
 
-            alascca_coverage_hist = CoverageHistogram()
-            alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
-            alascca_coverage_hist.input_bam = bam
-            alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
-            alascca_coverage_hist.jobname = "alascca-coverage-hist-{}".format(basefn)
-            self.add(alascca_coverage_hist)
-
             qc_files += [isize.output_metrics, oxog.output_metrics,
-                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
+                         hsmetrics.output_metrics, sambamba.output]
             if not debug:
                 qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
