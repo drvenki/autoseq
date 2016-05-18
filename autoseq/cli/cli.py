@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import signal
 
 import click
@@ -16,7 +17,7 @@ __author__ = 'dankle'
 @click.group()
 @click.option('--ref', default='/nfs/ALASCCA/autoseq-genome/autoseq-genome.json',
               help='json with reference files to use',
-              type=click.File('r'))
+              type=str)
 @click.option('--outdir', default='/tmp/pyautoseq-test', help='output directory', type=click.Path())
 @click.option('--runner_name', default='shellrunner', help='Runner to use.')
 @click.option('--loglevel', default='INFO', help='level of logging')
@@ -30,7 +31,7 @@ def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, scratch
     setup_logging(loglevel)
     logging.debug("Reading reference data from {}".format(ref))
     ctx.obj = {}
-    ctx.obj['refdata'] = json.load(ref)
+    ctx.obj['refdata'] = load_ref(ref)
     ctx.obj['outdir'] = outdir
     ctx.obj['pipeline'] = None
     ctx.obj['runner'] = get_runner(runner_name, cores)
@@ -56,6 +57,27 @@ def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, scratch
 
     signal.signal(signal.SIGINT, capture_sigint)
     signal.signal(signal.SIGTERM, capture_sigint)
+
+
+def load_ref(ref):
+    basepath = os.path.dirname(ref)
+    items = ["bwaIndex", "chrsizes", "clinvar", "cosmic", "dbSNP", "exac", "genesGenePred", "genesGtf", "vep_dir",
+             "genesGtfGenesOnly", "icgc", "qdnaseq_background", "reference_dict", "reference_genome", "cnvkit-ref",
+             "msisites", "targets-bed-slopped20", "targets-interval_list", "targets-interval_list-slopped20"]
+    with open(ref, 'r') as fh:
+        refjson = json.load(fh)
+
+        def make_paths_absolute(d):
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    make_paths_absolute(v)
+                else:
+                    if k in items and d[k]:
+                        d[k] = os.path.join(basepath, v)
+            return d
+
+        refjson_abs = make_paths_absolute(refjson)
+        return refjson_abs
 
 
 def get_runner(runner_name, maxcores):
@@ -89,6 +111,7 @@ def setup_logging(loglevel="INFO"):
     logging.basicConfig(level=numeric_level,
                         format='%(levelname)s %(asctime)s %(funcName)s - %(message)s')
     logging.info("Started log with loglevel %(loglevel)s" % {"loglevel": loglevel})
+
 
 cli.add_command(alascca_cmd)
 cli.add_command(liqbio_cmd)
