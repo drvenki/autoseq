@@ -25,7 +25,7 @@ __author__ = 'dankle'
 @click.option('--dot_file', default=None, help="write graph to dot file with this name")
 @click.option('--cores', default=1, help="write graph to dot file with this name")
 @click.option('--debug', default=False, is_flag=True)
-@click.option('--scratch', default=None, help="scratch dir to use")
+@click.option('--scratch', default="/tmp", help="scratch dir to use")
 @click.pass_context
 def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, scratch, debug):
     setup_logging(loglevel)
