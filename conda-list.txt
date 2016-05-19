@@ -25,6 +25,7 @@ cnvkit=0.7.9
 pysam=0.8.4
 pyvcf=0.6.8.dev0
 multiqc
+ucsc-gtftogenepred
 
 pyodbc
 jsonschema
