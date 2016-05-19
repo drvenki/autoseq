@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -18,7 +19,7 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
 
     @classmethod
     def setUpClass(cls):
-        cls.tmpdir = tempfile.mkdtemp()
+        cls.tmpdir = normpath("~/tmp/autoseq-test")  # tempfile.mkdtemp()
 
         ref = load_ref(normpath("~/test-genome/autoseq-genome.json"))
         sampledata = {
@@ -35,30 +36,47 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
             }
         }
 
-        libdir = "tests/libraries"
+        libdir = normpath("~/libraries")
 
         outdir = cls.tmpdir
         maxcores = 1
         runner = get_runner("shellrunner", maxcores)
 
-        p = LiqBioPipeline(sampledata, ref, outdir, libdir, analysis_id="test", maxcores=maxcores, runner=runner)
+        jobdb = os.path.join(cls.tmpdir, "liqbio.json")
+        p = LiqBioPipeline(sampledata, ref, outdir, libdir, analysis_id="test",
+                           maxcores=maxcores, runner=runner, jobdb=jobdb)
         print p.outdir
-        #p.start()
+        p.start()
 
         while p.is_alive():
-            time.sleep(5)
+            time.sleep(1)
 
-    def test_test(self):
-        self.assertEqual(1, 1)
+    def test_vardict_somatic(self):
+        vcf = os.path.join(self.outdir, "variants", "NA12877-T-03098849-TD1-TT1",
+                           "NA12877-T-03098849-TD1-TT1-NA12877-N-03098121-TD1-TT1.vardict-somatic.vcf.gz")
 
-        # sampledata=sampledata, refdata=ctx.obj['refdata'],
-        #                outdir=ctx.obj['outdir'], libdir=libdir, maxcores=ctx.obj['cores'],
-        #                debug=ctx.obj['debug'], runner=ctx.obj['runner'],
-        #                jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'],
-        #                scratch=ctx.obj['scratch'])
-        #
-        #
-        # cls.returncode = subprocess.check_call(["./tests/workflow.sh", cls.tmpdir])
-        # cls.somatic_vcf = cls.tmpdir + "/panel/virtual-tumor.somatic.vcf.gz"
+        # TP53 insertion: MU2185182, chr17:g.7578475->G
+        # TP53 deletion: MU25947, chr17:g.7577558G>-
+        # TP53 DNV: MU52971976, chr17:g.7574003GG>AA
+        # PIK3CA hotspot E545K, MU5219, chr3:g.178936091G>A
+        # PTEN hotspot R130Q, MU29098, chr10:g.89692905G>A
+        # PTEN hotspot R233*, MU589331, chr10:g.89717672C>T
+        # AR intron variant, MU50988553, chrX:g.66788924G>A
 
-    # cls.returncode = 0
+        # deletion is called
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, 17, 7577557, 'AG', 'A')
+
+        # insertion is called
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, 17, 7578474, 'C', 'CG')
+
+        # dnv (GG>AA) is called as a single event
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, 17, 7574003, 'GG', 'AA')
+
+        # PTEN hotspots are called
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, 10, 89692905, 'G', 'A')
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, 10, 89717672, 'C', 'T')
+
+        # PIK3CA hotspot is called
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, 3, 178936091, 'G', 'A')
+
+

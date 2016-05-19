@@ -6,6 +6,7 @@ python:
 cache:
   directories:
   - $HOME/miniconda2
+  - $HOME/genome-zipped
 
 before_install:
   # Temporal fix for networking problem: https://github.com/travis-ci/travis-ci/issues/1484
@@ -13,10 +14,12 @@ before_install:
   # Get and install anaconda for custom Python installation
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh
   - bash Miniconda-latest-Linux-x86_64.sh -b -p $HOME/miniconda2 -f
+  - wget -O $HOME/autoseq-scripts.zip https://github.com/dakl/autoseq-scripts/archive/master.zip
+  - unzip -o $HOME/autoseq-scripts.zip -d $HOME
 
 # command to install dependencies
 install:
-  - export PATH=$HOME/miniconda2/bin/:$PATH
+  - export PATH=$HOME/miniconda2/bin/:$HOME/autoseq-scripts-master/:$PATH
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
@@ -28,8 +31,15 @@ install:
   - conda install --file conda-list.txt
   - pip install -r requirements.txt
 
-  - wget https://export.uppmax.uu.se/b2010040/test-genome.zip
-  - unzip test-genome.zip
+  # ref
+  - mkdir -p $HOME/genome-zipped/
+  - mkdir $HOME/genome
+  - wget --no-clobber -O $HOME/genome-zipped/test-genome.tar.gz https://export.uppmax.uu.se/b2010040/test-genome.tar.gz
+  - tar xvfz $HOME/genome-zipped/test-genome.tar.gz -C $HOME
+
+  # test data
+  - wget --no-clobber -O $HOME/test-libraries.tar.gz https://export.uppmax.uu.se/b2010040/test-libraries.tar.gz
+  - tar xvfz $HOME/test-libraries.tar.gz -C $HOME
 
 # command to run tests
 script: nosetests
