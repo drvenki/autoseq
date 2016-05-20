@@ -84,13 +84,14 @@ class Freebayes(Job):
 
 class VarDict(Job):
     def __init__(self, input_tumor=None, input_normal=None, tumorid=None, normalid=None, reference_sequence=None,
-                 target_bed=None, output=None, min_alt_frac=0.1):
+                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1):
         Job.__init__(self)
         self.input_tumor = input_tumor
         self.input_normal = input_normal
         self.tumorid = tumorid
         self.normalid = normalid
         self.reference_sequence = reference_sequence
+        self.reference_dict = reference_dict
         self.target_bed = target_bed
         self.output = output
         self.min_alt_frac = min_alt_frac
@@ -117,6 +118,7 @@ class VarDict(Job):
               " -N \"{}|{}\" ".format(self.tumorid, self.normalid) + \
               " | " + freq_filter + " | " + somatic_filter + " | " + fix_ambiguous_cl() + " | " + remove_dup_cl() + \
               " | vcfstreamsort -w 1000 | bcftools view --apply-filters .,PASS " + \
+              " | vcfsorter.pl {} /dev/stdin ".format(self.reference_dict) + \
               " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         return cmd
 

@@ -310,6 +310,7 @@ class LiqBioPipeline(PypedreamPipeline):
 
         vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tlib, normalid=nlib,
                           reference_sequence=self.refdata['reference_genome'],
+                          reference_dict=self.refdata['reference_dict'],
                           target_bed=self.refdata['targets'][targets]['targets-bed-slopped20'],
                           output="{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vcf.gz".format(
                               outdir=self.outdir,

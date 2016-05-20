@@ -247,6 +247,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=self.sampledata['PANEL_TUMOR_LIB'],
                           normalid=self.sampledata['PANEL_NORMAL_LIB'],
                           reference_sequence=self.refdata['reference_genome'],
+                          reference_dict=self.refdata['reference_dict'],
                           target_bed=self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20'],
                           output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(self.outdir,
                                                                                    self.sampledata['PANEL_TUMOR_LIB'],
