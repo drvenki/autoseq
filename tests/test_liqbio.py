@@ -43,7 +43,7 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
         maxcores = 1
         runner = get_runner("shellrunner", maxcores)
 
-        jobdb = os.path.join(cls.tmpdir, "liqbio.json")
+        jobdb = os.path.join(cls.outdir, "liqbio.json")
         p = LiqBioPipeline(sampledata, ref, cls.outdir, libdir, analysis_id="test",
                            maxcores=maxcores, runner=runner, jobdb=jobdb)
 
