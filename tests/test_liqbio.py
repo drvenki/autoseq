@@ -15,11 +15,13 @@ from autoseq.util.path import normpath
 class TestWorkflow(unittest.TestCase, VariantAssertions):
     returncode = None
     tmpdir = None
+    outdir = None
     somatic_vcf = None
 
     @classmethod
     def setUpClass(cls):
-        cls.tmpdir = normpath("~/tmp/autoseq-test")  # tempfile.mkdtemp()
+        cls.tmpdir = normpath("~/tmp/")  # tempfile.mkdtemp()
+        cls.outdir = normpath("~/tmp/autoseq-test")  # tempfile.mkdtemp()
 
         ref = load_ref(normpath("~/test-genome/autoseq-genome.json"))
         sampledata = {
@@ -38,14 +40,13 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
 
         libdir = normpath("~/libraries")
 
-        outdir = cls.tmpdir
         maxcores = 1
         runner = get_runner("shellrunner", maxcores)
 
         jobdb = os.path.join(cls.tmpdir, "liqbio.json")
-        p = LiqBioPipeline(sampledata, ref, outdir, libdir, analysis_id="test",
+        p = LiqBioPipeline(sampledata, ref, cls.outdir, libdir, analysis_id="test",
                            maxcores=maxcores, runner=runner, jobdb=jobdb)
-        print p.outdir
+
         p.start()
 
         while p.is_alive():
