@@ -42,4 +42,4 @@ install:
   - tar xvfz $HOME/test-libraries.tar.gz -C $HOME
 
 # command to run tests
-script: nosetests
+script: nosetests --nocapture
