@@ -2,9 +2,8 @@ import json
 import logging
 
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
-from pypedream.tools.unix import Cat
 
-from autoseq.tools.alignment import Bwa, SkewerSE, SkewerPE
+from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq, CNVkit, AlasccaCNAPlot
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics
@@ -87,14 +86,21 @@ class AlasccaPipeline(PypedreamPipeline):
             logging.info("No low-pass WGS data found.")
             return {'tbam': None, 'nbam': None}
 
-        tbam = self.align_library(self.sampledata['WGS_TUMOR_FQ1'], self.sampledata['WGS_TUMOR_FQ2'],
-                                  self.sampledata['WGS_TUMOR_LIB'], self.refdata['bwaIndex'], self.outdir + "/bams/wgs",
-                                  maxcores=self.maxcores)
+	tbam = align_library(self,
+			     self.sampledata['WGS_TUMOR_FQ1'],
+			     self.sampledata['WGS_TUMOR_FQ2'],
+			     self.sampledata['WGS_TUMOR_LIB'],
+			     self.refdata['bwaIndex'],
+			     self.outdir + "/bams/wgs",
+			     maxcores=self.maxcores)
         if self.sampledata['WGS_NORMAL_FQ1']:
-            nbam = self.align_library(self.sampledata['WGS_NORMAL_FQ1'], self.sampledata['WGS_NORMAL_FQ2'],
-                                      self.sampledata['WGS_NORMAL_LIB'], self.refdata['bwaIndex'],
-                                      self.outdir + "/bams/wgs",
-                                      maxcores=self.maxcores)
+	    nbam = align_library(self,
+				 self.sampledata['WGS_NORMAL_FQ1'],
+				 self.sampledata['WGS_NORMAL_FQ2'],
+				 self.sampledata['WGS_NORMAL_LIB'],
+				 self.refdata['bwaIndex'],
+				 self.outdir + "/bams/wgs",
+				 maxcores=self.maxcores)
         else:
             nbam = None
 
@@ -113,19 +119,21 @@ class AlasccaPipeline(PypedreamPipeline):
             logging.info("No panel data found.")
             return {}
 
-        tbam = self.align_library(fq1_files=self.sampledata['PANEL_TUMOR_FQ1'],
-                                  fq2_files=self.sampledata['PANEL_TUMOR_FQ2'],
-                                  lib=self.sampledata['PANEL_TUMOR_LIB'],
-                                  ref=self.refdata['bwaIndex'],
-                                  outdir=self.outdir + "/bams/panel",
-                                  maxcores=self.maxcores)
+	tbam = align_library(self,
+			     fq1_files=self.sampledata['PANEL_TUMOR_FQ1'],
+			     fq2_files=self.sampledata['PANEL_TUMOR_FQ2'],
+			     lib=self.sampledata['PANEL_TUMOR_LIB'],
+			     ref=self.refdata['bwaIndex'],
+			     outdir=self.outdir + "/bams/panel",
+			     maxcores=self.maxcores)
 
-        nbam = self.align_library(fq1_files=self.sampledata['PANEL_NORMAL_FQ1'],
-                                  fq2_files=self.sampledata['PANEL_NORMAL_FQ2'],
-                                  lib=self.sampledata['PANEL_NORMAL_LIB'],
-                                  ref=self.refdata['bwaIndex'],
-                                  outdir=self.outdir + "/bams/panel",
-                                  maxcores=self.maxcores)
+	nbam = align_library(self,
+			     fq1_files=self.sampledata['PANEL_NORMAL_FQ1'],
+			     fq2_files=self.sampledata['PANEL_NORMAL_FQ2'],
+			     lib=self.sampledata['PANEL_NORMAL_LIB'],
+			     ref=self.refdata['bwaIndex'],
+			     outdir=self.outdir + "/bams/panel",
+			     maxcores=self.maxcores)
 
         somatic_vcfs = self.call_somatic_variants(tbam, nbam)
         germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
@@ -408,122 +416,6 @@ class AlasccaPipeline(PypedreamPipeline):
                 qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
         return qc_files
-
-    def align_library(self, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
-        """
-        Align fastq files for a PE library
-        :param fq1_files:
-        :param fq2_files:
-        :param lib:
-        :param ref:
-        :param outdir:
-        :param maxcores:
-        :return:
-        """
-        if not fq2_files:
-            logging.debug("lib {} is SE".format(lib))
-            return self.align_se(fq1_files, lib, ref, outdir, maxcores)
-        else:
-            logging.debug("lib {} is PE".format(lib))
-            return self.align_pe(fq1_files, fq2_files, lib, ref, outdir, maxcores)
-
-    def align_se(self, fq1_files, lib, ref, outdir, maxcores):
-        logging.debug("Aligning files: {}".format(fq1_files))
-        fq1_abs = [normpath(x) for x in fq1_files]
-        fq1_trimmed = []
-        for fq1 in fq1_abs:
-            skewer = SkewerSE()
-            skewer.input = fq1
-            skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
-            skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
-            skewer.threads = maxcores
-            skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
-            skewer.scratch = self.scratch
-            skewer.is_intermediate = True
-            fq1_trimmed.append(skewer.output)
-            self.add(skewer)
-
-        cat1 = Cat()
-        cat1.input = fq1_trimmed
-        cat1.output = outdir + "/skewer/{}_1.fastq.gz".format(lib)
-        cat1.jobname = "cat-{}".format(lib)
-        cat1.is_intermediate = False
-        self.add(cat1)
-
-        bwa = Bwa()
-        bwa.input_fastq1 = cat1.output
-        bwa.input_reference_sequence = ref
-        bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
-        bwa.threads = maxcores
-        bwa.output = "{}/{}.bam".format(outdir, lib)
-        bwa.scratch = self.scratch
-        bwa.jobname = "bwa-{}".format(lib)
-        bwa.is_intermediate = False
-        self.add(bwa)
-
-        return bwa.output
-
-    def align_pe(self, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
-        fq1_abs = [normpath(x) for x in fq1_files]
-        fq2_abs = [normpath(x) for x in fq2_files]
-        logging.debug("Trimming {} and {}".format(fq1_abs, fq2_abs))
-        pairs = [(fq1_abs[k], fq2_abs[k]) for k in range(len(fq1_abs))]
-
-        fq1_trimmed = []
-        fq2_trimmed = []
-
-        for fq1, fq2 in pairs:
-            skewer = SkewerPE()
-            skewer.input1 = fq1
-            skewer.input2 = fq2
-            skewer.output1 = outdir + "/skewer/libs/{}".format(os.path.basename(fq1))
-            skewer.output2 = outdir + "/skewer/libs/{}".format(os.path.basename(fq2))
-            skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
-            skewer.threads = maxcores
-            skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
-            skewer.scratch = self.scratch
-            skewer.is_intermediate = True
-            fq1_trimmed.append(skewer.output1)
-            fq2_trimmed.append(skewer.output2)
-            self.add(skewer)
-
-        cat1 = Cat()
-        cat1.input = fq1_trimmed
-        cat1.output = outdir + "/skewer/{}-concatenated_1.fastq.gz".format(lib)
-        cat1.jobname = "cat1-{}".format(lib)
-        cat1.is_intermediate = True
-        self.add(cat1)
-
-        cat2 = Cat()
-        cat2.input = fq2_trimmed
-        cat2.jobname = "cat2-{}".format(lib)
-        cat2.output = outdir + "/skewer/{}-concatenated_2.fastq.gz".format(lib)
-        cat2.is_intermediate = True
-        self.add(cat2)
-
-        # cutadapt = Cutadapt()
-        # cutadapt.input1 = fq1_abs
-        # cutadapt.input2 = fq2_abs
-        # cutadapt.output1 = outdir + "/cutadapt/cutadapt_{lib}_1.fastq.gz".format(lib=lib)
-        # cutadapt.output2 = outdir + "/cutadapt/cutadapt_{lib}_2.fastq.gz".format(lib=lib)
-        # #cutadapt.threads = maxcores
-        # cutadapt.jobname = "cutadapt-{}".format(lib)
-        # cutadapt.is_intermediate = True
-        # self.add(cutadapt)
-
-        bwa = Bwa()
-        bwa.input_fastq1 = cat1.output
-        bwa.input_fastq2 = cat2.output
-        bwa.input_reference_sequence = ref
-        bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
-        bwa.threads = maxcores
-        bwa.output = "{}/{}.bam".format(outdir, lib)
-        bwa.jobname = "bwa-{}".format(lib)
-        bwa.scratch = self.scratch
-        bwa.is_intermediate = False
-        self.add(bwa)
-
-        return bwa.output
 
     def load_sampledata(self, json_file):
         with open(json_file, 'r') as f:
