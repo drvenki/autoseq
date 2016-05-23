@@ -173,7 +173,8 @@ class MergeBamFiles(Job):
         self.jobname = "mergebams"
 
     def command(self):
-        return "sambamba merge " + required(" ", self.output) + repeat(" ", self.input_bams)
+        return "sambamba merge " + required(" ", self.output) + repeat(" ", self.input_bams) + \
+               " && samtools index {}".format(self.output)
 
 
 def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
