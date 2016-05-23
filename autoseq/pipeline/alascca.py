@@ -10,7 +10,7 @@ from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMe
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
-from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict
+from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
@@ -135,10 +135,18 @@ class AlasccaPipeline(PypedreamPipeline):
 			     outdir=self.outdir + "/bams/panel",
 			     maxcores=self.maxcores)
 
-        somatic_vcfs = self.call_somatic_variants(tbam, nbam)
-        germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
+	somatic_vcfs = call_somatic_variants(self, tbam, nbam,
+					     tlib=self.sampledata['PANEL_TUMOR_LIB'],
+					     nlib=self.sampledata['PANEL_NORMAL_LIB'],
+					     target_name=self.sampledata['TARGETS'],
+					     refdata=self.refdata,
+					     outdir=self.outdir,
+					     callers=['vardict'],
+					     vep=True)
 
-        hzconcordance = HeterzygoteConcordance()
+	germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
+
+	hzconcordance = HeterzygoteConcordance()
         hzconcordance.input_vcf = germline_vcf
         hzconcordance.input_bam = tbam
         hzconcordance.reference_sequence = self.refdata['reference_genome']
@@ -220,78 +228,6 @@ class AlasccaPipeline(PypedreamPipeline):
         self.add(freebayes)
         return freebayes.output
 
-    def call_somatic_variants(self, tbam, nbam):
-        """
-        Call somatic variants with freebayes and vardict.
-        :param tbam: tumor bam
-        :param nbam: normal bam
-        :return:
-        """
-        mutect2 = Mutect2()
-        mutect2.input_tumor = tbam
-        mutect2.input_normal = nbam
-        mutect2.reference_sequence = self.refdata['reference_genome']
-        mutect2.target_regions = self.refdata['targets'][self.sampledata['TARGETS']]['targets-interval_list-slopped20']
-        mutect2.scratch = self.scratch
-        mutect2.jobname = "mutect2-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        mutect2.output = "{}/variants/{}-{}.mutect.vcf.gz".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
-                                                                  self.sampledata['PANEL_NORMAL_LIB'])
-
-        freebayes = Freebayes()
-        freebayes.input_bams = [tbam, nbam]
-        freebayes.tumorid = self.sampledata['PANEL_TUMOR_LIB']
-        freebayes.normalid = self.sampledata['PANEL_NORMAL_LIB']
-        freebayes.somatic_only = True
-        freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
-        freebayes.threads = self.maxcores
-        freebayes.scratch = self.scratch
-        freebayes.jobname = "freebayes-somatic-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(self.outdir,
-                                                                               self.sampledata['PANEL_TUMOR_LIB'],
-                                                                               self.sampledata['PANEL_NORMAL_LIB'])
-        self.add(freebayes)
-
-        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=self.sampledata['PANEL_TUMOR_LIB'],
-                          normalid=self.sampledata['PANEL_NORMAL_LIB'],
-                          reference_sequence=self.refdata['reference_genome'],
-                          reference_dict=self.refdata['reference_dict'],
-                          target_bed=self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20'],
-                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(self.outdir,
-                                                                                   self.sampledata['PANEL_TUMOR_LIB'],
-                                                                                   self.sampledata['PANEL_NORMAL_LIB']
-                                                                                   )
-                          )
-        vardict.jobname = "vardict-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        self.add(vardict)
-
-        vep_vardict = VEP()
-        vep_vardict.input_vcf = vardict.output
-        vep_vardict.threads = self.maxcores
-        vep_vardict.reference_sequence = self.refdata['reference_genome']
-        vep_vardict.vep_dir = self.refdata['vep_dir']
-        vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(self.outdir,
-                                                                                       self.sampledata[
-                                                                                           'PANEL_TUMOR_LIB'],
-                                                                                       self.sampledata[
-                                                                                           'PANEL_NORMAL_LIB'])
-        vep_vardict.jobname = "vep-vardict-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        self.add(vep_vardict)
-
-        vep_freebayes = VEP()
-        vep_freebayes.input_vcf = freebayes.output
-        vep_freebayes.threads = self.maxcores
-        vep_freebayes.reference_sequence = self.refdata['reference_genome']
-        vep_freebayes.vep_dir = self.refdata['vep_dir']
-        vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(self.outdir,
-                                                                                           self.sampledata[
-                                                                                               'PANEL_TUMOR_LIB'],
-                                                                                           self.sampledata[
-                                                                                               'PANEL_NORMAL_LIB'])
-        vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        self.add(vep_freebayes)
-
-        return {'freebayes': vep_freebayes.output_vcf, 'vardict': vep_vardict.output_vcf}
 
     def run_fastq_qc(self, fastq_files):
         """

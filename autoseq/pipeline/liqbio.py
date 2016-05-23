@@ -10,7 +10,7 @@ from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMe
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
-from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict
+from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
 from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath, stripsuffix
 
@@ -167,7 +167,6 @@ class LiqBioPipeline(PypedreamPipeline):
         tbam = None
         nbam = None
         pbams = []
-        somatic_vcfs = []
         germline_vcf = None
         tlib = self.sampledata['panel']['T']
         nlib = self.sampledata['panel']['N']
@@ -195,13 +194,20 @@ class LiqBioPipeline(PypedreamPipeline):
 				ref=self.refdata['bwaIndex'],
 				outdir=self.outdir + "/bams/panel",
 				maxcores=self.maxcores)
-            if nlib:
-                #  If we have a normal, call variants, verify identity and run msisensor
+	    if nlib:
+		#  If we have a normal, call variants, verify identity and run msisensor
+		targets = get_libdict(tlib)['capture_kit_name']
+		vep = False
+		if self.refdata['vep_dir']:
+		    vep = True
+		somatic_variants = call_somatic_variants(self, tbam=bam, nbam=nbam, tlib=lib, nlib=nlib,
+							 target_name=targets, refdata=self.refdata,
+							 outdir=self.outdir,
+							 callers=['vardict', 'freebayes', 'mutect2'],
+							 vep=vep)
 
-                somatic_vcfs.append(self.call_somatic_variants(bam, nbam))
-
-                targets = get_libdict(lib)['capture_kit_name']
-                hzconcordance = HeterzygoteConcordance()
+		targets = get_libdict(lib)['capture_kit_name']
+		hzconcordance = HeterzygoteConcordance()
                 hzconcordance.input_vcf = germline_vcf
                 hzconcordance.input_bam = bam
                 hzconcordance.reference_sequence = self.refdata['reference_genome']
@@ -234,7 +240,7 @@ class LiqBioPipeline(PypedreamPipeline):
                     self.add(msisensor)
 
         return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams,
-                'somatic_vcfs': somatic_vcfs}
+		'somatic_variants': somatic_variants}
 
     def call_germline_variants(self, bam, library):
         """
@@ -269,99 +275,6 @@ class LiqBioPipeline(PypedreamPipeline):
             return vep_freebayes.output_vcf
         else:
             return freebayes.output
-
-    def call_somatic_variants(self, tbam, nbam):
-        """
-        Call somatic variants with freebayes and vardict.
-        :param tbam: tumor bam
-        :param nbam: normal bam
-        :return:
-        """
-        tlib = stripsuffix(os.path.basename(tbam), ".bam")
-        nlib = stripsuffix(os.path.basename(nbam), ".bam")
-
-        targets = get_libdict(tlib)['capture_kit_name']
-
-        mutect2 = Mutect2()
-        mutect2.input_tumor = tbam
-        mutect2.input_normal = nbam
-        mutect2.reference_sequence = self.refdata['reference_genome']
-        mutect2.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
-        mutect2.scratch = self.scratch
-        mutect2.jobname = "mutect2-{}".format(tlib)
-        mutect2.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vcf.gz".format(outdir=self.outdir,
-                                                                                        tlib=tlib,
-                                                                                        nlib=nlib)
-        self.add(mutect2)
-
-        freebayes = Freebayes()
-        freebayes.input_bams = [tbam, nbam]
-        freebayes.tumorid = tlib
-        freebayes.normalid = nlib
-        freebayes.somatic_only = True
-        freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
-        freebayes.threads = self.maxcores
-        freebayes.scratch = self.scratch
-        freebayes.jobname = "freebayes-somatic-{}".format(tlib)
-        freebayes.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vcf.gz".format(outdir=self.outdir,
-                                                                                                    tlib=tlib,
-                                                                                                    nlib=nlib)
-
-        self.add(freebayes)
-
-        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tlib, normalid=nlib,
-                          reference_sequence=self.refdata['reference_genome'],
-                          reference_dict=self.refdata['reference_dict'],
-                          target_bed=self.refdata['targets'][targets]['targets-bed-slopped20'],
-                          output="{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vcf.gz".format(
-                              outdir=self.outdir,
-                              tlib=tlib,
-                              nlib=nlib)
-                          )
-        vardict.jobname = "vardict-{}".format(tlib)
-        self.add(vardict)
-
-        if self.refdata['vep_dir']:
-            vep_mutect2 = VEP()
-            vep_mutect2.input_vcf = vardict.output
-            vep_mutect2.threads = self.maxcores
-            vep_mutect2.reference_sequence = self.refdata['reference_genome']
-            vep_mutect2.vep_dir = self.refdata['vep_dir']
-            vep_mutect2.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vep.vcf.gz".format(
-                outdir=self.outdir,
-                tlib=tlib,
-                nlib=nlib)
-            vep_mutect2.jobname = "vep-mutect2-{}".format(tlib)
-            self.add(vep_mutect2)
-
-            vep_vardict = VEP()
-            vep_vardict.input_vcf = vardict.output
-            vep_vardict.threads = self.maxcores
-            vep_vardict.reference_sequence = self.refdata['reference_genome']
-            vep_vardict.vep_dir = self.refdata['vep_dir']
-            vep_vardict.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vep.vcf.gz".format(
-                outdir=self.outdir,
-                tlib=tlib,
-                nlib=nlib)
-            vep_vardict.jobname = "vep-vardict-{}".format(tlib)
-            self.add(vep_vardict)
-
-            vep_freebayes = VEP()
-            vep_freebayes.input_vcf = freebayes.output
-            vep_freebayes.threads = self.maxcores
-            vep_freebayes.reference_sequence = self.refdata['reference_genome']
-            vep_freebayes.vep_dir = self.refdata['vep_dir']
-            vep_freebayes.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vep.vcf.gz".format(
-                outdir=self.outdir,
-                tlib=tlib,
-                nlib=nlib)
-            vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(tlib)
-            self.add(vep_freebayes)
-
-            return [vep_freebayes.output_vcf, vep_vardict.output_vcf, vep_mutect2.output_vcf]
-        else:
-            return [freebayes.output, vardict.output, mutect2.output]
 
     def run_fastq_qc(self, fastq_files):
         """
