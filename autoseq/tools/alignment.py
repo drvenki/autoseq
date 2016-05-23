@@ -145,7 +145,8 @@ class Cutadapt(Job):
         self.jobname = "cutadapt"
 
     def command(self):
-        adapters = " -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT "
+        adapters = " -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC" + \
+                   " -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT "
         prefix = "{scratch}/cutadapt-{uuid}/cutadapt".format(scratch=self.scratch, uuid=uuid.uuid4())
         out_fq1 = prefix + "-pair1.fastq.gz"
         out_fq2 = prefix + "-pair2.fastq.gz"
@@ -164,9 +165,21 @@ class Cutadapt(Job):
         return " && ".join([mkdir_cmd, cat_fq1_cmd, cat_fq2_cmd, cutadapt_cmd, copy_fq1_cmd, copy_fq2_cmd, rm_cmd])
 
 
+class MergeBamFiles(Job):
+    def __init__(self, input_bams, output):
+        Job.__init__(self)
+        self.input_bams = input_bams
+        self.output = output
+        self.jobname = "mergebams"
+
+    def command(self):
+        return "sambamba merge " + required(" ", self.output) + repeat(" ", self.input_bams)
+
+
 def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
     """
     Align fastq files for a PE library
+    :param pipeline:
     :param fq1_files:
     :param fq2_files:
     :param lib:
