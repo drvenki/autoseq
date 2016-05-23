@@ -1,15 +1,17 @@
+import collections
 import json
 import logging
 
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
-from autoseq.tools.alignment import align_library
+from autoseq.tools.alignment import align_library, MergeBamFiles
 from autoseq.tools.cnvcalling import QDNASeq
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
+from autoseq.tools.unix import Copy
 from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
 from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath, stripsuffix
@@ -168,6 +170,7 @@ class LiqBioPipeline(PypedreamPipeline):
         nbam = None
         pbams = []
         germline_vcf = None
+        somatic_variants = {}
         tlib = self.sampledata['panel']['T']
         nlib = self.sampledata['panel']['N']
         plibs = self.sampledata['panel']['P']
@@ -186,7 +189,10 @@ class LiqBioPipeline(PypedreamPipeline):
 
         # process tumor and plasma samples
         libs = [x for x in plibs + [tlib] if x is not None]
+        sample_bams = collections.defaultdict(list)
         for lib in libs:
+            libdict = get_libdict(lib)
+            sample = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
             bam = align_library(self,
                                 fq1_files=self.find_fastqs(lib)[0],
                                 fq2_files=self.find_fastqs(lib)[1],
@@ -194,19 +200,11 @@ class LiqBioPipeline(PypedreamPipeline):
                                 ref=self.refdata['bwaIndex'],
                                 outdir=self.outdir + "/bams/panel",
                                 maxcores=self.maxcores)
+            sample_bams[sample].append(bam)
+
             if nlib:
                 #  If we have a normal, call variants, verify identity and run msisensor
-                targets = get_libdict(tlib)['capture_kit_name']
-                vep = False
-                if self.refdata['vep_dir']:
-                    vep = True
-                somatic_variants = call_somatic_variants(self, tbam=bam, nbam=nbam, tlib=lib, nlib=nlib,
-                                                         target_name=targets, refdata=self.refdata,
-                                                         outdir=self.outdir,
-                                                         callers=['vardict', 'freebayes', 'mutect2'],
-                                                         vep=vep)
-
-                targets = get_libdict(lib)['capture_kit_name']
+                targets = libdict['capture_kit_name']
                 hzconcordance = HeterzygoteConcordance()
                 hzconcordance.input_vcf = germline_vcf
                 hzconcordance.input_bam = bam
@@ -218,24 +216,48 @@ class LiqBioPipeline(PypedreamPipeline):
                 hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, lib, nlib)
                 self.add(hzconcordance)
 
+        for sample, bams in sample_bams.items():
+            merged_bam_file = "{}/bams/{}-merged.bam".format(self.outdir, sample)
+            if len(bams) == 1:
+                copy_bam = Copy(input_file=bams[0], output_file=merged_bam_file)
+                copy_bam.jobname = "copybam-{}".format(sample)
+                self.add(copy_bam)
+
+            else:
+                merge_bams = MergeBamFiles(input_bams=bams,
+                                           output=merged_bam_file)
+                merge_bams.jobname = "mergebams-{}".format(sample)
+                self.add(merge_bams)
+
+            vep = False
+            if self.refdata['vep_dir']:
+                vep = True
+
+            if nlib:
+                somatic_variants = call_somatic_variants(self, tbam=merged_bam_file, nbam=nbam, tlib=sample,
+                                                         nlib=nlib, target_name=targets, refdata=self.refdata,
+                                                         outdir=self.outdir,
+                                                         callers=['vardict', 'mutect2'],
+                                                         vep=vep)
+
                 vcfaddsample = VcfAddSample()
-                vcfaddsample.input_bam = bam
+                vcfaddsample.input_bam = merged_bam_file
                 vcfaddsample.input_vcf = germline_vcf
                 vcfaddsample.samplename = lib
                 vcfaddsample.filter_hom = True
                 vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
-                                                                                     lib,
+                                                                                     sample,
                                                                                      nlib)
-                vcfaddsample.jobname = "vcf-add-sample-{}".format(lib)
+                vcfaddsample.jobname = "vcf-add-sample-{}".format(sample)
                 self.add(vcfaddsample)
 
                 msisensor = MsiSensor()
                 msisensor.msi_sites = self.refdata['targets'][targets]['msisites']
                 msisensor.input_normal_bam = nbam
-                msisensor.input_tumor_bam = bam
+                msisensor.input_tumor_bam = merged_bam_file
                 msisensor.output = "{}/msisensor.tsv".format(self.outdir)
                 msisensor.threads = self.maxcores
-                msisensor.jobname = "msisensor-{}".format(lib)
+                msisensor.jobname = "msisensor-{}".format(sample)
                 if not debug:
                     self.add(msisensor)
 

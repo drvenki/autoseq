@@ -29,7 +29,7 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
             "panel": {
                 "T": "NA12877-T-03098849-TD1-TT1",
                 "N": "NA12877-N-03098121-TD1-TT1",
-                "P": ["NA12877-P-03098850-TD1-TT1"]
+                "P": ["NA12877-P-03098850-TD1-TT1", "NA12877-P-03098850-TD2-TT1"]
             },
             "wgs": {
                 "T": "NA12877-T-03098849-TD1-WGS",
@@ -49,12 +49,16 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
 
         p.start()
 
-        while p.is_alive():
-            time.sleep(1)
+        try:
+            while p.is_alive():
+                time.sleep(1)
+        except Exception, e:
+            print e.message
+            sys.exit(1)
 
     def test_vardict_somatic(self):
-        vcf = os.path.join(self.outdir, "variants", "NA12877-T-03098849-TD1-TT1",
-                           "NA12877-T-03098849-TD1-TT1-NA12877-N-03098121-TD1-TT1.vardict-somatic.vcf.gz")
+        vcf = os.path.join(self.outdir, "variants",
+                           "NA12877-T-03098849-NA12877-N-03098121-TD1-TT1.vardict-somatic.vcf.gz")
 
         # TP53 insertion: MU2185182, chr17:g.7578475->G
         # TP53 deletion: MU25947, chr17:g.7577558G>-
