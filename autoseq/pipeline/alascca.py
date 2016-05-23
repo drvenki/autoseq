@@ -86,21 +86,21 @@ class AlasccaPipeline(PypedreamPipeline):
             logging.info("No low-pass WGS data found.")
             return {'tbam': None, 'nbam': None}
 
-	tbam = align_library(self,
-			     self.sampledata['WGS_TUMOR_FQ1'],
-			     self.sampledata['WGS_TUMOR_FQ2'],
-			     self.sampledata['WGS_TUMOR_LIB'],
-			     self.refdata['bwaIndex'],
-			     self.outdir + "/bams/wgs",
-			     maxcores=self.maxcores)
+        tbam = align_library(self,
+                             self.sampledata['WGS_TUMOR_FQ1'],
+                             self.sampledata['WGS_TUMOR_FQ2'],
+                             self.sampledata['WGS_TUMOR_LIB'],
+                             self.refdata['bwaIndex'],
+                             self.outdir + "/bams/wgs",
+                             maxcores=self.maxcores)
         if self.sampledata['WGS_NORMAL_FQ1']:
-	    nbam = align_library(self,
-				 self.sampledata['WGS_NORMAL_FQ1'],
-				 self.sampledata['WGS_NORMAL_FQ2'],
-				 self.sampledata['WGS_NORMAL_LIB'],
-				 self.refdata['bwaIndex'],
-				 self.outdir + "/bams/wgs",
-				 maxcores=self.maxcores)
+            nbam = align_library(self,
+                                 self.sampledata['WGS_NORMAL_FQ1'],
+                                 self.sampledata['WGS_NORMAL_FQ2'],
+                                 self.sampledata['WGS_NORMAL_LIB'],
+                                 self.refdata['bwaIndex'],
+                                 self.outdir + "/bams/wgs",
+                                 maxcores=self.maxcores)
         else:
             nbam = None
 
@@ -119,34 +119,34 @@ class AlasccaPipeline(PypedreamPipeline):
             logging.info("No panel data found.")
             return {}
 
-	tbam = align_library(self,
-			     fq1_files=self.sampledata['PANEL_TUMOR_FQ1'],
-			     fq2_files=self.sampledata['PANEL_TUMOR_FQ2'],
-			     lib=self.sampledata['PANEL_TUMOR_LIB'],
-			     ref=self.refdata['bwaIndex'],
-			     outdir=self.outdir + "/bams/panel",
-			     maxcores=self.maxcores)
+        tbam = align_library(self,
+                             fq1_files=self.sampledata['PANEL_TUMOR_FQ1'],
+                             fq2_files=self.sampledata['PANEL_TUMOR_FQ2'],
+                             lib=self.sampledata['PANEL_TUMOR_LIB'],
+                             ref=self.refdata['bwaIndex'],
+                             outdir=self.outdir + "/bams/panel",
+                             maxcores=self.maxcores)
 
-	nbam = align_library(self,
-			     fq1_files=self.sampledata['PANEL_NORMAL_FQ1'],
-			     fq2_files=self.sampledata['PANEL_NORMAL_FQ2'],
-			     lib=self.sampledata['PANEL_NORMAL_LIB'],
-			     ref=self.refdata['bwaIndex'],
-			     outdir=self.outdir + "/bams/panel",
-			     maxcores=self.maxcores)
+        nbam = align_library(self,
+                             fq1_files=self.sampledata['PANEL_NORMAL_FQ1'],
+                             fq2_files=self.sampledata['PANEL_NORMAL_FQ2'],
+                             lib=self.sampledata['PANEL_NORMAL_LIB'],
+                             ref=self.refdata['bwaIndex'],
+                             outdir=self.outdir + "/bams/panel",
+                             maxcores=self.maxcores)
 
-	somatic_vcfs = call_somatic_variants(self, tbam, nbam,
-					     tlib=self.sampledata['PANEL_TUMOR_LIB'],
-					     nlib=self.sampledata['PANEL_NORMAL_LIB'],
-					     target_name=self.sampledata['TARGETS'],
-					     refdata=self.refdata,
-					     outdir=self.outdir,
-					     callers=['vardict'],
-					     vep=True)
+        somatic_vcfs = call_somatic_variants(self, tbam, nbam,
+                                             tlib=self.sampledata['PANEL_TUMOR_LIB'],
+                                             nlib=self.sampledata['PANEL_NORMAL_LIB'],
+                                             target_name=self.sampledata['TARGETS'],
+                                             refdata=self.refdata,
+                                             outdir=self.outdir,
+                                             callers=['vardict'],
+                                             vep=True)
 
-	germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
+        germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
 
-	hzconcordance = HeterzygoteConcordance()
+        hzconcordance = HeterzygoteConcordance()
         hzconcordance.input_vcf = germline_vcf
         hzconcordance.input_bam = tbam
         hzconcordance.reference_sequence = self.refdata['reference_genome']
@@ -227,7 +227,6 @@ class AlasccaPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(library)
         self.add(freebayes)
         return freebayes.output
-
 
     def run_fastq_qc(self, fastq_files):
         """

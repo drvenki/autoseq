@@ -176,11 +176,11 @@ def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
     :return:
     """
     if not fq2_files:
-	logging.debug("lib {} is SE".format(lib))
-	return align_se(pipeline, fq1_files, lib, ref, outdir, maxcores)
+        logging.debug("lib {} is SE".format(lib))
+        return align_se(pipeline, fq1_files, lib, ref, outdir, maxcores)
     else:
-	logging.debug("lib {} is PE".format(lib))
-	return align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores)
+        logging.debug("lib {} is PE".format(lib))
+        return align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores)
 
 
 def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores):
@@ -188,16 +188,16 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores):
     fq1_abs = [normpath(x) for x in fq1_files]
     fq1_trimmed = []
     for fq1 in fq1_abs:
-	skewer = SkewerSE()
-	skewer.input = fq1
-	skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
-	skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
-	skewer.threads = maxcores
-	skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
-	skewer.scratch = pipeline.scratch
-	skewer.is_intermediate = True
-	fq1_trimmed.append(skewer.output)
-	pipeline.add(skewer)
+        skewer = SkewerSE()
+        skewer.input = fq1
+        skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
+        skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
+        skewer.threads = maxcores
+        skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+        skewer.scratch = pipeline.scratch
+        skewer.is_intermediate = True
+        fq1_trimmed.append(skewer.output)
+        pipeline.add(skewer)
 
     cat1 = Cat()
     cat1.input = fq1_trimmed
@@ -230,19 +230,19 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
     fq2_trimmed = []
 
     for fq1, fq2 in pairs:
-	skewer = SkewerPE()
-	skewer.input1 = fq1
-	skewer.input2 = fq2
-	skewer.output1 = outdir + "/skewer/libs/{}".format(os.path.basename(fq1))
-	skewer.output2 = outdir + "/skewer/libs/{}".format(os.path.basename(fq2))
-	skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
-	skewer.threads = maxcores
-	skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
-	skewer.scratch = pipeline.scratch
-	skewer.is_intermediate = True
-	fq1_trimmed.append(skewer.output1)
-	fq2_trimmed.append(skewer.output2)
-	pipeline.add(skewer)
+        skewer = SkewerPE()
+        skewer.input1 = fq1
+        skewer.input2 = fq2
+        skewer.output1 = outdir + "/skewer/libs/{}".format(os.path.basename(fq1))
+        skewer.output2 = outdir + "/skewer/libs/{}".format(os.path.basename(fq2))
+        skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
+        skewer.threads = maxcores
+        skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+        skewer.scratch = pipeline.scratch
+        skewer.is_intermediate = True
+        fq1_trimmed.append(skewer.output1)
+        fq2_trimmed.append(skewer.output2)
+        pipeline.add(skewer)
 
     cat1 = Cat()
     cat1.input = fq1_trimmed

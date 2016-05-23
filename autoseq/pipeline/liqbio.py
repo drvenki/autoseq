@@ -145,13 +145,13 @@ class LiqBioPipeline(PypedreamPipeline):
         return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams}
 
     def align_and_qdnaseq(self, lib):
-	bam = align_library(self,
-			    fq1_files=self.find_fastqs(lib)[0],
-			    fq2_files=self.find_fastqs(lib)[1],
-			    lib=lib,
-			    ref=self.refdata['bwaIndex'],
-			    outdir=self.outdir + "/bams/wgs",
-			    maxcores=self.maxcores)
+        bam = align_library(self,
+                            fq1_files=self.find_fastqs(lib)[0],
+                            fq2_files=self.find_fastqs(lib)[1],
+                            lib=lib,
+                            ref=self.refdata['bwaIndex'],
+                            outdir=self.outdir + "/bams/wgs",
+                            maxcores=self.maxcores)
 
         # qdnaseq = QDNASeq()
         # qdnaseq.input = bam
@@ -161,7 +161,7 @@ class LiqBioPipeline(PypedreamPipeline):
         # qdnaseq.background = self.refdata["qdnaseq_background"]
         # self.add(qdnaseq)
 
-	return {'bam': bam}  # , 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
+        return {'bam': bam}  # , 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
 
     def analyze_panel(self, debug=False):
         tbam = None
@@ -174,40 +174,40 @@ class LiqBioPipeline(PypedreamPipeline):
 
         # align germline normal
         if nlib:
-	    nbam = align_library(self,
-				 fq1_files=self.find_fastqs(nlib)[0],
-				 fq2_files=self.find_fastqs(nlib)[1],
-				 lib=nlib,
-				 ref=self.refdata['bwaIndex'],
-				 outdir=self.outdir + "/bams/panel",
-				 maxcores=self.maxcores)
+            nbam = align_library(self,
+                                 fq1_files=self.find_fastqs(nlib)[0],
+                                 fq2_files=self.find_fastqs(nlib)[1],
+                                 lib=nlib,
+                                 ref=self.refdata['bwaIndex'],
+                                 outdir=self.outdir + "/bams/panel",
+                                 maxcores=self.maxcores)
 
             germline_vcf = self.call_germline_variants(nbam, library=nlib)
 
         # process tumor and plasma samples
         libs = [x for x in plibs + [tlib] if x is not None]
         for lib in libs:
-	    bam = align_library(self,
-				fq1_files=self.find_fastqs(lib)[0],
-				fq2_files=self.find_fastqs(lib)[1],
-				lib=lib,
-				ref=self.refdata['bwaIndex'],
-				outdir=self.outdir + "/bams/panel",
-				maxcores=self.maxcores)
-	    if nlib:
-		#  If we have a normal, call variants, verify identity and run msisensor
-		targets = get_libdict(tlib)['capture_kit_name']
-		vep = False
-		if self.refdata['vep_dir']:
-		    vep = True
-		somatic_variants = call_somatic_variants(self, tbam=bam, nbam=nbam, tlib=lib, nlib=nlib,
-							 target_name=targets, refdata=self.refdata,
-							 outdir=self.outdir,
-							 callers=['vardict', 'freebayes', 'mutect2'],
-							 vep=vep)
+            bam = align_library(self,
+                                fq1_files=self.find_fastqs(lib)[0],
+                                fq2_files=self.find_fastqs(lib)[1],
+                                lib=lib,
+                                ref=self.refdata['bwaIndex'],
+                                outdir=self.outdir + "/bams/panel",
+                                maxcores=self.maxcores)
+            if nlib:
+                #  If we have a normal, call variants, verify identity and run msisensor
+                targets = get_libdict(tlib)['capture_kit_name']
+                vep = False
+                if self.refdata['vep_dir']:
+                    vep = True
+                somatic_variants = call_somatic_variants(self, tbam=bam, nbam=nbam, tlib=lib, nlib=nlib,
+                                                         target_name=targets, refdata=self.refdata,
+                                                         outdir=self.outdir,
+                                                         callers=['vardict', 'freebayes', 'mutect2'],
+                                                         vep=vep)
 
-		targets = get_libdict(lib)['capture_kit_name']
-		hzconcordance = HeterzygoteConcordance()
+                targets = get_libdict(lib)['capture_kit_name']
+                hzconcordance = HeterzygoteConcordance()
                 hzconcordance.input_vcf = germline_vcf
                 hzconcordance.input_bam = bam
                 hzconcordance.reference_sequence = self.refdata['reference_genome']
@@ -240,7 +240,7 @@ class LiqBioPipeline(PypedreamPipeline):
                     self.add(msisensor)
 
         return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams,
-		'somatic_variants': somatic_variants}
+                'somatic_variants': somatic_variants}
 
     def call_germline_variants(self, bam, library):
         """
