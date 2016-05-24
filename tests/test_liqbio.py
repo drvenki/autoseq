@@ -5,6 +5,8 @@ import unittest
 import sys
 
 import time
+
+from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
 from autoseq.cli.cli import load_ref, get_runner
@@ -12,7 +14,7 @@ from autoseq.pipeline.liqbio import LiqBioPipeline
 from autoseq.util.path import normpath
 
 
-class TestWorkflow(unittest.TestCase, VariantAssertions):
+class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
     returncode = None
     tmpdir = None
     outdir = None
@@ -56,6 +58,10 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
             print e.message
             sys.exit(1)
 
+        if p.exitcode != 0:
+            print "exitcode was {}".format(p.exitcode)
+            raise OSError
+
     def test_vardict_somatic(self):
         vcf = os.path.join(self.outdir, "variants",
                            "NA12877-T-03098849-NA12877-N-03098121-TD1-TT1.vardict-somatic.vcf.gz")
@@ -67,6 +73,9 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
         # PTEN hotspot R130Q, MU29098, chr10:g.89692905G>A
         # PTEN hotspot R233*, MU589331, chr10:g.89717672C>T
         # AR intron variant, MU50988553, chrX:g.66788924G>A
+
+        self.assertVcfHasSample(vcf, 'NA12877-N-03098121-TD1-TT1')  # N lib id is set
+        self.assertVcfHasSample(vcf, 'NA12877-T-03098849')  # T lib id is the merged library
 
         # deletion is called
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, 17, 7577557, 'AG', 'A')
@@ -84,4 +93,31 @@ class TestWorkflow(unittest.TestCase, VariantAssertions):
         # PIK3CA hotspot is called
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, 3, 178936091, 'G', 'A')
 
+    def test_qdnaseq(self):
+        qdnaseq_file_names = ["NA12877-T-03098849-TD1-WGS-qdnaseq.segments.txt",
+                              "NA12877-P-03098850-TD1-WGS-qdnaseq.segments.txt",
+                              "NA12877-N-03098121-TD1-WGS-qdnaseq.segments.txt"]
+        for qdnaseqf in qdnaseq_file_names:
+            absf = os.path.join(self.outdir, "cnv", qdnaseqf)
+
+            with open(absf) as segments:
+                ln = segments.readline().strip()
+                header = ln.split("\t")
+                correct_header = ["chromosome", "start", "end", "bases", "gc", "mappability", "blacklist",
+                                  "residual", "use", "readcount", "copynumber", "segmented"]
+                self.assertListEqual(header, correct_header)
+
+    def test_wgs_bam_coverage(self):
+        bam = os.path.join(self.outdir, "bams/wgs/",
+                           "NA12877-T-03098849-TD1-WGS.bam")
+        self.assertBamHasCoverageAt(bam, 1, '3', 3617655)  # 1x coverage in that position
+        self.assertBamHasCoverageAt(bam, 0, '3', 3618655)  # no coverage in that position
+
+    def test_germline_vcf(self):
+        vcf = os.path.join(self.outdir, "variants",
+                           "NA12877-N-03098121-TD1-TT1.freebayes-germline.vcf.gz")
+
+        self.assertVcfHasSample(vcf, 'NA12877-N-03098121-TD1-TT1')  # sample is the name of the normal lib id
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, '3', 178925677, 'G', 'A')  # SNP
+        self.assertVcfHasVariantWithChromPosRefAlt(vcf, '17', 7579643, 'CCCCCAGCCCTCCAGGT', 'C')  # deletion
 
