@@ -155,13 +155,11 @@ class LiqBioPipeline(PypedreamPipeline):
                             outdir=self.outdir + "/bams/wgs",
                             maxcores=self.maxcores)
 
-        # qdnaseq = QDNASeq()
-        # qdnaseq.input = bam
-        # qdnaseq.output_bed = "{}/cnv/{}-qdnaseq.bed".format(self.outdir, lib)
-        # qdnaseq.output_segments = "{}/cnv/{}-qdnaseq.segments.txt".format(self.outdir, lib)
-        # qdnaseq.genes_gtf = self.refdata['genesGtfGenesOnly']
-        # qdnaseq.background = self.refdata["qdnaseq_background"]
-        # self.add(qdnaseq)
+        qdnaseq = QDNASeq(bam,
+                          output_segments="{}/cnv/{}-qdnaseq.segments.txt".format(self.outdir, lib),
+                          background=None
+                          )
+        self.add(qdnaseq)
 
         return {'bam': bam}  # , 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
 
