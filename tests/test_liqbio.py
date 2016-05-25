@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -6,6 +7,7 @@ import sys
 
 import time
 
+import subprocess
 from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
@@ -22,45 +24,16 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
 
     @classmethod
     def setUpClass(cls):
-        cls.tmpdir = normpath("~/tmp/")  # tempfile.mkdtemp()
-        cls.outdir = normpath("~/tmp/autoseq-test")  # tempfile.mkdtemp()
+        cls.outdir = normpath("~/tmp/liqbio-test")
+        cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
+        subprocess.check_call("autoseq --ref ~/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
+                              " --scratch ~/tmp/ --jobdb {} --cores 2 liqbio ".format(cls.jobdb) +
+                              " --libdir ~/libraries/ tests/liqbio-test-sample.json", shell=True)
 
-        ref = load_ref(normpath("~/test-genome/autoseq-genome.json"))
-        sampledata = {
-            "sdid": "NA12877",
-            "panel": {
-                "T": "NA12877-T-03098849-TD1-TT1",
-                "N": "NA12877-N-03098121-TD1-TT1",
-                "P": ["NA12877-P-03098850-TD1-TT1", "NA12877-P-03098850-TD2-TT1"]
-            },
-            "wgs": {
-                "T": "NA12877-T-03098849-TD1-WGS",
-                "N": "NA12877-N-03098121-TD1-WGS",
-                "P": ["NA12877-P-03098850-TD1-WGS"]
-            }
-        }
 
-        libdir = normpath("~/libraries")
-
-        maxcores = 1
-        runner = get_runner("shellrunner", maxcores)
-
-        jobdb = os.path.join(cls.outdir, "liqbio.json")
-        p = LiqBioPipeline(sampledata, ref, cls.outdir, libdir, analysis_id="test",
-                           maxcores=maxcores, runner=runner, jobdb=jobdb)
-
-        p.start()
-
-        try:
-            while p.is_alive():
-                time.sleep(1)
-        except Exception, e:
-            print e.message
-            sys.exit(1)
-
-        if p.exitcode != 0:
-            print "exitcode was {}".format(p.exitcode)
-            raise OSError
+    def test_jobdb(self):
+        jobdb = json.load(open(self.jobdb, 'r'))
+        self.assertEqual(set([job['status'] for job in jobdb['jobs']]), 'COMPLETED')
 
     def test_vardict_somatic(self):
         vcf = os.path.join(self.outdir, "variants",
@@ -93,6 +66,24 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
         # PIK3CA hotspot is called
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, 3, 178936091, 'G', 'A')
 
+    def test_panel_bam_readgroups(self):
+        bam = os.path.join(self.outdir, "bams", "NA12877-T-03098849-merged-nodups.bam")
+        self.assertBamHeaderElementEquals(bam, 'RG', [{'ID': 'NA12877-T-03098849-TD1-TT1',
+                                                       'SM': 'NA12877-T-03098849',
+                                                       'LB': 'NA12877-T-03098849-TD1',
+                                                       'PL': 'ILLUMINA'}])
+
+        bam = os.path.join(self.outdir, "bams", "NA12877-P-03098850-merged-nodups.bam")
+        self.assertBamHeaderElementEquals(bam, 'RG', [{'LB': 'NA12877-P-03098850-TD1',
+                                                       'ID': 'NA12877-P-03098850-TD1-TT1',
+                                                       'SM': 'NA12877-P-03098850',
+                                                       'PL': 'ILLUMINA'},
+                                                      {'LB': 'NA12877-P-03098850-TD2',
+                                                       'ID': 'NA12877-P-03098850-TD2-TT1',
+                                                       'SM': 'NA12877-P-03098850',
+                                                       'PL': 'ILLUMINA'}]
+                                          )
+
     def test_qdnaseq(self):
         qdnaseq_file_names = ["NA12877-T-03098849-TD1-WGS-qdnaseq.segments.txt",
                               "NA12877-P-03098850-TD1-WGS-qdnaseq.segments.txt",
@@ -117,7 +108,7 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
         vcf = os.path.join(self.outdir, "variants",
                            "NA12877-N-03098121-TD1-TT1.freebayes-germline.vcf.gz")
 
-        self.assertVcfHasSample(vcf, 'NA12877-N-03098121-TD1-TT1')  # sample is the name of the normal lib id
+        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')  # sample is the name of the normal lib id
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '3', 178925677, 'G', 'A')  # SNP
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '17', 7579643, 'CCCCCAGCCCTCCAGGT', 'C')  # deletion
 
