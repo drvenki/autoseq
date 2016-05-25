@@ -1,4 +1,4 @@
-from pypedream.job import Job, required, optional
+from pypedream.job import Job, required, optional, repeat, conditional
 
 
 class PicardCollectInsertSizeMetrics(Job):
@@ -116,4 +116,38 @@ class PicardBedToIntervalList(Job):
                required("INPUT=", self.input) + \
                required("SEQUENCE_DICTIONARY=", self.reference_dict) + \
                required("OUTPUT=", self.output)
+
+
+class PicardMergeSamFiles(Job):
+    def __init__(self, input_bams, output_bam, assume_sorted=True, merge_dicts=True):
+        Job.__init__(self)
+        self.input_bams = input_bams
+        self.output_bam = output_bam
+        self.assume_sorted = assume_sorted
+        self.merge_dicts = merge_dicts
+        self.jobname = "picard-mergesamfiles"
+
+    def command(self):
+        return "picard MergeSamFiles " + \
+               repeat("INPUT=", self.input_bams) + \
+               required("ASSUME_SORTED=", str(self.assume_sorted).lower() ) + \
+               required("MERGE_SEQUENCE_DICTIONARIES=", str(self.merge_dicts).lower()) + \
+               required("OUTPUT=", self.output_bam) + \
+               " && samtools index " + required("", self.output_bam)
+
+
+class PicardMarkDuplicates(Job):
+    def __init__(self, input_bam, output_bam, output_metrics):
+        Job.__init__(self)
+        self.input_bam = input_bam
+        self.output_bam = output_bam
+        self.output_metrics = output_metrics
+        self.jobname = "picard-markdups"
+
+    def command(self):
+        return "picard MarkDuplicates " + \
+               required("INPUT=", self.input_bam) + \
+               required("METRICS_FILE=", self.output_metrics) + \
+               required("OUTPUT=", self.output_bam) + \
+               " && samtools index " + required("", self.output_bam)
 
