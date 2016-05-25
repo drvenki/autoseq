@@ -1,6 +1,7 @@
 from pypedream.job import *
 from pypedream.tools.unix import Cat
 
+from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath
 
 __author__ = 'dankle'
@@ -23,6 +24,7 @@ class Bwa(Job):
         bwalog = self.output + ".bwa.log"
         samblasterlog = self.output + ".samblaster.log"
         tmpprefix = "{}/{}".format(self.scratch, uuid.uuid4())
+
         return "bwa mem -M -v 1 " + \
                required("-R ", self.readgroup) + \
                optional("-t ", self.threads) + \
@@ -165,21 +167,11 @@ class Cutadapt(Job):
         return " && ".join([mkdir_cmd, cat_fq1_cmd, cat_fq2_cmd, cutadapt_cmd, copy_fq1_cmd, copy_fq2_cmd, rm_cmd])
 
 
-class MergeBamFiles(Job):
-    def __init__(self, input_bams, output):
-        Job.__init__(self)
-        self.input_bams = input_bams
-        self.output = output
-        self.jobname = "mergebams"
-
-    def command(self):
-        return "sambamba merge " + required(" ", self.output) + repeat(" ", self.input_bams) + \
-               " && samtools index {}".format(self.output)
-
-
-def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
+def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1,
+                  remove_duplicates=True):
     """
     Align fastq files for a PE library
+    :param remove_duplicates:
     :param pipeline:
     :param fq1_files:
     :param fq2_files:
@@ -191,13 +183,24 @@ def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
     """
     if not fq2_files:
         logging.debug("lib {} is SE".format(lib))
-        return align_se(pipeline, fq1_files, lib, ref, outdir, maxcores)
+        return align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates)
     else:
         logging.debug("lib {} is PE".format(lib))
-        return align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores)
+        return align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores, remove_duplicates)
 
 
-def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores):
+def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=True):
+    """
+    Align single end data
+    :param pipeline:
+    :param fq1_files:
+    :param lib:
+    :param ref:
+    :param outdir:
+    :param maxcores:
+    :param remove_duplicates:
+    :return:
+    """
     logging.debug("Aligning files: {}".format(fq1_files))
     fq1_abs = [normpath(x) for x in fq1_files]
     fq1_trimmed = []
@@ -223,7 +226,13 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores):
     bwa = Bwa()
     bwa.input_fastq1 = cat1.output
     bwa.input_reference_sequence = ref
-    bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
+    bwa.remove_duplicates = remove_duplicates
+    libdict = get_libdict(lib)
+    rg_lb = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'], libdict['prep_id'])
+    rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+    rg_id = lib
+    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
+                                                                                          rg_lb=rg_lb)
     bwa.threads = maxcores
     bwa.output = "{}/{}.bam".format(outdir, lib)
     bwa.scratch = pipeline.scratch
@@ -234,7 +243,19 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores):
     return bwa.output
 
 
-def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
+def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remove_duplicates=True):
+    """
+    align paired end data
+    :param pipeline:
+    :param fq1_files:
+    :param fq2_files:
+    :param lib:
+    :param ref:
+    :param outdir:
+    :param maxcores:
+    :param remove_duplicates:
+    :return:
+    """
     fq1_abs = [normpath(x) for x in fq1_files]
     fq2_abs = [normpath(x) for x in fq2_files]
     logging.debug("Trimming {} and {}".format(fq1_abs, fq2_abs))
@@ -276,7 +297,13 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
     bwa.input_fastq1 = cat1.output
     bwa.input_fastq2 = cat2.output
     bwa.input_reference_sequence = ref
-    bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
+    bwa.remove_duplicates = remove_duplicates
+    libdict = get_libdict(lib)
+    rg_lb = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'], libdict['prep_id'])
+    rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+    rg_id = lib
+    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
+                                                                                          rg_lb=rg_lb)
     bwa.threads = maxcores
     bwa.output = "{}/{}.bam".format(outdir, lib)
     bwa.jobname = "bwa-{}".format(lib)
