@@ -33,7 +33,8 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
 
     def test_jobdb(self):
         jobdb = json.load(open(self.jobdb, 'r'))
-        self.assertEqual(set([job['status'] for job in jobdb['jobs']]), 'COMPLETED')
+        self.assertEqual(set([job['status'] for job in jobdb['jobs']]),
+                         set(['COMPLETED']))
 
     def test_vardict_somatic(self):
         vcf = os.path.join(self.outdir, "variants",
