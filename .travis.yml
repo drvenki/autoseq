@@ -6,7 +6,6 @@ python:
 cache:
   directories:
   - $HOME/miniconda2
-  - $HOME/genome-zipped
 
 before_install:
   # Temporal fix for networking problem: https://github.com/travis-ci/travis-ci/issues/1484
