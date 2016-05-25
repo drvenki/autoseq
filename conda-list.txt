@@ -32,6 +32,7 @@ jsonschema
 click 
 matplotlib
 openpyxl
+parallel
 
 r=3.2.2
 r-devtools 
