@@ -23,7 +23,7 @@ __author__ = 'dankle'
 @click.option('--loglevel', default='INFO', help='level of logging')
 @click.option('--jobdb', default=None, help="sqlite3 database to write job info and stats")
 @click.option('--dot_file', default=None, help="write graph to dot file with this name")
-@click.option('--cores', default=1, help="write graph to dot file with this name")
+@click.option('--cores', default=1, help="max number of cores to allow jobs to use")
 @click.option('--debug', default=False, is_flag=True)
 @click.option('--scratch', default="/tmp", help="scratch dir to use")
 @click.pass_context
