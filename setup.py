@@ -15,7 +15,8 @@ setup(name='autoseq',
           'console_scripts': [
               'autoseq = autoseq.cli.cli:cli',
               'report2json = autoseq.report2json:main',
-              'generate-ref = autoseq.generate_ref:main'
+              'generate-ref = autoseq.generate_ref:main',
+              'jobs2gantt = autoseq.cli.jobs2gantt:cli'
           ]
       }
       )
