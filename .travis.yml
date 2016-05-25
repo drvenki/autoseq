@@ -30,6 +30,7 @@ install:
   - conda config --add channels bioconda
   - conda install --file conda-list.txt
   - pip install -r requirements.txt
+  - pip install .
 
   # ref
   - mkdir -p $HOME/genome-zipped/
