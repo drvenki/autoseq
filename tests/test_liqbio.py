@@ -79,8 +79,8 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
                                                        'ID': 'NA12877-P-03098850-TD1-TT1',
                                                        'SM': 'NA12877-P-03098850',
                                                        'PL': 'ILLUMINA'},
-                                                      {'LB': 'NA12877-P-03098850-TD2',
-                                                       'ID': 'NA12877-P-03098850-TD2-TT1',
+                                                      {'LB': 'NA12877-P-03098850-TD1',
+                                                       'ID': 'NA12877-P-03098850-TD1-TT2',
                                                        'SM': 'NA12877-P-03098850',
                                                        'PL': 'ILLUMINA'}]
                                           )
