@@ -104,12 +104,9 @@ class AlasccaPipeline(PypedreamPipeline):
         else:
             nbam = None
 
-        qdnaseq_t = QDNASeq()
-        qdnaseq_t.input = tbam
-        qdnaseq_t.output_bed = self.outdir + "/cnv/qdnaseq.bed"
-        qdnaseq_t.output_segments = self.outdir + "/cnv/qdnaseq.segments.txt"
-        qdnaseq_t.genes_gtf = self.refdata['genesGtfGenesOnly']
-        qdnaseq_t.background = self.refdata["qdnaseq_background"]
+        qdnaseq_t = QDNASeq(tbam,
+                            output_segments=os.path.join(self.outdir, "cnv", "qdnaseq.segments.txt"),
+                            background=None)
         self.add(qdnaseq_t)
 
         return {'tbam': tbam, 'nbam': nbam}
@@ -135,6 +132,10 @@ class AlasccaPipeline(PypedreamPipeline):
                              outdir=self.outdir + "/bams/panel",
                              maxcores=self.maxcores)
 
+        vep = False
+        if self.refdata['vep_dir']:
+            vep = True
+
         somatic_vcfs = call_somatic_variants(self, tbam, nbam,
                                              tlib=self.sampledata['PANEL_TUMOR_LIB'],
                                              nlib=self.sampledata['PANEL_NORMAL_LIB'],
@@ -142,7 +143,7 @@ class AlasccaPipeline(PypedreamPipeline):
                                              refdata=self.refdata,
                                              outdir=self.outdir,
                                              callers=['vardict'],
-                                             vep=True)
+                                             vep=vep)
 
         germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
 
@@ -339,7 +340,10 @@ class AlasccaPipeline(PypedreamPipeline):
             self.add(sambamba)
 
             alascca_coverage_hist = CoverageHistogram()
-            alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
+            if 'alascca_targets' in self.refdata['targets']:
+                alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
+            else:
+                alascca_coverage_hist.input_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
             alascca_coverage_hist.input_bam = bam
             alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
             alascca_coverage_hist.jobname = "alascca-coverage-hist-{}".format(basefn)
