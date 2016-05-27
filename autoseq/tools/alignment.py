@@ -1,4 +1,8 @@
 from pypedream.job import *
+from pypedream.tools.unix import Cat
+
+from autoseq.util.library import get_libdict
+from autoseq.util.path import normpath
 
 __author__ = 'dankle'
 
@@ -20,6 +24,7 @@ class Bwa(Job):
         bwalog = self.output + ".bwa.log"
         samblasterlog = self.output + ".samblaster.log"
         tmpprefix = "{}/{}".format(self.scratch, uuid.uuid4())
+
         return "bwa mem -M -v 1 " + \
                required("-R ", self.readgroup) + \
                optional("-t ", self.threads) + \
@@ -142,7 +147,8 @@ class Cutadapt(Job):
         self.jobname = "cutadapt"
 
     def command(self):
-        adapters = " -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT "
+        adapters = " -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC" + \
+                   " -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT "
         prefix = "{scratch}/cutadapt-{uuid}/cutadapt".format(scratch=self.scratch, uuid=uuid.uuid4())
         out_fq1 = prefix + "-pair1.fastq.gz"
         out_fq2 = prefix + "-pair2.fastq.gz"
@@ -159,3 +165,150 @@ class Cutadapt(Job):
         copy_fq2_cmd = "cp " + out_fq2 + " " + self.output2
         rm_cmd = "rm " + tmp_fq1 + " " + tmp_fq2
         return " && ".join([mkdir_cmd, cat_fq1_cmd, cat_fq2_cmd, cutadapt_cmd, copy_fq1_cmd, copy_fq2_cmd, rm_cmd])
+
+
+def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1,
+                  remove_duplicates=True):
+    """
+    Align fastq files for a PE library
+    :param remove_duplicates:
+    :param pipeline:
+    :param fq1_files:
+    :param fq2_files:
+    :param lib:
+    :param ref:
+    :param outdir:
+    :param maxcores:
+    :return:
+    """
+    if not fq2_files:
+        logging.debug("lib {} is SE".format(lib))
+        return align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates)
+    else:
+        logging.debug("lib {} is PE".format(lib))
+        return align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores, remove_duplicates)
+
+
+def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=True):
+    """
+    Align single end data
+    :param pipeline:
+    :param fq1_files:
+    :param lib:
+    :param ref:
+    :param outdir:
+    :param maxcores:
+    :param remove_duplicates:
+    :return:
+    """
+    logging.debug("Aligning files: {}".format(fq1_files))
+    fq1_abs = [normpath(x) for x in fq1_files]
+    fq1_trimmed = []
+    for fq1 in fq1_abs:
+        skewer = SkewerSE()
+        skewer.input = fq1
+        skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
+        skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
+        skewer.threads = maxcores
+        skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+        skewer.scratch = pipeline.scratch
+        skewer.is_intermediate = True
+        fq1_trimmed.append(skewer.output)
+        pipeline.add(skewer)
+
+    cat1 = Cat()
+    cat1.input = fq1_trimmed
+    cat1.output = outdir + "/skewer/{}_1.fastq.gz".format(lib)
+    cat1.jobname = "cat-{}".format(lib)
+    cat1.is_intermediate = False
+    pipeline.add(cat1)
+
+    bwa = Bwa()
+    bwa.input_fastq1 = cat1.output
+    bwa.input_reference_sequence = ref
+    bwa.remove_duplicates = remove_duplicates
+    libdict = get_libdict(lib)
+    rg_lb = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'], libdict['prep_id'])
+    rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+    rg_id = lib
+    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
+                                                                                          rg_lb=rg_lb)
+    bwa.threads = maxcores
+    bwa.output = "{}/{}.bam".format(outdir, lib)
+    bwa.scratch = pipeline.scratch
+    bwa.jobname = "bwa-{}".format(lib)
+    bwa.is_intermediate = False
+    pipeline.add(bwa)
+
+    return bwa.output
+
+
+def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remove_duplicates=True):
+    """
+    align paired end data
+    :param pipeline:
+    :param fq1_files:
+    :param fq2_files:
+    :param lib:
+    :param ref:
+    :param outdir:
+    :param maxcores:
+    :param remove_duplicates:
+    :return:
+    """
+    fq1_abs = [normpath(x) for x in fq1_files]
+    fq2_abs = [normpath(x) for x in fq2_files]
+    logging.debug("Trimming {} and {}".format(fq1_abs, fq2_abs))
+    pairs = [(fq1_abs[k], fq2_abs[k]) for k in range(len(fq1_abs))]
+
+    fq1_trimmed = []
+    fq2_trimmed = []
+
+    for fq1, fq2 in pairs:
+        skewer = SkewerPE()
+        skewer.input1 = fq1
+        skewer.input2 = fq2
+        skewer.output1 = outdir + "/skewer/libs/{}".format(os.path.basename(fq1))
+        skewer.output2 = outdir + "/skewer/libs/{}".format(os.path.basename(fq2))
+        skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
+        skewer.threads = maxcores
+        skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+        skewer.scratch = pipeline.scratch
+        skewer.is_intermediate = True
+        fq1_trimmed.append(skewer.output1)
+        fq2_trimmed.append(skewer.output2)
+        pipeline.add(skewer)
+
+    cat1 = Cat()
+    cat1.input = fq1_trimmed
+    cat1.output = outdir + "/skewer/{}-concatenated_1.fastq.gz".format(lib)
+    cat1.jobname = "cat1-{}".format(lib)
+    cat1.is_intermediate = True
+    pipeline.add(cat1)
+
+    cat2 = Cat()
+    cat2.input = fq2_trimmed
+    cat2.jobname = "cat2-{}".format(lib)
+    cat2.output = outdir + "/skewer/{}-concatenated_2.fastq.gz".format(lib)
+    cat2.is_intermediate = True
+    pipeline.add(cat2)
+
+    bwa = Bwa()
+    bwa.input_fastq1 = cat1.output
+    bwa.input_fastq2 = cat2.output
+    bwa.input_reference_sequence = ref
+    bwa.remove_duplicates = remove_duplicates
+    libdict = get_libdict(lib)
+    rg_lb = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'], libdict['prep_id'])
+    rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+    rg_id = lib
+    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
+                                                                                          rg_lb=rg_lb)
+    bwa.threads = maxcores
+    bwa.output = "{}/{}.bam".format(outdir, lib)
+    bwa.jobname = "bwa-{}".format(lib)
+    bwa.scratch = pipeline.scratch
+    bwa.is_intermediate = False
+    pipeline.add(bwa)
+
+    return bwa.output

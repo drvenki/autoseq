@@ -22,7 +22,8 @@ def get_capture_kit_name_from_id(capture_id):
                            "CC": "core_design",
                            "CD": "discovery_coho",
                            "CB": "big_design",
-                           "AL": "alascca_targets"
+                           "AL": "alascca_targets",
+                           "TT": "test-regions"
                            }
     if capture_id == 'WGS':
         return 'lowpass_wgs'

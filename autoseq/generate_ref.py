@@ -12,7 +12,7 @@ __author__ = 'dankle'
 
 @click.command()
 @click.option('--genome-resources', help='reference sequence', type=str)
-@click.option('--outdir', default='/tmp/pyautoseq-test', help='output directory', type=click.Path())
+@click.option('--outdir', default='/tmp/autoseq-test', help='output directory', type=click.Path())
 @click.option('--runner_name', default='shellrunner', help='Runner to use.')
 @click.option('--loglevel', default='INFO', help='level of logging')
 @click.option('--cores', default=1, help="write graph to dot file with this name")

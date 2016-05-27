@@ -62,7 +62,8 @@ class Freebayes(Job):
         regions_file = "{scratch}/{uuid}.regions".format(scratch=self.scratch, uuid=uuid.uuid4())
         bed_to_regions_cmd = "cat {} | bed_to_regions.py > {}".format(self.target_bed, regions_file)
 
-        call_somatic_cmd = " | {} -c 'from autoseq.util.bcbio import call_somatic; import sys; print call_somatic(sys.stdin.read())' ".format(sys.executable)
+        call_somatic_cmd = " | {} -c 'from autoseq.util.bcbio import call_somatic; import sys; print call_somatic(sys.stdin.read())' ".format(
+            sys.executable)
 
         freebayes_cmd = "freebayes-parallel {} {} ".format(regions_file, self.threads) + \
                         required("-f ", self.reference_sequence) + " --use-mapping-quality " + \
@@ -84,13 +85,14 @@ class Freebayes(Job):
 
 class VarDict(Job):
     def __init__(self, input_tumor=None, input_normal=None, tumorid=None, normalid=None, reference_sequence=None,
-                 target_bed=None, output=None, min_alt_frac=0.1):
+                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1):
         Job.__init__(self)
         self.input_tumor = input_tumor
         self.input_normal = input_normal
         self.tumorid = tumorid
         self.normalid = normalid
         self.reference_sequence = reference_sequence
+        self.reference_dict = reference_dict
         self.target_bed = target_bed
         self.output = output
         self.min_alt_frac = min_alt_frac
@@ -117,6 +119,7 @@ class VarDict(Job):
               " -N \"{}|{}\" ".format(self.tumorid, self.normalid) + \
               " | " + freq_filter + " | " + somatic_filter + " | " + fix_ambiguous_cl() + " | " + remove_dup_cl() + \
               " | vcfstreamsort -w 1000 | bcftools view --apply-filters .,PASS " + \
+              " | vcfsorter.pl {} /dev/stdin ".format(self.reference_dict) + \
               " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         return cmd
 
@@ -230,3 +233,84 @@ class InstallVep(Job):
                " && vep_convert_cache.pl " + required("--CACHEDIR ", self.output_dir) + \
                " --species homo_sapiens --version 83_GRCh37"
 
+
+def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata, outdir,
+                          callers=['vardict', 'freebayes'], vep=True):
+    """
+    Call somatic variants.
+    :param pipeline:
+    :param tbam:
+    :param nbam:
+    :param tlib:
+    :param nlib:
+    :param target_name:
+    :param refdata:
+    :param outdir:
+    :param callers: list of callers to use (conbination of mutect2, vardict, freebayes)
+    # :return: dict of generated files
+    :param vep: boolean whether to run vep on generated vcfs or not
+    :return:
+    """
+    d = {}
+    if 'mutect2' in callers:
+        mutect2 = Mutect2()
+        mutect2.input_tumor = tbam
+        mutect2.input_normal = nbam
+        mutect2.reference_sequence = refdata['reference_genome']
+        mutect2.target_regions = refdata['targets'][target_name]['targets-interval_list-slopped20']
+        mutect2.scratch = pipeline.scratch
+        mutect2.jobname = "mutect2-{}".format(tlib)
+        mutect2.output = "{}/variants/{}-{}.mutect.vcf.gz".format(outdir, tlib, nlib)
+        pipeline.add(mutect2)
+        d['mutect2'] = mutect2.output
+
+    if 'freebayes' in callers:
+        freebayes = Freebayes()
+        freebayes.input_bams = [tbam, nbam]
+        freebayes.tumorid = tlib
+        freebayes.normalid = nlib
+        freebayes.somatic_only = True
+        freebayes.reference_sequence = refdata['reference_genome']
+        freebayes.target_bed = refdata['targets'][target_name]['targets-bed-slopped20']
+        freebayes.threads = pipeline.maxcores
+        freebayes.scratch = pipeline.scratch
+        freebayes.jobname = "freebayes-somatic-{}".format(tlib)
+        freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(outdir, tlib, nlib)
+        pipeline.add(freebayes)
+        d['freebayes'] = freebayes.output
+
+        if vep:
+            vep_freebayes = VEP()
+            vep_freebayes.input_vcf = freebayes.output
+            vep_freebayes.threads = pipeline.maxcores
+            vep_freebayes.reference_sequence = refdata['reference_genome']
+            vep_freebayes.vep_dir = refdata['vep_dir']
+            vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
+            vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(tlib)
+            pipeline.add(vep_freebayes)
+            d['freebayes'] = vep_freebayes.output_vcf
+
+    if 'vardict' in callers:
+        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tlib,
+                          normalid=nlib,
+                          reference_sequence=refdata['reference_genome'],
+                          reference_dict=refdata['reference_dict'],
+                          target_bed=refdata['targets'][target_name]['targets-bed-slopped20'],
+                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, tlib, nlib)
+                          )
+        vardict.jobname = "vardict-{}".format(tlib)
+        pipeline.add(vardict)
+        d['vardict'] = vardict.output
+
+        if vep:
+            vep_vardict = VEP()
+            vep_vardict.input_vcf = vardict.output
+            vep_vardict.threads = pipeline.maxcores
+            vep_vardict.reference_sequence = refdata['reference_genome']
+            vep_vardict.vep_dir = refdata['vep_dir']
+            vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
+            vep_vardict.jobname = "vep-vardict-{}".format(tlib)
+            pipeline.add(vep_vardict)
+            d['vardict'] = vep_vardict.output_vcf
+
+    return d

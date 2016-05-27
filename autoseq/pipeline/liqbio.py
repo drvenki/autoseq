@@ -1,17 +1,19 @@
+import collections
 import json
 import logging
 
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
-from pypedream.tools.unix import Cat
 
-from autoseq.tools.alignment import Bwa, SkewerSE, SkewerPE
+from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
 from autoseq.tools.intervals import MsiSensor
-from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics
+from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics, \
+    PicardMergeSamFiles, PicardMarkDuplicates
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
-from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict
+from autoseq.tools.unix import Copy
+from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
 from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath, stripsuffix
 
@@ -38,34 +40,35 @@ class LiqBioPipeline(PypedreamPipeline):
 
         self.check_sampledata()
 
-        panel_files = self.analyze_panel(debug=debug)
+        panel_files = self.analyze_panel()
+
         wgs_bams = self.analyze_lowpass_wgs()
 
         ################################################
         # QC
-        qc_files = []
-
-        # per-bam qc
-        # panel
-        all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
-        all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
-        logging.debug("Bam files are {}".format(all_panel_bams))
-        qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
-        # wgs
-        all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
-
-        # per-fastq qc
-        fqs = self.get_all_fastqs()
-        logging.debug("fqs = {}".format(fqs))
-        qc_files += self.run_fastq_qc(fqs)
-
-        multiqc = MultiQC()
-        multiqc.input_files = qc_files
-        multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
-        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
-        self.add(multiqc)
+        # qc_files = []
+        #
+        # # per-bam qc
+        # # panel
+        # all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
+        # all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
+        # logging.debug("Bam files are {}".format(all_panel_bams))
+        # #qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
+        # # wgs
+        # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
+        # #qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
+        #
+        # # per-fastq qc
+        # fqs = self.get_all_fastqs()
+        # logging.debug("fqs = {}".format(fqs))
+        # qc_files += self.run_fastq_qc(fqs)
+        #
+        # multiqc = MultiQC()
+        # multiqc.input_files = qc_files
+        # multiqc.search_dir = self.outdir
+        # multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
+        # multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
+        # self.add(multiqc)
 
     def check_sampledata(self):
         def check_lib(lib):
@@ -82,7 +85,7 @@ class LiqBioPipeline(PypedreamPipeline):
 
         for datatype in ['panel', 'wgs']:
             self.sampledata[datatype]['T'] = check_lib(self.sampledata[datatype]['T'])
-            self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['T'])
+            self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['N'])
             plibs_with_data = []
             for plib in self.sampledata[datatype]['P']:
                 plib_checked = check_lib(plib)
@@ -145,104 +148,123 @@ class LiqBioPipeline(PypedreamPipeline):
         return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams}
 
     def align_and_qdnaseq(self, lib):
-        bam = self.align_library(fq1_files=self.find_fastqs(lib)[0],
-                                 fq2_files=self.find_fastqs(lib)[1],
-                                 lib=lib,
-                                 ref=self.refdata['bwaIndex'],
-                                 outdir=self.outdir + "/bams/wgs",
-                                 maxcores=self.maxcores)
+        bam = align_library(self,
+                            fq1_files=self.find_fastqs(lib)[0],
+                            fq2_files=self.find_fastqs(lib)[1],
+                            lib=lib,
+                            ref=self.refdata['bwaIndex'],
+                            outdir=self.outdir + "/bams/wgs",
+                            maxcores=self.maxcores)
 
-        qdnaseq = QDNASeq()
-        qdnaseq.input = bam
-        qdnaseq.output_bed = "{}/cnv/{}-qdnaseq.bed".format(self.outdir, lib)
-        qdnaseq.output_segments = "{}/cnv/{}-qdnaseq.segments.txt".format(self.outdir, lib)
-        qdnaseq.genes_gtf = self.refdata['genesGtfGenesOnly']
-        qdnaseq.background = self.refdata["qdnaseq_background"]
+        qdnaseq = QDNASeq(bam,
+                          output_segments="{}/cnv/{}-qdnaseq.segments.txt".format(self.outdir, lib),
+                          background=None
+                          )
         self.add(qdnaseq)
 
-        return {'bam': bam, 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
+        return {'bam': bam}  # , 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
 
-    def analyze_panel(self, debug=False):
+    def analyze_panel(self):
         tbam = None
         nbam = None
         pbams = []
-        somatic_vcfs = []
         germline_vcf = None
-
+        somatic_variants = {}
         tlib = self.sampledata['panel']['T']
         nlib = self.sampledata['panel']['N']
         plibs = self.sampledata['panel']['P']
 
+        # align germline normal
         if nlib:
-            nbam = self.align_library(fq1_files=self.find_fastqs(nlib)[0],
-                                      fq2_files=self.find_fastqs(nlib)[1],
-                                      lib=nlib,
-                                      ref=self.refdata['bwaIndex'],
-                                      outdir=self.outdir + "/bams/panel",
-                                      maxcores=self.maxcores)
+            nbam = align_library(self,
+                                 fq1_files=self.find_fastqs(nlib)[0],
+                                 fq2_files=self.find_fastqs(nlib)[1],
+                                 lib=nlib,
+                                 ref=self.refdata['bwaIndex'],
+                                 outdir=self.outdir + "/bams/panel",
+                                 maxcores=self.maxcores)
 
             germline_vcf = self.call_germline_variants(nbam, library=nlib)
 
-        if tlib:
-            tbam = self.align_library(fq1_files=self.find_fastqs(tlib)[0],
-                                      fq2_files=self.find_fastqs(tlib)[1],
-                                      lib=tlib,
-                                      ref=self.refdata['bwaIndex'],
-                                      outdir=self.outdir + "/bams/panel",
-                                      maxcores=self.maxcores)
+        # process tumor and plasma samples
+        libs = [x for x in plibs + [tlib] if x is not None]
+        sample_bams = collections.defaultdict(list)
+        sample_captures = collections.defaultdict(list)
+        for lib in libs:
+            libdict = get_libdict(lib)
+            sample = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+            bam = align_library(self,
+                                fq1_files=self.find_fastqs(lib)[0],
+                                fq2_files=self.find_fastqs(lib)[1],
+                                lib=lib,
+                                ref=self.refdata['bwaIndex'],
+                                outdir=self.outdir + "/bams/panel",
+                                maxcores=self.maxcores,
+                                remove_duplicates=False)
+            sample_bams[sample].append(bam)
+            sample_captures[sample].append(libdict['capture_kit_name'])
+
+        for sample, bams in sample_bams.items():
+            merge_bams = PicardMergeSamFiles(input_bams=bams,
+                                             output_bam="{}/bams/{}-merged.bam".format(self.outdir, sample))
+            merge_bams.is_intermediate = True
+            merge_bams.jobname = "picard-mergebams-{}".format(sample)
+            self.add(merge_bams)
+
+            markdups = PicardMarkDuplicates(merge_bams.output_bam,
+                                            output_bam="{}/bams/{}-merged-nodups.bam".format(self.outdir, sample),
+                                            output_metrics="{}/bams/{}-merged-nodups-metrics.txt".format(self.outdir, sample))
+            markdups.is_intermediate = False
+            self.add(markdups)
+
+            vep = False
+            if self.refdata['vep_dir']:
+                vep = True
 
             if nlib:
-                somatic_vcfs.append(self.call_somatic_variants(tbam, nbam))
+                if len(set(sample_captures[sample])) > 1:
+                    raise ValueError("Different capture kits used for libraries for sample {} ({})".format(sample, sample_captures[sample]))
+                targets = sample_captures[sample][0]
 
-        for plib in plibs:
-            pbam = self.align_library(fq1_files=self.find_fastqs(plib)[0],
-                                      fq2_files=self.find_fastqs(plib)[1],
-                                      lib=plib,
-                                      ref=self.refdata['bwaIndex'],
-                                      outdir=self.outdir + "/bams/panel",
-                                      maxcores=self.maxcores)
-            pbams.append(pbam)
+                somatic_variants = call_somatic_variants(self, tbam=markdups.output_bam, nbam=nbam, tlib=sample,
+                                                         nlib=nlib, target_name=targets, refdata=self.refdata,
+                                                         outdir=self.outdir,
+                                                         callers=['vardict', 'mutect2'],
+                                                         vep=vep)
 
-            if nlib:
-                somatic_vcfs.extend(self.call_somatic_variants(pbam, nbam))
+                vcfaddsample = VcfAddSample()
+                vcfaddsample.input_bam = markdups.output_bam
+                vcfaddsample.input_vcf = germline_vcf
+                vcfaddsample.samplename = lib
+                vcfaddsample.filter_hom = True
+                vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
+                                                                                     sample,
+                                                                                     nlib)
+                vcfaddsample.jobname = "vcf-add-sample-{}".format(sample)
+                self.add(vcfaddsample)
 
-        if tlib and nlib:
-            targets = get_libdict(tlib)['capture_kit_name']
+                msisensor = MsiSensor()
+                msisensor.msi_sites = self.refdata['targets'][targets]['msisites']
+                msisensor.input_normal_bam = nbam
+                msisensor.input_tumor_bam = markdups.output_bam
+                msisensor.output = "{}/msisensor.tsv".format(self.outdir)
+                msisensor.threads = self.maxcores
+                msisensor.jobname = "msisensor-{}".format(sample)
+                self.add(msisensor)
 
-            hzconcordance = HeterzygoteConcordance()
-            hzconcordance.input_vcf = germline_vcf
-            hzconcordance.input_bam = tbam
-            hzconcordance.reference_sequence = self.refdata['reference_genome']
-            hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
-            hzconcordance.normalid = nlib
-            hzconcordance.filter_reads_with_N_cigar = True
-            hzconcordance.jobname = "hzconcordance-{}".format(tlib)
-            hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, tlib, nlib)
-            self.add(hzconcordance)
-
-        # vcfaddsample = VcfAddSample()
-        # vcfaddsample.input_bam = tbam
-        # vcfaddsample.input_vcf = germline_vcf
-        # vcfaddsample.samplename = self.sampledata['PANEL_TUMOR_LIB']
-        # vcfaddsample.filter_hom = True
-        # vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
-        #                                                                      self.sampledata['PANEL_TUMOR_LIB'],
-        #                                                                      self.sampledata['PANEL_NORMAL_LIB'])
-        # vcfaddsample.jobname = "vcf-add-sample-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        # self.add(vcfaddsample)
-        #
-        # msisensor = MsiSensor()
-        # msisensor.msi_sites = self.refdata['targets'][self.sampledata['TARGETS']]['msisites']
-        # msisensor.input_normal_bam = nbam
-        # msisensor.input_tumor_bam = tbam
-        # msisensor.output = "{}/msisensor.tsv".format(self.outdir)
-        # msisensor.threads = self.maxcores
-        # msisensor.jobname = "msisensor-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        # if not debug:
-        #     self.add(msisensor)
+                hzconcordance = HeterzygoteConcordance()
+                hzconcordance.input_vcf = germline_vcf
+                hzconcordance.input_bam = markdups.output_bam
+                hzconcordance.reference_sequence = self.refdata['reference_genome']
+                hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
+                hzconcordance.normalid = nlib
+                hzconcordance.filter_reads_with_N_cigar = True
+                hzconcordance.jobname = "hzconcordance-{}".format(lib)
+                hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, lib, nlib)
+                self.add(hzconcordance)
 
         return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams,
-                'somatic_vcfs': somatic_vcfs}
+                'somatic_variants': somatic_variants}
 
     def call_germline_variants(self, bam, library):
         """
@@ -264,105 +286,19 @@ class LiqBioPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(library)
         self.add(freebayes)
 
-        vep_freebayes = VEP()
-        vep_freebayes.input_vcf = freebayes.output
-        vep_freebayes.threads = self.maxcores
-        vep_freebayes.reference_sequence = self.refdata['reference_genome']
-        vep_freebayes.vep_dir = self.refdata['vep_dir']
-        vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
-        vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
-        self.add(vep_freebayes)
+        if self.refdata['vep_dir']:
+            vep_freebayes = VEP()
+            vep_freebayes.input_vcf = freebayes.output
+            vep_freebayes.threads = self.maxcores
+            vep_freebayes.reference_sequence = self.refdata['reference_genome']
+            vep_freebayes.vep_dir = self.refdata['vep_dir']
+            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
+            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
+            self.add(vep_freebayes)
 
-        return vep_freebayes.output_vcf
-
-    def call_somatic_variants(self, tbam, nbam):
-        """
-        Call somatic variants with freebayes and vardict.
-        :param tbam: tumor bam
-        :param nbam: normal bam
-        :return:
-        """
-        tlib = stripsuffix(os.path.basename(tbam), ".bam")
-        nlib = stripsuffix(os.path.basename(nbam), ".bam")
-
-        targets = get_libdict(tlib)['capture_kit_name']
-
-        mutect2 = Mutect2()
-        mutect2.input_tumor = tbam
-        mutect2.input_normal = nbam
-        mutect2.reference_sequence = self.refdata['reference_genome']
-        mutect2.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
-        mutect2.scratch = self.scratch
-        mutect2.jobname = "mutect2-{}".format(tlib)
-        mutect2.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vcf.gz".format(outdir=self.outdir,
-                                                                                        tlib=tlib,
-                                                                                        nlib=nlib)
-        self.add(mutect2)
-
-        freebayes = Freebayes()
-        freebayes.input_bams = [tbam, nbam]
-        freebayes.tumorid = tlib
-        freebayes.normalid = nlib
-        freebayes.somatic_only = True
-        freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
-        freebayes.threads = self.maxcores
-        freebayes.scratch = self.scratch
-        freebayes.jobname = "freebayes-somatic-{}".format(tlib)
-        freebayes.output = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vcf.gz".format(outdir=self.outdir,
-                                                                                                    tlib=tlib,
-                                                                                                    nlib=nlib)
-
-        self.add(freebayes)
-
-        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tlib, normalid=nlib,
-                          reference_sequence=self.refdata['reference_genome'],
-                          target_bed=self.refdata['targets'][targets]['targets-bed-slopped20'],
-                          output="{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vcf.gz".format(
-                              outdir=self.outdir,
-                              tlib=tlib,
-                              nlib=nlib)
-                          )
-        vardict.jobname = "vardict-{}".format(tlib)
-        self.add(vardict)
-
-        vep_mutect2 = VEP()
-        vep_mutect2.input_vcf = vardict.output
-        vep_mutect2.threads = self.maxcores
-        vep_mutect2.reference_sequence = self.refdata['reference_genome']
-        vep_mutect2.vep_dir = self.refdata['vep_dir']
-        vep_mutect2.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.mutect2.vep.vcf.gz".format(
-            outdir=self.outdir,
-            tlib=tlib,
-            nlib=nlib)
-        vep_mutect2.jobname = "vep-mutect2-{}".format(tlib)
-        self.add(vep_mutect2)
-
-        vep_vardict = VEP()
-        vep_vardict.input_vcf = vardict.output
-        vep_vardict.threads = self.maxcores
-        vep_vardict.reference_sequence = self.refdata['reference_genome']
-        vep_vardict.vep_dir = self.refdata['vep_dir']
-        vep_vardict.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.vardict-somatic.vep.vcf.gz".format(
-            outdir=self.outdir,
-            tlib=tlib,
-            nlib=nlib)
-        vep_vardict.jobname = "vep-vardict-{}".format(tlib)
-        self.add(vep_vardict)
-
-        vep_freebayes = VEP()
-        vep_freebayes.input_vcf = freebayes.output
-        vep_freebayes.threads = self.maxcores
-        vep_freebayes.reference_sequence = self.refdata['reference_genome']
-        vep_freebayes.vep_dir = self.refdata['vep_dir']
-        vep_freebayes.output_vcf = "{outdir}/variants/{tlib}/{tlib}-{nlib}.freebayes-somatic.vep.vcf.gz".format(
-            outdir=self.outdir,
-            tlib=tlib,
-            nlib=nlib)
-        vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(tlib)
-        self.add(vep_freebayes)
-
-        return [vep_freebayes, vep_vardict, vep_mutect2]
+            return vep_freebayes.output_vcf
+        else:
+            return freebayes.output
 
     def run_fastq_qc(self, fastq_files):
         """
@@ -476,132 +412,9 @@ class LiqBioPipeline(PypedreamPipeline):
             sambamba.jobname = "sambamba-depth-{}".format(basefn)
             self.add(sambamba)
 
-            alascca_coverage_hist = CoverageHistogram()
-            alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
-            alascca_coverage_hist.input_bam = bam
-            alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
-            alascca_coverage_hist.jobname = "alascca-coverage-hist-{}".format(basefn)
-            self.add(alascca_coverage_hist)
-
             qc_files += [isize.output_metrics, oxog.output_metrics,
-                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
+                         hsmetrics.output_metrics, sambamba.output]
             if not debug:
                 qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
         return qc_files
-
-    def align_library(self, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
-        """
-        Align fastq files for a PE library
-        :param fq1_files:
-        :param fq2_files:
-        :param lib:
-        :param ref:
-        :param outdir:
-        :param maxcores:
-        :return:
-        """
-        if not fq2_files:
-            logging.debug("lib {} is SE".format(lib))
-            return self.align_se(fq1_files, lib, ref, outdir, maxcores)
-        else:
-            logging.debug("lib {} is PE".format(lib))
-            return self.align_pe(fq1_files, fq2_files, lib, ref, outdir, maxcores)
-
-    def align_se(self, fq1_files, lib, ref, outdir, maxcores):
-        logging.debug("Aligning files: {}".format(fq1_files))
-        fq1_abs = [normpath(x) for x in fq1_files]
-        fq1_trimmed = []
-        for fq1 in fq1_abs:
-            skewer = SkewerSE()
-            skewer.input = fq1
-            skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
-            skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
-            skewer.threads = maxcores
-            skewer.scratch = self.scratch
-            skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
-            skewer.is_intermediate = True
-            fq1_trimmed.append(skewer.output)
-            self.add(skewer)
-
-        cat1 = Cat()
-        cat1.input = fq1_trimmed
-        cat1.output = outdir + "/skewer/{}_1.fastq.gz".format(lib)
-        cat1.jobname = "cat-{}".format(lib)
-        cat1.is_intermediate = False
-        self.add(cat1)
-
-        bwa = Bwa()
-        bwa.input_fastq1 = cat1.output
-        bwa.input_reference_sequence = ref
-        bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
-        bwa.threads = maxcores
-        bwa.output = "{}/{}.bam".format(outdir, lib)
-        bwa.scratch = self.scratch
-        bwa.jobname = "bwa-{}".format(lib)
-        bwa.is_intermediate = False
-        self.add(bwa)
-
-        return bwa.output
-
-    def align_pe(self, fq1_files, fq2_files, lib, ref, outdir, maxcores=1):
-        fq1_abs = [normpath(x) for x in fq1_files]
-        fq2_abs = [normpath(x) for x in fq2_files]
-        logging.debug("Trimming {} and {}".format(fq1_abs, fq2_abs))
-        pairs = [(fq1_abs[k], fq2_abs[k]) for k in range(len(fq1_abs))]
-
-        fq1_trimmed = []
-        fq2_trimmed = []
-
-        for fq1, fq2 in pairs:
-            skewer = SkewerPE()
-            skewer.input1 = fq1
-            skewer.input2 = fq2
-            skewer.output1 = outdir + "/skewer/libs/{}".format(os.path.basename(fq1))
-            skewer.output2 = outdir + "/skewer/libs/{}".format(os.path.basename(fq2))
-            skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
-            skewer.threads = maxcores
-            skewer.scratch = self.scratch
-            skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
-            skewer.is_intermediate = True
-            fq1_trimmed.append(skewer.output1)
-            fq2_trimmed.append(skewer.output2)
-            self.add(skewer)
-
-        cat1 = Cat()
-        cat1.input = fq1_trimmed
-        cat1.output = outdir + "/skewer/{}-concatenated_1.fastq.gz".format(lib)
-        cat1.jobname = "cat1-{}".format(lib)
-        cat1.is_intermediate = True
-        self.add(cat1)
-
-        cat2 = Cat()
-        cat2.input = fq2_trimmed
-        cat2.jobname = "cat2-{}".format(lib)
-        cat2.output = outdir + "/skewer/{}-concatenated_2.fastq.gz".format(lib)
-        cat2.is_intermediate = True
-        self.add(cat2)
-
-        # cutadapt = Cutadapt()
-        # cutadapt.input1 = fq1_abs
-        # cutadapt.input2 = fq2_abs
-        # cutadapt.output1 = outdir + "/cutadapt/cutadapt_{lib}_1.fastq.gz".format(lib=lib)
-        # cutadapt.output2 = outdir + "/cutadapt/cutadapt_{lib}_2.fastq.gz".format(lib=lib)
-        # #cutadapt.threads = maxcores
-        # cutadapt.jobname = "cutadapt-{}".format(lib)
-        # cutadapt.is_intermediate = True
-        # self.add(cutadapt)
-
-        bwa = Bwa()
-        bwa.input_fastq1 = cat1.output
-        bwa.input_fastq2 = cat2.output
-        bwa.input_reference_sequence = ref
-        bwa.readgroup = "\"@RG\\tID:{lib}\\tSM:{lib}\\tLB:{lib}\\tPL:ILLUMINA\"".format(lib=lib)
-        bwa.threads = maxcores
-        bwa.output = "{}/{}.bam".format(outdir, lib)
-        bwa.jobname = "bwa-{}".format(lib)
-        bwa.scratch = self.scratch
-        bwa.is_intermediate = False
-        self.add(bwa)
-
-        return bwa.output

@@ -1,4 +1,6 @@
 from pypedream.job import Job, required
+
+
 # case class bwaIndex(ref:File) extends ExternalCommonArgs with  SingleCoreJob with OneDayJob {
 #   @Input(doc="Input reference") val _ref: File = ref
 #   @Output(doc="Input reference") val _out: File = ref + ".bwt"
@@ -10,39 +12,42 @@ from pypedream.job import Job, required
 
 
 class Copy(Job):
-    def __init__(self):
-	Job.__init__(self)
-	self.input = None
-	self.output = None
-	self.jobname = "copy"
+    def __init__(self, input_file, output_file):
+        Job.__init__(self)
+        self.input = input_file
+        self.output = output_file
+        self.jobname = "copy"
 
     def command(self):
-	return "cp " + \
-	       required(" ", self.input) + \
-	       required(" ", self.output)
+        cmd = "cp " + \
+               required(" ", self.input) + \
+               required(" ", self.output)
+        if self.input.endswith(".bam"):
+            cmd += " && samtools index {}".format(self.output)
+        return cmd
 
 
 class Gunzip(Job):
     def __init__(self):
-	Job.__init__(self)
-	self.input = None
-	self.output = None
-	self.jobname = "gunzip"
+        Job.__init__(self)
+        self.input = None
+        self.output = None
+        self.jobname = "gunzip"
 
     def command(self):
-	return "gzip -cd " + \
-	       required(" ", self.input) + \
-	       required(" > ", self.output)
+        return "gzip -cd " + \
+               required(" ", self.input) + \
+               required(" > ", self.output)
 
 
 class Curl(Job):
     def __init__(self):
-	Job.__init__(self)
-	self.remote = None
-	self.output = None
-	self.jobname = "curl"
+        Job.__init__(self)
+        self.remote = None
+        self.output = None
+        self.jobname = "curl"
 
     def command(self):
-	return "curl " + \
-	       required(" ", self.remote) + \
-	       required(" > ", self.output)
+        return "curl " + \
+               required(" ", self.remote) + \
+               required(" > ", self.output)

@@ -6,35 +6,38 @@ from pypedream.job import Job, repeat, required, optional, conditional, stripsuf
 
 
 class QDNASeq(Job):
-    def __init__(self):
+    def __init__(self, input_bam, output_segments, background=None):
         Job.__init__(self)
-        self.input = None
-        self.output_segments = None
-        self.output_bed = None
-        self.background = None
-        self.genes_gtf = None
+        self.input = input_bam
+        self.output = output_segments
+        self.background = background
         self.jobname = "qdnaseq"
 
     def command(self):
         qdnaseq_cmd = "qdnaseq.R " + \
                       required("--bam ", self.input) + \
-                      required("--output ", self.output_segments) + \
-                      required("--background ", self.background)
+                      required("--output ", self.output) + \
+                      optional("--background ", self.background)
 
-        qdnaseq2bed_cmd = "qdnaseq2bed.py -n call " + \
-                          required("-i ", self.output_segments) + \
+        return qdnaseq_cmd
+
+
+class QDNASeq2Bed(Job):
+    def __init__(self, input_segments, output_bed, genes_gtf):
+        Job.__init__(self)
+        self.input_segments = input_segments
+        self.output_bed = output_bed
+        self.genes_gtf = genes_gtf
+
+    def command(self):
+        qdnaseq2bed_cmd = "qdnaseq2bed.py -n segments " + \
+                          required("-i ", self.input_segments) + \
                           "| sort -k1,1 -k2,2n " + \
                           "| bedtools median -c 5 -o mean " + \
                           required("-a ", self.genes_gtf) + " -b - " + \
                           "| cnvgtf2bed.py -i /dev/stdin -n gene_id " + \
                           required("> ", self.output_bed)
-
-        return " && ".join([qdnaseq_cmd, qdnaseq2bed_cmd])
-
-        # python tools/scripts/qdnaseq2bed.py -i $QDNASEQ |
-        # sort -k1,1 -k2,2n |
-        # bedtools map -c 5 -o mean -a $GENESSORTED -b - |
-        # python tools/scripts/cnvgtf2bed.py -i /dev/stdin -n gene_id > ~/bla.bed
+        return qdnaseq2bed_cmd
 
 
 class AlasccaCNAPlot(Job):
