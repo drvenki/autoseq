@@ -118,7 +118,9 @@ class VarDict(Job):
               " | var2vcf_paired.pl -P 0.9 -m 4.25 -M " + required("-f ", self.min_alt_frac) + \
               " -N \"{}|{}\" ".format(self.tumorid, self.normalid) + \
               " | " + freq_filter + " | " + somatic_filter + " | " + fix_ambiguous_cl() + " | " + remove_dup_cl() + \
-              " | vcfstreamsort -w 1000 | bcftools view --apply-filters .,PASS " + \
+              " | vcfstreamsort -w 1000 " + \
+              " | " + vt_split_and_leftaln(self.reference_sequence) + \
+              " | bcftools view --apply-filters .,PASS " + \
               " | vcfsorter.pl {} /dev/stdin ".format(self.reference_dict) + \
               " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         return cmd
