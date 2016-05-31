@@ -34,6 +34,10 @@ matplotlib
 openpyxl
 parallel
 
+# required for referral-manager to install
+pycparser
+cffi
+
 r=3.2.2
 r-devtools 
 r-pscbs
