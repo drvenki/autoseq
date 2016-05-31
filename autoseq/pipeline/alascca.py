@@ -355,11 +355,3 @@ class AlasccaPipeline(PypedreamPipeline):
                 qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
         return qc_files
-
-    def load_sampledata(self, json_file):
-        with open(json_file, 'r') as f:
-            self.sampledata = json.load(f)
-
-    def load_refdata(self, json_file):
-        with open(json_file, 'r') as f:
-            self.refdata = json.load(f)
