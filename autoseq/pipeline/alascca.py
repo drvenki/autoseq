@@ -1,6 +1,7 @@
 import json
 import logging
 
+from autoseq.util.library import get_libdict
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
@@ -105,7 +106,7 @@ class AlasccaPipeline(PypedreamPipeline):
             nbam = None
 
         qdnaseq_t = QDNASeq(tbam,
-                            output_segments=os.path.join(self.outdir, "cnv", "qdnaseq.segments.txt"),
+                            output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(self.sampledata['WGS_TUMOR_LIB'])),
                             background=None)
         self.add(qdnaseq_t)
 
@@ -147,13 +148,16 @@ class AlasccaPipeline(PypedreamPipeline):
 
         germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
 
+        libdict = get_libdict(self.sampledata['PANEL_NORMAL_LIB'])
+        rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+
         hzconcordance = HeterzygoteConcordance()
         hzconcordance.input_vcf = germline_vcf
         hzconcordance.input_bam = tbam
         hzconcordance.reference_sequence = self.refdata['reference_genome']
         hzconcordance.target_regions = self.refdata['targets'][self.sampledata['TARGETS']][
             'targets-interval_list-slopped20']
-        hzconcordance.normalid = self.sampledata['PANEL_NORMAL_LIB']
+        hzconcordance.normalid = rg_sm
         hzconcordance.filter_reads_with_N_cigar = True
         hzconcordance.jobname = "hzconcordance-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
@@ -217,7 +221,6 @@ class AlasccaPipeline(PypedreamPipeline):
         """
         freebayes = Freebayes()
         freebayes.input_bams = [bam]
-        freebayes.normalid = library
         freebayes.somatic_only = False
         freebayes.params = None
         freebayes.reference_sequence = self.refdata['reference_genome']
@@ -355,11 +358,3 @@ class AlasccaPipeline(PypedreamPipeline):
                 qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
         return qc_files
-
-    def load_sampledata(self, json_file):
-        with open(json_file, 'r') as f:
-            self.sampledata = json.load(f)
-
-    def load_refdata(self, json_file):
-        with open(json_file, 'r') as f:
-            self.refdata = json.load(f)
