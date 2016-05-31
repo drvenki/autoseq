@@ -105,7 +105,7 @@ class AlasccaPipeline(PypedreamPipeline):
             nbam = None
 
         qdnaseq_t = QDNASeq(tbam,
-                            output_segments=os.path.join(self.outdir, "cnv", "qdnaseq.segments.txt"),
+                            output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(self.sampledata['WGS_TUMOR_LIB'])),
                             background=None)
         self.add(qdnaseq_t)
 
