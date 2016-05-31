@@ -42,8 +42,6 @@ class Freebayes(Job):
     def __init__(self):
         Job.__init__(self)
         self.input_bams = None
-        self.tumorid = None
-        self.normalid = None
         self.reference_sequence = None
         self.target_bed = None
         self.somatic_only = False
@@ -55,10 +53,6 @@ class Freebayes(Job):
         self.jobname = "freebayes-somatic"
 
     def command(self):
-        if not self.tumorid and not self.normalid and self.somatic_only:
-            logging.error("Both tumorid and normal id are required for somatic calling.")
-            raise ValueError
-
         regions_file = "{scratch}/{uuid}.regions".format(scratch=self.scratch, uuid=uuid.uuid4())
         bed_to_regions_cmd = "cat {} | bed_to_regions.py > {}".format(self.target_bed, regions_file)
 

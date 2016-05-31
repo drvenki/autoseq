@@ -1,6 +1,7 @@
 import json
 import logging
 
+from autoseq.util.library import get_libdict
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
@@ -147,13 +148,16 @@ class AlasccaPipeline(PypedreamPipeline):
 
         germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
 
+        libdict = get_libdict(self.sampledata['PANEL_NORMAL_LIB'])
+        rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+
         hzconcordance = HeterzygoteConcordance()
         hzconcordance.input_vcf = germline_vcf
         hzconcordance.input_bam = tbam
         hzconcordance.reference_sequence = self.refdata['reference_genome']
         hzconcordance.target_regions = self.refdata['targets'][self.sampledata['TARGETS']][
             'targets-interval_list-slopped20']
-        hzconcordance.normalid = self.sampledata['PANEL_NORMAL_LIB']
+        hzconcordance.normalid = rg_sm
         hzconcordance.filter_reads_with_N_cigar = True
         hzconcordance.jobname = "hzconcordance-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
@@ -217,7 +221,6 @@ class AlasccaPipeline(PypedreamPipeline):
         """
         freebayes = Freebayes()
         freebayes.input_bams = [bam]
-        freebayes.normalid = library
         freebayes.somatic_only = False
         freebayes.params = None
         freebayes.reference_sequence = self.refdata['reference_genome']
