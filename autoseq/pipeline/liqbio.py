@@ -252,12 +252,15 @@ class LiqBioPipeline(PypedreamPipeline):
                 msisensor.jobname = "msisensor-{}".format(sample)
                 self.add(msisensor)
 
+                libdict = get_libdict(nlib)
+                rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+
                 hzconcordance = HeterzygoteConcordance()
                 hzconcordance.input_vcf = germline_vcf
                 hzconcordance.input_bam = markdups.output_bam
                 hzconcordance.reference_sequence = self.refdata['reference_genome']
                 hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
-                hzconcordance.normalid = nlib
+                hzconcordance.normalid = rg_sm
                 hzconcordance.filter_reads_with_N_cigar = True
                 hzconcordance.jobname = "hzconcordance-{}".format(lib)
                 hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, lib, nlib)
@@ -275,7 +278,6 @@ class LiqBioPipeline(PypedreamPipeline):
         targets = get_libdict(library)['capture_kit_name']
         freebayes = Freebayes()
         freebayes.input_bams = [bam]
-        freebayes.normalid = library
         freebayes.somatic_only = False
         freebayes.params = None
         freebayes.reference_sequence = self.refdata['reference_genome']
