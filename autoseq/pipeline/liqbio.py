@@ -7,14 +7,14 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
 from autoseq.tools.intervals import MsiSensor
-from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics, \
-    PicardMergeSamFiles, PicardMarkDuplicates
+from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMetrics, \
+    PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
 from autoseq.tools.unix import Copy
 from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
-from autoseq.util.library import get_libdict
+from autoseq.util.library import get_libdict, get_capture_kit_name_from_id
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
@@ -27,6 +27,7 @@ class LiqBioPipeline(PypedreamPipeline):
     outdir = None
     maxcores = None
     scratch = None
+    qc_files = []
 
     def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp", debug=False,
                  **kwargs):
@@ -46,14 +47,13 @@ class LiqBioPipeline(PypedreamPipeline):
 
         ################################################
         # QC
-        # qc_files = []
+
         #
         # # per-bam qc
         # # panel
-        # all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
-        # all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
-        # logging.debug("Bam files are {}".format(all_panel_bams))
-        # #qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
+        all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
+        all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
+        self.qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
         # # wgs
         # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
         # #qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
@@ -63,12 +63,12 @@ class LiqBioPipeline(PypedreamPipeline):
         # logging.debug("fqs = {}".format(fqs))
         # qc_files += self.run_fastq_qc(fqs)
         #
-        # multiqc = MultiQC()
-        # multiqc.input_files = qc_files
-        # multiqc.search_dir = self.outdir
-        # multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
-        # multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
-        # self.add(multiqc)
+        multiqc = MultiQC()
+        multiqc.input_files = self.qc_files
+        multiqc.search_dir = self.outdir
+        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
+        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
+        self.add(multiqc)
 
     def check_sampledata(self):
         def check_lib(lib):
@@ -189,7 +189,7 @@ class LiqBioPipeline(PypedreamPipeline):
         # process tumor and plasma samples
         libs = [x for x in plibs + [tlib] if x is not None]
         sample_bams = collections.defaultdict(list)
-        sample_captures = collections.defaultdict(list)
+        sample_dicts = collections.defaultdict(list)
         for lib in libs:
             libdict = get_libdict(lib)
             sample = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
@@ -202,32 +202,55 @@ class LiqBioPipeline(PypedreamPipeline):
                                 maxcores=self.maxcores,
                                 remove_duplicates=False)
             sample_bams[sample].append(bam)
-            sample_captures[sample].append(libdict['capture_kit_name'])
+            sample_dicts[sample].append(libdict)
 
         for sample, bams in sample_bams.items():
+            # don't allow samples with different captures to be merged.
+            capture_kits_used_for_sample = [sampledict['capture_id'][0:2] for sampledict in sample_dicts[sample]]
+            prep_kits_used_for_sample = [sampledict['prep_id'][0:2] for sampledict in sample_dicts[sample]]
+            if len(set(capture_kits_used_for_sample)) > 1:
+                raise ValueError("Multiple capture kits used for libraries for sample {} ({})".format(
+                    sample, sample_dicts[sample]))
+
+            if len(set(prep_kits_used_for_sample)) > 1:
+                raise ValueError("Multiple prep kits used for libraries for sample {} ({})".format(
+                    sample, sample_dicts[sample]))
+
+            targets_short = capture_kits_used_for_sample[0]  # short name, ex CB
+            targets_long = get_capture_kit_name_from_id(capture_kits_used_for_sample[0])  # long name, ex big_design
+            prep_kit_short = prep_kits_used_for_sample[0]
+
             merge_bams = PicardMergeSamFiles(input_bams=bams,
-                                             output_bam="{}/bams/{}-merged.bam".format(self.outdir, sample))
+                                             output_bam="{}/bams/panel/{}-{}-{}.bam".format(
+                                                 self.outdir, sample, prep_kit_short, targets_short))
+
             merge_bams.is_intermediate = True
             merge_bams.jobname = "picard-mergebams-{}".format(sample)
             self.add(merge_bams)
 
             markdups = PicardMarkDuplicates(merge_bams.output_bam,
-                                            output_bam="{}/bams/{}-merged-nodups.bam".format(self.outdir, sample),
-                                            output_metrics="{}/bams/{}-merged-nodups-metrics.txt".format(self.outdir, sample))
+                                            output_bam="{}/bams/panel/{}-{}-{}-nodups.bam".format(
+                                                self.outdir, sample, prep_kit_short, targets_short),
+                                            output_metrics="{}/qc/picard/panel/{}-{}-{}-markdups-metrics.txt".format(
+                                                self.outdir, sample, prep_kit_short, targets_short))
             markdups.is_intermediate = False
+            self.qc_files.append(markdups.output_metrics)
             self.add(markdups)
+
+            if set([smp['type'] for smp in sample_dicts[sample]]) == set('P'):
+                # if it's a plasma sample
+                pbams.append(markdups.output_bam)
+            elif set([smp['type'] for smp in sample_dicts[sample]]) == set('T'):
+                # if it's a tumor sample
+                tbam = markdups.output_bam
 
             vep = False
             if self.refdata['vep_dir']:
                 vep = True
 
             if nlib:
-                if len(set(sample_captures[sample])) > 1:
-                    raise ValueError("Different capture kits used for libraries for sample {} ({})".format(sample, sample_captures[sample]))
-                targets = sample_captures[sample][0]
-
                 somatic_variants = call_somatic_variants(self, tbam=markdups.output_bam, nbam=nbam, tlib=sample,
-                                                         nlib=nlib, target_name=targets, refdata=self.refdata,
+                                                         nlib=nlib, target_name=targets_long, refdata=self.refdata,
                                                          outdir=self.outdir,
                                                          callers=['vardict', 'mutect2'],
                                                          vep=vep)
@@ -244,7 +267,7 @@ class LiqBioPipeline(PypedreamPipeline):
                 self.add(vcfaddsample)
 
                 msisensor = MsiSensor()
-                msisensor.msi_sites = self.refdata['targets'][targets]['msisites']
+                msisensor.msi_sites = self.refdata['targets'][targets_long]['msisites']
                 msisensor.input_normal_bam = nbam
                 msisensor.input_tumor_bam = markdups.output_bam
                 msisensor.output = "{}/msisensor.tsv".format(self.outdir)
@@ -259,7 +282,7 @@ class LiqBioPipeline(PypedreamPipeline):
                 hzconcordance.input_vcf = germline_vcf
                 hzconcordance.input_bam = markdups.output_bam
                 hzconcordance.reference_sequence = self.refdata['reference_genome']
-                hzconcordance.target_regions = self.refdata['targets'][targets]['targets-interval_list-slopped20']
+                hzconcordance.target_regions = self.refdata['targets'][targets_long]['targets-interval_list-slopped20']
                 hzconcordance.normalid = rg_sm
                 hzconcordance.filter_reads_with_N_cigar = True
                 hzconcordance.jobname = "hzconcordance-{}".format(lib)
@@ -395,7 +418,7 @@ class LiqBioPipeline(PypedreamPipeline):
             oxog.jobname = "picard-oxog-{}".format(basefn)
             self.add(oxog)
 
-            hsmetrics = PicardCalculateHsMetrics()
+            hsmetrics = PicardCollectHsMetrics()
             hsmetrics.input = bam
             hsmetrics.reference_sequence = self.refdata['reference_genome']
             hsmetrics.target_regions = self.refdata['targets'][targets][

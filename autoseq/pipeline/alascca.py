@@ -7,7 +7,8 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq, CNVkit, AlasccaCNAPlot
 from autoseq.tools.intervals import MsiSensor
-from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCalculateHsMetrics, PicardCollectWgsMetrics
+from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMetrics, \
+    PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
@@ -323,7 +324,7 @@ class AlasccaPipeline(PypedreamPipeline):
             oxog.jobname = "picard-oxog-{}".format(basefn)
             self.add(oxog)
 
-            hsmetrics = PicardCalculateHsMetrics()
+            hsmetrics = PicardCollectHsMetrics()
             hsmetrics.input = bam
             hsmetrics.reference_sequence = self.refdata['reference_genome']
             hsmetrics.target_regions = self.refdata['targets'][self.sampledata['TARGETS']][

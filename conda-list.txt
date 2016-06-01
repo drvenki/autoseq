@@ -4,7 +4,7 @@ nose
 skewer=0.1.126
 bwa=0.7.12
 star=2.4.2a
-picard=1.141
+picard=2.3.0
 samtools=1.2
 htslib=1.2.1
 bcftools=1.2

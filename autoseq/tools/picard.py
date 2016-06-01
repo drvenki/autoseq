@@ -48,7 +48,7 @@ class PicardCollectOxoGMetrics(Job):
                required("O=", self.output_metrics)
 
 
-class PicardCalculateHsMetrics(Job):
+class PicardCollectHsMetrics(Job):
     def __init__(self):
         Job.__init__(self)
         self.input = None
@@ -57,16 +57,18 @@ class PicardCalculateHsMetrics(Job):
         self.bait_regions = None
         self.bait_name = None
         self.output_metrics = None
+        self.accumulation_level = ['LIBRARY']
         self.jobname = "picard-hsmetrics"
 
     def command(self):
-        return "picard CalculateHsMetrics " + \
+        return "picard CollectHsMetrics " + \
                required("I=", self.input) + \
                required("R=", self.reference_sequence) + \
                required("O=", self.output_metrics) + \
                required("TI=", self.target_regions) + \
                required("BI=", self.bait_regions) + \
-               optional("BAIT_SET_NAME=", self.bait_name)
+               optional("BAIT_SET_NAME=", self.bait_name) + \
+               repeat('METRIC_ACCUMULATION_LEVEL=', self.accumulation_level)
 
 
 class PicardCollectWgsMetrics(Job):
