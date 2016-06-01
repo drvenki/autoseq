@@ -1,7 +1,5 @@
-import json
 import logging
 
-from autoseq.util.library import get_libdict
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
@@ -12,7 +10,8 @@ from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMet
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
-from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
+from autoseq.tools.variantcalling import Freebayes, VcfAddSample, call_somatic_variants
+from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
