@@ -14,7 +14,7 @@ from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
 from autoseq.tools.unix import Copy
 from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
-from autoseq.util.library import get_libdict, get_capture_kit_name_from_id
+from autoseq.util.library import get_libdict, get_capture_kit_name_from_id, find_fastqs
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
@@ -77,7 +77,7 @@ class LiqBioPipeline(PypedreamPipeline):
                 if not os.path.exists(dir):
                     logging.warn("Dir {} does not exists for {}. Not using library.".format(dir, lib))
                     return None
-                if self.find_fastqs(lib) == (None, None):
+                if find_fastqs(lib, self.libdir) == (None, None):
                     logging.warn("No fastq files found for {} in dir {}".format(lib, dir))
                     return None
             logging.debug("Library {} has data. Using it.".format(lib))
@@ -97,31 +97,16 @@ class LiqBioPipeline(PypedreamPipeline):
     def get_all_fastqs(self):
         fqs = []
         if self.sampledata['panel']['T']:
-            fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[0])
-            fqs.extend(self.find_fastqs(self.sampledata['panel']['T'])[1])
+            fqs.extend(find_fastqs(self.sampledata['panel']['T'], self.libdir)[0])
+            fqs.extend(find_fastqs(self.sampledata['panel']['T'], self.libdir)[1])
         if self.sampledata['panel']['N']:
-            fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[0])
-            fqs.extend(self.find_fastqs(self.sampledata['panel']['N'])[1])
+            fqs.extend(find_fastqs(self.sampledata['panel']['N'], self.libdir)[0])
+            fqs.extend(find_fastqs(self.sampledata['panel']['N'], self.libdir)[1])
         for plib in self.sampledata['panel']['P']:
-            fqs.extend(self.find_fastqs(plib)[0])
-            fqs.extend(self.find_fastqs(plib)[1])
+            fqs.extend(find_fastqs(plib, self.libdir)[0])
+            fqs.extend(find_fastqs(plib, self.libdir)[1])
 
         return [fq for fq in fqs if fq is not None]
-
-    def find_fastqs(self, lib):
-        """Find fastq files for a given library id, return a tuple of lists for _1 and _2 files."""
-        d = os.path.join(self.libdir, lib)
-        logging.debug("Looking for fastq files for library {} in {}".format(
-            lib, d
-        ))
-        fq1s = ["{}/{}".format(d, f) for f in os.listdir(d) if
-                f.endswith("_1.fastq.gz") or f.endswith("_1.fq.gz")]
-
-        fq2s = ["{}/{}".format(d, f) for f in os.listdir(d) if
-                f.endswith("_2.fastq.gz") or f.endswith("_2.fq.gz")]
-
-        logging.debug("Found {}".format((fq1s, fq2s)))
-        return fq1s, fq2s
 
     def analyze_lowpass_wgs(self):
         tbam = None
@@ -149,8 +134,8 @@ class LiqBioPipeline(PypedreamPipeline):
 
     def align_and_qdnaseq(self, lib):
         bam = align_library(self,
-                            fq1_files=self.find_fastqs(lib)[0],
-                            fq2_files=self.find_fastqs(lib)[1],
+                            fq1_files=find_fastqs(lib, self.libdir)[0],
+                            fq2_files=find_fastqs(lib, self.libdir)[1],
                             lib=lib,
                             ref=self.refdata['bwaIndex'],
                             outdir=self.outdir + "/bams/wgs",
@@ -177,8 +162,8 @@ class LiqBioPipeline(PypedreamPipeline):
         # align germline normal
         if nlib:
             nbam = align_library(self,
-                                 fq1_files=self.find_fastqs(nlib)[0],
-                                 fq2_files=self.find_fastqs(nlib)[1],
+                                 fq1_files=find_fastqs(nlib, self.libdir)[0],
+                                 fq2_files=find_fastqs(nlib, self.libdir)[1],
                                  lib=nlib,
                                  ref=self.refdata['bwaIndex'],
                                  outdir=self.outdir + "/bams/panel",
@@ -194,8 +179,8 @@ class LiqBioPipeline(PypedreamPipeline):
             libdict = get_libdict(lib)
             sample = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
             bam = align_library(self,
-                                fq1_files=self.find_fastqs(lib)[0],
-                                fq2_files=self.find_fastqs(lib)[1],
+                                fq1_files=find_fastqs(lib, self.libdir)[0],
+                                fq2_files=find_fastqs(lib, self.libdir)[1],
                                 lib=lib,
                                 ref=self.refdata['bwaIndex'],
                                 outdir=self.outdir + "/bams/panel",
