@@ -81,10 +81,12 @@ def find_fastqs(library, libdir):
     for f in os.listdir(d):
         match1 = re.search(regex_fq1, f)
         if match1:
-            fq1s.append("".join(match1.groups()))
+            fn = "".join(match1.groups())
+            fq1s.append(os.path.join(libdir, library, fn))
         match2 = re.search(regex_fq2, f)
         if match2:
-            fq2s.append("".join(match2.groups()))
+            fn = "".join(match2.groups())
+            fq2s.append(os.path.join(libdir, library, fn))
 
     fq1s.sort()
     fq2s.sort()
