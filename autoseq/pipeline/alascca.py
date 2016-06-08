@@ -106,7 +106,8 @@ class AlasccaPipeline(PypedreamPipeline):
             nbam = None
 
         qdnaseq_t = QDNASeq(tbam,
-                            output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(self.sampledata['WGS_TUMOR_LIB'])),
+                            output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(
+                                self.sampledata['WGS_TUMOR_LIB'])),
                             background=None)
         self.add(qdnaseq_t)
 
@@ -187,32 +188,32 @@ class AlasccaPipeline(PypedreamPipeline):
         if not debug:
             self.add(msisensor)
 
-	cnvkit = CNVkit(input_bam=tbam,
-			output_cnr="{}/cnv/{}.cnr".format(self.outdir,
-							       self.sampledata['PANEL_TUMOR_LIB']),
-			output_cns="{}/cnv/{}.cns".format(self.outdir,
-							       self.sampledata['PANEL_TUMOR_LIB']),
-			scratch=self.scratch
-			)
+        cnvkit = CNVkit(input_bam=tbam,
+                        output_cnr="{}/cnv/{}.cnr".format(self.outdir,
+                                                          self.sampledata['PANEL_TUMOR_LIB']),
+                        output_cns="{}/cnv/{}.cns".format(self.outdir,
+                                                          self.sampledata['PANEL_TUMOR_LIB']),
+                        scratch=self.scratch
+                        )
         # If we have a CNVkit reference
         if self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']:
-	    cnvkit.reference = self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']
-	else:
-	    cnvkit.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+            cnvkit.reference = self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']
+        else:
+            cnvkit.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
 
-	cnvkit.jobname = "cnvkit-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-	self.add(cnvkit)
+        cnvkit.jobname = "cnvkit-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        self.add(cnvkit)
 
-	alascca_cna = AlasccaCNAPlot()
-	alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
-	alascca_cna.input_germline_vcf = vcfaddsample.output
-	alascca_cna.input_cnr = cnvkit.output_cnr
-	alascca_cna.input_cns = cnvkit.output_cns
-	alascca_cna.chrsizes = self.refdata['chrsizes']
-	alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
-									   self.sampledata['PANEL_TUMOR_LIB'])
-	alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
-	self.add(alascca_cna)
+        alascca_cna = AlasccaCNAPlot()
+        alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
+        alascca_cna.input_germline_vcf = vcfaddsample.output
+        alascca_cna.input_cnr = cnvkit.output_cnr
+        alascca_cna.input_cns = cnvkit.output_cns
+        alascca_cna.chrsizes = self.refdata['chrsizes']
+        alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
+                                                                           self.sampledata['PANEL_TUMOR_LIB'])
+        alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
+        self.add(alascca_cna)
 
         return {'tbam': tbam, 'nbam': nbam}
 
@@ -269,7 +270,7 @@ class AlasccaPipeline(PypedreamPipeline):
             isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
             self.add(isize)
 
-	    qc_files += [isize.output_metrics]
+            qc_files += [isize.output_metrics]
 
         return qc_files
 
@@ -320,7 +321,8 @@ class AlasccaPipeline(PypedreamPipeline):
             if 'alascca_targets' in self.refdata['targets']:
                 alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
             else:
-                alascca_coverage_hist.input_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+                alascca_coverage_hist.input_bed = self.refdata['targets'][self.sampledata['TARGETS']][
+                    'targets-bed-slopped20']
             alascca_coverage_hist.input_bam = bam
             alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
             alascca_coverage_hist.jobname = "alascca-coverage-hist-{}".format(basefn)
