@@ -73,7 +73,6 @@ class LiqBioPipeline(PypedreamPipeline):
     def check_sampledata(self):
         def check_lib(lib):
             if lib:
-                dir = os.path.join(self.libdir, lib)
                 if not os.path.exists(dir):
                     logging.warn("Dir {} does not exists for {}. Not using library.".format(dir, lib))
                     return None
