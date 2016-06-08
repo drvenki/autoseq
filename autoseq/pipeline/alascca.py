@@ -187,29 +187,32 @@ class AlasccaPipeline(PypedreamPipeline):
         if not debug:
             self.add(msisensor)
 
+	cnvkit = CNVkit(input_bam=tbam,
+			output_cnr="{}/cnv/{}.cnr".format(self.outdir,
+							       self.sampledata['PANEL_TUMOR_LIB']),
+			output_cns="{}/cnv/{}.cns".format(self.outdir,
+							       self.sampledata['PANEL_TUMOR_LIB']),
+			scratch=self.scratch
+			)
         # If we have a CNVkit reference
         if self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']:
-            cnvkit = CNVkit(input_bam=tbam,
-                            reference=self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref'],
-                            output_cnr="{}/variants/{}.cnr".format(self.outdir,
-                                                                   self.sampledata['PANEL_TUMOR_LIB']),
-                            output_cns="{}/variants/{}.cns".format(self.outdir,
-                                                                   self.sampledata['PANEL_TUMOR_LIB']),
-                            scratch=self.scratch
-                            )
-            cnvkit.jobname = "cnvkit-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-            self.add(cnvkit)
+	    cnvkit.reference = self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']
+	else:
+	    cnvkit.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
 
-            alascca_cna = AlasccaCNAPlot()
-            alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
-            alascca_cna.input_germline_vcf = germline_vcf
-            alascca_cna.input_cnr = cnvkit.output_cnr
-            alascca_cna.input_cns = cnvkit.output_cns
-            alascca_cna.chrsizes = self.refdata['chrsizes']
-            alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
-                                                                               self.sampledata['PANEL_TUMOR_LIB'])
-            alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
-            self.add(alascca_cna)
+	cnvkit.jobname = "cnvkit-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+	self.add(cnvkit)
+
+	alascca_cna = AlasccaCNAPlot()
+	alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
+	alascca_cna.input_germline_vcf = vcfaddsample.output
+	alascca_cna.input_cnr = cnvkit.output_cnr
+	alascca_cna.input_cns = cnvkit.output_cns
+	alascca_cna.chrsizes = self.refdata['chrsizes']
+	alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
+									   self.sampledata['PANEL_TUMOR_LIB'])
+	alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
+	self.add(alascca_cna)
 
         return {'tbam': tbam, 'nbam': nbam}
 
@@ -266,26 +269,7 @@ class AlasccaPipeline(PypedreamPipeline):
             isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
             self.add(isize)
 
-            if not debug:
-                gcbias = PicardCollectGcBiasMetrics()
-                gcbias.input = bam
-                gcbias.reference_sequence = self.refdata['reference_genome']
-                gcbias.output_summary = "{}/qc/picard/wgs/{}.picard-gcbias-summary.txt".format(self.outdir, basefn)
-                gcbias.output_metrics = "{}/qc/picard/wgs/{}.picard-gcbias.txt".format(self.outdir, basefn)
-                gcbias.jobname = "picard-gcbias-{}".format(basefn)
-                gcbias.stop_after = 100
-                self.add(gcbias)
-
-            wgsmetrics = PicardCollectWgsMetrics()
-            wgsmetrics.input = bam
-            wgsmetrics.reference_sequence = self.refdata['reference_genome']
-            wgsmetrics.output_metrics = "{}/qc/picard/wgs/{}.picard-wgsmetrics.txt".format(self.outdir, basefn)
-            wgsmetrics.jobname = "picard-wgsmetrics-{}".format(basefn)
-            self.add(wgsmetrics)
-
-            qc_files += [isize.output_metrics, wgsmetrics.output_metrics]
-            if not debug:
-                qc_files += [gcbias.output_summary, gcbias.output_metrics]
+	    qc_files += [isize.output_metrics]
 
         return qc_files
 
@@ -305,16 +289,6 @@ class AlasccaPipeline(PypedreamPipeline):
             isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
             isize.jobname = "picard-isize-{}".format(basefn)
             self.add(isize)
-
-            if not debug:
-                gcbias = PicardCollectGcBiasMetrics()
-                gcbias.input = bam
-                gcbias.reference_sequence = self.refdata['reference_genome']
-                gcbias.output_summary = "{}/qc/picard/panel/{}.picard-gcbias-summary.txt".format(self.outdir, basefn)
-                gcbias.output_metrics = "{}/qc/picard/panel/{}.picard-gcbias.txt".format(self.outdir, basefn)
-                gcbias.jobname = "picard-gcbias-{}".format(basefn)
-                gcbias.stop_after = 100
-                self.add(gcbias)
 
             oxog = PicardCollectOxoGMetrics()
             oxog.input = bam
@@ -354,7 +328,5 @@ class AlasccaPipeline(PypedreamPipeline):
 
             qc_files += [isize.output_metrics, oxog.output_metrics,
                          hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
-            if not debug:
-                qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
         return qc_files
