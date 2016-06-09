@@ -5,6 +5,8 @@ import re
 from autoseq.util.path import normpath
 
 logger = logging.getLogger(__name__)
+
+
 def get_prep_kit_name_from_id(prep_id):
     prep_kit_lookup = {"BN": "BIOO_NEXTFLEX",
                        "KH": "KAPA_HYPERPREP",
@@ -42,15 +44,35 @@ def get_libdict(library_id):
 
     :rtype: dict[str,str]
     """
+    projects_lookup = {'AL': 'ALASCCA',
+                       'LB': 'LIQUID_BIOPSY'}
+
+    project_long = None
+    project_short = None
     elems = library_id.split("-")
+
+    if elems[0] in projects_lookup:
+        project_short = elems.pop(0)
+        project_long = projects_lookup[project_short]
+
+    if len(elems) == 6:
+        if elems[0] == 'P':
+            elems = elems[1:6]
+            elems[0] = "P-{}".format(elems[0])
+        else:
+            raise ValueError(
+                "A library ID has to begin with either the project short name ({}) or 'P-'".format(projects_lookup))
+
     elem_nms = ['sdid', 'type', 'sample_id', 'prep_id', 'capture_id']
-    if len(elems) == 6 and elems[0] == 'P':
-        elems = elems[1:6]
-        elems[0] = "P-{}".format(elems[0])
+
     d = dict(zip(elem_nms, elems))
     d['prep_kit_name'] = get_prep_kit_name_from_id(d['prep_id'])
     d['capture_kit_name'] = get_capture_kit_name_from_id(d['capture_id'])
     d['library_id'] = library_id
+
+    d['project_name'] = project_long
+    d['project_id'] = project_short
+
     return d
 
 
@@ -93,3 +115,5 @@ def find_fastqs(library, libdir):
 
     logging.debug("Found {}".format((fq1s, fq2s)))
     return fq1s, fq2s
+
+
