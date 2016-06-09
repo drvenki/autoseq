@@ -61,7 +61,8 @@ def get_libdict(library_id):
             elems[0] = "P-{}".format(elems[0])
         else:
             raise ValueError(
-                "A library ID has to begin with either the project short name ({}) or 'P-'".format(projects_lookup))
+                "A library ID has to begin with either the SDID, the project short name ({}) or 'P-'. Got {}".format(
+                    projects_lookup, library_id))
 
     elem_nms = ['sdid', 'type', 'sample_id', 'prep_id', 'capture_id']
 

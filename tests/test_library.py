@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from autoseq.util.library import find_fastqs, get_libdict, Library
+from autoseq.util.library import find_fastqs, get_libdict
 
 
 class TestLibrary(unittest.TestCase):

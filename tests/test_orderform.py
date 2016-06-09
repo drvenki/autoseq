@@ -3,7 +3,7 @@ import unittest
 from autoseq.cli.liqbio import parse_orderform, make_sample_dicts
 
 
-class TestLibrary(unittest.TestCase):
+class TestOrderform(unittest.TestCase):
     orderform = 'tests/liqbio_test_orderform.xlsx'
 
     def test_parse_libraries(self):
@@ -12,7 +12,7 @@ class TestLibrary(unittest.TestCase):
         """
 
         libs = parse_orderform(self.orderform)
-
+        print libs
         # first item in orderform
         first_item = {'library_id': 'NA12877-T-03098849-TD1-TT1',
                       'capture_kit_name': 'test-regions',
@@ -21,7 +21,9 @@ class TestLibrary(unittest.TestCase):
                       'sample_id': '03098849',
                       'prep_kit_name': 'THRUPLEX_DNASEQ',
                       'sdid': 'NA12877',
-                      'prep_id': 'TD1'}
+                      'prep_id': 'TD1',
+                      'project_id': None,
+                      'project_name': None}
         self.assertIn(first_item, libs,
                       "NA12877-T-03098849-TD1-TT1 could not be parsed from orderform")
 
@@ -32,7 +34,10 @@ class TestLibrary(unittest.TestCase):
                      'sample_id': '03098850',
                      'prep_kit_name': 'THRUPLEX_DNASEQ',
                      'sdid': 'NA12877',
-                     'prep_id': 'TD1'}
+                     'prep_id': 'TD1',
+                     'project_id': None,
+                     'project_name': None
+                     }
         # last item in orderform
         self.assertIn(last_item, libs,
                       "NA12877-P-03098850-TD1-WGS could not be parsed from orderform")
