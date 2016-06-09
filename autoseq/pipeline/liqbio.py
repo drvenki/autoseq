@@ -377,6 +377,7 @@ class LiqBioPipeline(PypedreamPipeline):
         qc_files = []
         for bam in bams:
             lib = stripsuffix(os.path.basename(bam), ".bam")
+            lib = stripsuffix(lib, '-nodups')
             targets = get_libdict(lib)['capture_kit_name']
             logging.debug("Adding QC jobs for {}".format(bam))
             basefn = stripsuffix(os.path.basename(bam), ".bam")
