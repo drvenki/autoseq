@@ -34,7 +34,7 @@ class Mutect2(Job):
                       " | " + vt_split_and_leftaln(self.reference_sequence) + \
                       " | bcftools view --apply-filters .,PASS " + \
                       " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
-        rmtmp_cmd = "rm {}".format(tmpf)
+        rmtmp_cmd = "rm {} {}.tbi".format(tmpf, tmpf)
         return " && ".join([mutect_cmd, leftaln_cmd, rmtmp_cmd])
 
 

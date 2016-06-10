@@ -68,13 +68,13 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, 3, 178936091, 'G', 'A')
 
     def test_panel_bam_readgroups(self):
-        bam = os.path.join(self.outdir, "bams", "NA12877-T-03098849-merged-nodups.bam")
+        bam = os.path.join(self.outdir, "bams", "panel", "NA12877-T-03098849-TD-TT-nodups.bam")
         self.assertBamHeaderElementEquals(bam, 'RG', [{'ID': 'NA12877-T-03098849-TD1-TT1',
                                                        'SM': 'NA12877-T-03098849',
                                                        'LB': 'NA12877-T-03098849-TD1',
                                                        'PL': 'ILLUMINA'}])
 
-        bam = os.path.join(self.outdir, "bams", "NA12877-P-03098850-merged-nodups.bam")
+        bam = os.path.join(self.outdir, "bams", "panel", "NA12877-P-03098850-TD-TT-nodups.bam")
         self.assertBamHeaderElementEquals(bam, 'RG', [{'LB': 'NA12877-P-03098850-TD1',
                                                        'ID': 'NA12877-P-03098850-TD1-TT1',
                                                        'SM': 'NA12877-P-03098850',
