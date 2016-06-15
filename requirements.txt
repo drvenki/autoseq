@@ -7,5 +7,6 @@ click
 git+https://github.com/dakl/localq.git
 git+https://github.com/ClinSeq/pypedream.git
 git+https://github.com/dakl/genomicassertions.git
+git+https://github.com/ClinSeq/reportgen.git
 multiqc
 
