@@ -125,9 +125,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             kit_name = stripsuffix(f, ".interval_list")
             self.reference_data['targets'][kit_name] = {}
 
-            copy_file = Copy()
-            copy_file.input = file_full_path
-            copy_file.output = "{}/intervals/targets/{}".format(self.outdir, os.path.basename(file_full_path))
+	    copy_file = Copy(input_file=file_full_path,
+			     output_file="{}/intervals/targets/{}".format(self.outdir, os.path.basename(file_full_path)))
             self.add(copy_file)
 
             slop_interval_list = SlopIntervalList()
@@ -148,10 +147,10 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
 
             cnvkit_ref_file = stripsuffix(file_full_path, ".interval_list") + ".cnn"
             if os.path.exists(cnvkit_ref_file):
-                copy_cnvkit_ref = Copy()
-                copy_cnvkit_ref.input = cnvkit_ref_file
-                copy_cnvkit_ref.output = "{}/intervals/targets/{}".format(self.outdir,
-                                                                          os.path.basename(cnvkit_ref_file))
+		copy_cnvkit_ref = Copy(input_file=cnvkit_ref_file,
+				       output_file="{}/intervals/targets/{}".format(self.outdir,
+										    os.path.basename(cnvkit_ref_file))
+				       )
                 self.add(copy_cnvkit_ref)
                 self.reference_data['targets'][kit_name]['cnvkit-ref'] = copy_cnvkit_ref.output
             else:
@@ -204,9 +203,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         gunzip_ref.output = "{}/genome/{}".format(self.outdir, genome_unzipped)
         self.add(gunzip_ref)
 
-        copy_ref_to_bwa = Copy()
-        copy_ref_to_bwa.input = gunzip_ref.output
-        copy_ref_to_bwa.output = "{}/bwa/{}".format(self.outdir, os.path.basename(gunzip_ref.output))
+	copy_ref_to_bwa = Copy(input_file=gunzip_ref.output,
+			       output_file="{}/bwa/{}".format(self.outdir, os.path.basename(gunzip_ref.output)))
         self.add(copy_ref_to_bwa)
 
         bwa_index = BwaIndex()
@@ -230,9 +228,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         create_chrsizes.output = gunzip_ref.output.replace(".fasta", "") + ".chrsizes.txt"
         self.add(create_chrsizes)
 
-        copy_qdnaseq_bg = Copy()
-        copy_qdnaseq_bg.input = self.qdnaseq_background
-        copy_qdnaseq_bg.output = "{}/genome/{}".format(self.outdir, os.path.basename(self.qdnaseq_background))
+	copy_qdnaseq_bg = Copy(input_file=self.qdnaseq_background,
+			       output_file="{}/genome/{}".format(self.outdir, os.path.basename(self.qdnaseq_background)))
         self.add(copy_qdnaseq_bg)
 
         self.reference_data['reference_genome'] = gunzip_ref.output
