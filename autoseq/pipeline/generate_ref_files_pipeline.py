@@ -126,7 +126,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             self.reference_data['targets'][kit_name] = {}
 
 	    copy_file = Copy(input_file=file_full_path,
-			     output_file="{}/intervals/targets/{}".format(self.outdir, os.path.basename(file_full_path)))
+			     output_file="{}/intervals/targets/{}".format(self.outdir,
+									  os.path.basename(file_full_path)))
             self.add(copy_file)
 
             slop_interval_list = SlopIntervalList()
@@ -229,7 +230,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.add(create_chrsizes)
 
 	copy_qdnaseq_bg = Copy(input_file=self.qdnaseq_background,
-			       output_file="{}/genome/{}".format(self.outdir, os.path.basename(self.qdnaseq_background)))
+			       output_file="{}/genome/{}".format(self.outdir,
+								 os.path.basename(self.qdnaseq_background)))
         self.add(copy_qdnaseq_bg)
 
         self.reference_data['reference_genome'] = gunzip_ref.output
@@ -240,6 +242,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
 
     def make_ref_paths_relative(self):
         """Recursively traverse a given dictionary and make paths relative"""
+
         def make_paths_relative(d):
             for k, v in d.items():
                 if isinstance(v, dict):
