@@ -10,6 +10,7 @@ from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMet
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
+from autoseq.tools.reports import CompileMetadata, CompileAlasccaGenomicJson
 from autoseq.tools.variantcalling import Freebayes, VcfAddSample, call_somatic_variants
 from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath, stripsuffix
@@ -26,6 +27,8 @@ class AlasccaPipeline(PypedreamPipeline):
     scratch = "/tmp"
 
     def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, scratch="/tmp/", debug=False,
+                 referral_db_conf="tests/referrals/referral-db-config.json",
+                 addresses="tests/referrals/addresses.csv",
                  **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         logging.debug("Unnormalized outdir is {}".format(outdir))
@@ -35,6 +38,8 @@ class AlasccaPipeline(PypedreamPipeline):
         self.maxcores = maxcores
         self.analysis_id = analysis_id
         self.scratch = scratch
+        self.referral_db_conf = referral_db_conf
+        self.addresses = addresses
 
         panel_bams = self.analyze_panel(debug=debug)
         wgs_bams = self.analyze_lowpass_wgs()
@@ -214,6 +219,25 @@ class AlasccaPipeline(PypedreamPipeline):
                                                                            self.sampledata['PANEL_TUMOR_LIB'])
         alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
         self.add(alascca_cna)
+
+        tlib = get_libdict(self.sampledata['PANEL_TUMOR_LIB'])
+        nlib = get_libdict(self.sampledata['PANEL_NORMAL_LIB'])
+        blood_barcode = nlib['sample_id']
+        tumor_barcode = tlib['sample_id']
+        metadata_json = "{}/report/{}-{}.metadata.json".format(self.outdir, blood_barcode, tumor_barcode)
+        compile_metadata = CompileMetadata(self.referral_db_conf, blood_barcode, tumor_barcode,
+                                           output_json=metadata_json,
+                                           addresses=self.addresses)
+        compile_metadata.jobname = "compile-metadata-{}-{}".format(tumor_barcode, blood_barcode)
+        self.add(compile_metadata)
+
+        genomic_json = "{}/report/{}-{}.genomic.json".format(self.outdir, blood_barcode, tumor_barcode)
+        compile_genomic_json = CompileAlasccaGenomicJson(input_somatic_vcf=somatic_vcfs['vardict'],
+                                                         input_cn_calls=alascca_cna.output_json,
+                                                         input_msisensor=msisensor.output,
+                                                         output_json=genomic_json)
+        compile_genomic_json.jobname = "compile-genomic-{}-{}".format(tumor_barcode, blood_barcode)
+        self.add(compile_genomic_json)
 
         return {'tbam': tbam, 'nbam': nbam}
 

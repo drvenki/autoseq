@@ -14,6 +14,8 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
     tmpdir = None
     outdir = None
     somatic_vcf = None
+    blood_barcode = '03098849'
+    tumor_barcode = '03098121'
 
     @classmethod
     def setUpClass(cls):
@@ -100,3 +102,40 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
             self.assertTrue(header.startswith("chromosome"), "Header line does not start with 'chromosome'")
 
         self.assertGreater(os.stat(qdnaseqf).st_size, 10000000, "QDNAseq output file is too small (<10Mb)")
+
+    def test_report_metadata(self):
+        metadata_json_fn = "{}/report/{}-{}.metadata.json".format(self.outdir, self.tumor_barcode, self.blood_barcode)
+        with open(metadata_json_fn, 'r') as fh:
+            metadata_json = json.load(fh)
+            self.assertEqual(metadata_json['blood_referral_ID'], 159725)
+            self.assertEqual(metadata_json['tumor_referral_ID'], 159977)
+            self.assertEqual(len(metadata_json['return_addresses']), 2)
+
+    def test_genomic_json(self):
+        genomic_json_fn = "{}/report/{}-{}.genomic.json".format(self.outdir, self.tumor_barcode, self.blood_barcode)
+        with open(genomic_json_fn, 'r') as fh:
+            genomic_json = json.load(fh)
+
+            # sample is of class A
+            self.assertEqual(genomic_json['ALASSCA Class Report']['ALASCCA class'], 'Mutation class A')
+
+            # MSI status is not determined since only 20 markers are in there
+            self.assertEqual(genomic_json["MSI Report"]["MSI Status"], "Not determined")
+
+            # no mutations in BRAF, KRAS or NRAS
+            self.assertDictEqual(genomic_json["Simple Somatic Mutations Report"],
+                                 {
+                                     "BRAF": {
+                                         "Alterations": [],
+                                         "Status": "Not mutated"
+                                     },
+                                     "KRAS": {
+                                         "Alterations": [],
+                                         "Status": "Not mutated"
+                                     },
+                                     "NRAS": {
+                                         "Alterations": [],
+                                         "Status": "Not mutated"
+                                     }
+                                 }
+                                 )
