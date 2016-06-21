@@ -1,5 +1,5 @@
 pip
-pytest
+nose
 
 skewer=0.1.126
 bwa=0.7.12
