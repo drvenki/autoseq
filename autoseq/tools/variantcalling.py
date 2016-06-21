@@ -146,7 +146,8 @@ class VEP(Job):
                  conditional(self.vep_dir, " --everything ") + \
                  conditional(self.vep_dir, " --offline ") + \
                  conditional(not self.vep_dir, " --database ") + \
-                 conditional(not self.vep_dir, " --port 1337 ") + \
+                 conditional(not self.vep_dir, " --port 3337 ") + \
+                 conditional(not self.vep_dir, " --hgvs ") + \
                  fork + bgzip + " > " + required("", self.output_vcf) + \
                  " && tabix -p vcf {}".format(self.output_vcf)
 
