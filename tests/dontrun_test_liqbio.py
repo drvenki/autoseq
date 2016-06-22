@@ -26,10 +26,9 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
     def setUpClass(cls):
         cls.outdir = normpath("~/tmp/liqbio-test")
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
-	subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
+        subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
                               " --scratch ~/tmp/ --jobdb {} --cores 2 liqbio ".format(cls.jobdb) +
-			      " --libdir /tmp/libraries/ tests/liqbio-test-sample.json", shell=True)
-
+                              " --libdir /tmp/libraries/ tests/liqbio-test-sample.json", shell=True)
 
     def test_jobdb(self):
         jobdb = json.load(open(self.jobdb, 'r'))
@@ -112,4 +111,3 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
         self.assertVcfHasSample(vcf, 'NA12877-N-03098121')  # sample is the name of the normal lib id
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '3', 178925677, 'G', 'A')  # SNP
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '17', 7579643, 'CCCCCAGCCCTCCAGGT', 'C')  # deletion
-
