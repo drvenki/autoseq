@@ -10,7 +10,7 @@ from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMet
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
-from autoseq.tools.reports import CompileMetadata, CompileAlasccaGenomicJson
+from autoseq.tools.reports import CompileMetadata, CompileAlasccaGenomicJson, WriteAlasccaReport
 from autoseq.tools.variantcalling import Freebayes, VcfAddSample, call_somatic_variants
 from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath, stripsuffix
@@ -225,11 +225,11 @@ class AlasccaPipeline(PypedreamPipeline):
         blood_barcode = nlib['sample_id']
         tumor_barcode = tlib['sample_id']
         metadata_json = "{}/report/{}-{}.metadata.json".format(self.outdir, blood_barcode, tumor_barcode)
-        compile_metadata = CompileMetadata(self.referral_db_conf, blood_barcode, tumor_barcode,
+	compile_metadata_json = CompileMetadata(self.referral_db_conf, blood_barcode, tumor_barcode,
                                            output_json=metadata_json,
                                            addresses=self.addresses)
-        compile_metadata.jobname = "compile-metadata-{}-{}".format(tumor_barcode, blood_barcode)
-        self.add(compile_metadata)
+	compile_metadata_json.jobname = "compile-metadata-{}-{}".format(tumor_barcode, blood_barcode)
+	self.add(compile_metadata_json)
 
         genomic_json = "{}/report/{}-{}.genomic.json".format(self.outdir, blood_barcode, tumor_barcode)
         compile_genomic_json = CompileAlasccaGenomicJson(input_somatic_vcf=somatic_vcfs['vardict'],
@@ -238,6 +238,13 @@ class AlasccaPipeline(PypedreamPipeline):
                                                          output_json=genomic_json)
         compile_genomic_json.jobname = "compile-genomic-{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_genomic_json)
+
+	pdf = "{}/report/AlasccaReport-{}-{}.pdf".format(self.outdir, blood_barcode, tumor_barcode)
+	writeAlasccaPdf = WriteAlasccaReport(input_genomic_json=compile_genomic_json.output_json,
+					     input_metadata_json=compile_metadata_json.output_json,
+					     output_pdf=pdf)
+	writeAlasccaPdf.jobname = "writeAlasccaPdf-{}-{}".format(tumor_barcode, blood_barcode)
+	self.add(writeAlasccaPdf)
 
         return {'tbam': tbam, 'nbam': nbam}
 
