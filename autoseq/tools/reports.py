@@ -34,30 +34,30 @@ class CompileAlasccaGenomicJson(Job):
 
     def command(self):
         return 'compileAlasccaGenomicReport ' + \
-            required('', self.input_somatic_vcf) + \
-            required('', self.input_cn_calls) + \
-            required('', self.input_msisensor) + \
-            required('--output ', self.output_json)
+               required('', self.input_somatic_vcf) + \
+               required('', self.input_cn_calls) + \
+               required('', self.input_msisensor) + \
+               required('--output ', self.output_json)
 
 
 class WriteAlasccaReport(Job):
     def __init__(self, input_metadata_json, input_genomic_json, output_pdf):
-	Job.__init__(self)
-	self.input_metadata_json = input_metadata_json
-	self.input_genomic_json = input_genomic_json
-	self.output_pdf = output_pdf
+        Job.__init__(self)
+        self.input_metadata_json = input_metadata_json
+        self.input_genomic_json = input_genomic_json
+        self.output_pdf = output_pdf
 
     def command(self):
-	tmpdir = "{}/skewer-{}".format(self.scratch, uuid.uuid4())
-	mkdir_tmp_cmd = "mkdir -p {}".format(tmpdir)
-	tmp_pdf = os.path.join(tmpdir, 'Report.pdf')
-	cmd = 'writeAlasccaReport ' + \
-	    required(' --tmp_dir ', tmpdir) + \
-	    required(' --output_dir ', tmpdir) + \
-	    required('', self.input_genomic_json) + \
-	    required('', self.input_metadata_json)
+        tmpdir = "{}/write-alascca-report-{}".format(self.scratch, uuid.uuid4())
+        mkdir_tmp_cmd = "mkdir -p {}".format(tmpdir)
+        tmp_pdf = os.path.join(tmpdir, 'Report.pdf')
+        cmd = 'writeAlasccaReport ' + \
+              required(' --tmp_dir ', tmpdir) + \
+              required(' --output_dir ', tmpdir) + \
+              required('', self.input_genomic_json) + \
+              required('', self.input_metadata_json)
 
-	cp_cmd = "cp {} {}".format(tmp_pdf, self.output_pdf)
-	rmdir_cmd = "rm -r {}".format(tmpdir)
+        cp_cmd = "cp {} {}".format(tmp_pdf, self.output_pdf)
+        rmdir_cmd = "rm -r {}".format(tmpdir)
 
-	return " && ".join([mkdir_tmp_cmd, cmd, cp_cmd, rmdir_cmd])
+        return " && ".join([mkdir_tmp_cmd, cmd, cp_cmd, rmdir_cmd])
