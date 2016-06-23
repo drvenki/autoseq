@@ -2,8 +2,9 @@
 
 ## Library naming
 
-Sample should be named of the format `SDID-TYPE-SAMPLEID-PREPID-CAPTUREID` where
+Sample should be named of the format `PROJECT-SDID-TYPE-SAMPLEID-PREPID-CAPTUREID` where
 
+* `PROJECT` is a two-letter short project designator. One of `AL` (alascca), `LB` (liquid biopspy) and `OT` (other)
 * `SDID` is an identifier for a single individual. 
 * `TYPE` is the sample type, one of `T` (tumor), `N` (normal) and `P` (ctDNA)
 * `SAMPLEID` identifies a single biological sample, for example piece of a tumor or a single tube of plasma. The combination `SDID-TYPE-SAMPLEID` must uniquely identify a single sample. 

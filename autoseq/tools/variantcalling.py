@@ -132,17 +132,22 @@ class VEP(Job):
     def command(self):
         bgzip = ""
         fork = ""
-        if self.threads > 1:  # vep does not accept "--fork 1", so need to check.
+        if self.threads > 1 and self.vep_dir:  # vep does not accept "--fork 1", so need to check.
             fork = " --fork {} ".format(self.threads)
         if self.output_vcf.endswith('gz'):
             bgzip = " | bgzip "
-        required("", self.vep_dir)  # assert that vep_bin_dir is set
-        cmdstr = "variant_effect_predictor.pl --vcf --offline --output_file STDOUT " + \
-                 required("--dir ", self.vep_dir) + \
+
+        cmdstr = "variant_effect_predictor.pl --vcf --output_file STDOUT " + \
+                 optional("--dir ", self.vep_dir) + \
                  required("--fasta ", self.reference_sequence) + \
                  required("-i ", self.input_vcf) + \
                  " --check_alleles --check_existing  --total_length --allele_number " + \
-                 " --no_escape --no_stats --everything " + \
+                 " --no_escape --no_stats " + \
+                 conditional(self.vep_dir, " --everything ") + \
+                 conditional(self.vep_dir, " --offline ") + \
+                 conditional(not self.vep_dir, " --database ") + \
+                 conditional(not self.vep_dir, " --port 3337 ") + \
+                 conditional(not self.vep_dir, " --hgvs ") + \
                  fork + bgzip + " > " + required("", self.output_vcf) + \
                  " && tabix -p vcf {}".format(self.output_vcf)
 
@@ -296,17 +301,15 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
                           )
         vardict.jobname = "vardict-{}".format(tlib)
         pipeline.add(vardict)
-        d['vardict'] = vardict.output
 
-        if vep:
-            vep_vardict = VEP()
-            vep_vardict.input_vcf = vardict.output
-            vep_vardict.threads = pipeline.maxcores
-            vep_vardict.reference_sequence = refdata['reference_genome']
-            vep_vardict.vep_dir = refdata['vep_dir']
-            vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
-            vep_vardict.jobname = "vep-vardict-{}".format(tlib)
-            pipeline.add(vep_vardict)
-            d['vardict'] = vep_vardict.output_vcf
+        vep_vardict = VEP()
+        vep_vardict.input_vcf = vardict.output
+        vep_vardict.threads = pipeline.maxcores
+        vep_vardict.reference_sequence = refdata['reference_genome']
+        vep_vardict.vep_dir = refdata['vep_dir']
+        vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
+        vep_vardict.jobname = "vep-vardict-{}".format(tlib)
+        pipeline.add(vep_vardict)
+        d['vardict'] = vep_vardict.output_vcf
 
     return d

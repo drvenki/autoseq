@@ -1,6 +1,7 @@
 import unittest
 
-from autoseq.cli.liqbio import parse_orderform, make_sample_dicts
+from autoseq.cli.liqbio import make_sample_dicts
+from autoseq.util.orderform import parse_orderform
 
 
 class TestOrderform(unittest.TestCase):
