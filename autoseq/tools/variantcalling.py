@@ -260,7 +260,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
         mutect2.reference_sequence = refdata['reference_genome']
         mutect2.target_regions = refdata['targets'][target_name]['targets-interval_list-slopped20']
         mutect2.scratch = pipeline.scratch
-        mutect2.jobname = "mutect2-{}".format(tlib)
+        mutect2.jobname = "mutect2/{}".format(tlib)
         mutect2.output = "{}/variants/{}-{}.mutect.vcf.gz".format(outdir, tlib, nlib)
         pipeline.add(mutect2)
         d['mutect2'] = mutect2.output
@@ -275,7 +275,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
         freebayes.target_bed = refdata['targets'][target_name]['targets-bed-slopped20']
         freebayes.threads = pipeline.maxcores
         freebayes.scratch = pipeline.scratch
-        freebayes.jobname = "freebayes-somatic-{}".format(tlib)
+        freebayes.jobname = "freebayes-somatic/{}".format(tlib)
         freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(outdir, tlib, nlib)
         pipeline.add(freebayes)
         d['freebayes'] = freebayes.output
@@ -287,7 +287,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
             vep_freebayes.reference_sequence = refdata['reference_genome']
             vep_freebayes.vep_dir = refdata['vep_dir']
             vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
-            vep_freebayes.jobname = "vep-freebayes-somatic-{}".format(tlib)
+            vep_freebayes.jobname = "vep-freebayes-somatic/{}".format(tlib)
             pipeline.add(vep_freebayes)
             d['freebayes'] = vep_freebayes.output_vcf
 
@@ -299,7 +299,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
                           target_bed=refdata['targets'][target_name]['targets-bed-slopped20'],
                           output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, tlib, nlib)
                           )
-        vardict.jobname = "vardict-{}".format(tlib)
+        vardict.jobname = "vardict/{}".format(tlib)
         pipeline.add(vardict)
 
         vep_vardict = VEP()
@@ -308,7 +308,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
         vep_vardict.reference_sequence = refdata['reference_genome']
         vep_vardict.vep_dir = refdata['vep_dir']
         vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
-        vep_vardict.jobname = "vep-vardict-{}".format(tlib)
+        vep_vardict.jobname = "vep-vardict/{}".format(tlib)
         pipeline.add(vep_vardict)
         d['vardict'] = vep_vardict.output_vcf
 

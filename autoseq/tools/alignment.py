@@ -210,7 +210,7 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
         skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
         skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
         skewer.threads = maxcores
-        skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+        skewer.jobname = "skewer/{}".format(os.path.basename(fq1))
         skewer.scratch = pipeline.scratch
         skewer.is_intermediate = True
         fq1_trimmed.append(skewer.output)
@@ -219,7 +219,7 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
     cat1 = Cat()
     cat1.input = fq1_trimmed
     cat1.output = outdir + "/skewer/{}_1.fastq.gz".format(lib)
-    cat1.jobname = "cat-{}".format(lib)
+    cat1.jobname = "cat/{}".format(lib)
     cat1.is_intermediate = False
     pipeline.add(cat1)
 
@@ -236,7 +236,7 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
     bwa.threads = maxcores
     bwa.output = "{}/{}.bam".format(outdir, lib)
     bwa.scratch = pipeline.scratch
-    bwa.jobname = "bwa-{}".format(lib)
+    bwa.jobname = "bwa/{}".format(lib)
     bwa.is_intermediate = False
     pipeline.add(bwa)
 
@@ -272,7 +272,7 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remov
         skewer.output2 = outdir + "/skewer/libs/{}".format(os.path.basename(fq2))
         skewer.stats = outdir + "/skewer/libs/skewer-stats-{}.log".format(os.path.basename(fq1))
         skewer.threads = maxcores
-        skewer.jobname = "skewer-{}".format(os.path.basename(fq1))
+        skewer.jobname = "skewer/{}".format(os.path.basename(fq1))
         skewer.scratch = pipeline.scratch
         skewer.is_intermediate = True
         fq1_trimmed.append(skewer.output1)
@@ -282,13 +282,13 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remov
     cat1 = Cat()
     cat1.input = fq1_trimmed
     cat1.output = outdir + "/skewer/{}-concatenated_1.fastq.gz".format(lib)
-    cat1.jobname = "cat1-{}".format(lib)
+    cat1.jobname = "cat1/{}".format(lib)
     cat1.is_intermediate = True
     pipeline.add(cat1)
 
     cat2 = Cat()
     cat2.input = fq2_trimmed
-    cat2.jobname = "cat2-{}".format(lib)
+    cat2.jobname = "cat2/{}".format(lib)
     cat2.output = outdir + "/skewer/{}-concatenated_2.fastq.gz".format(lib)
     cat2.is_intermediate = True
     pipeline.add(cat2)
@@ -306,7 +306,7 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remov
                                                                                           rg_lb=rg_lb)
     bwa.threads = maxcores
     bwa.output = "{}/{}.bam".format(outdir, lib)
-    bwa.jobname = "bwa-{}".format(lib)
+    bwa.jobname = "bwa/{}".format(lib)
     bwa.scratch = pipeline.scratch
     bwa.is_intermediate = False
     pipeline.add(bwa)

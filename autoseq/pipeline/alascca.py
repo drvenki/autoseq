@@ -64,7 +64,7 @@ class AlasccaPipeline(PypedreamPipeline):
         multiqc.input_files = qc_files
         multiqc.search_dir = self.outdir
         multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['REPORTID'])
-        multiqc.jobname = "multiqc-{}".format(self.sampledata['REPORTID'])
+        multiqc.jobname = "multiqc/{}".format(self.sampledata['REPORTID'])
         self.add(multiqc)
 
     def get_all_fastqs(self):
@@ -165,7 +165,7 @@ class AlasccaPipeline(PypedreamPipeline):
             'targets-interval_list-slopped20']
         hzconcordance.normalid = rg_sm
         hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        hzconcordance.jobname = "hzconcordance/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
                                                                         self.sampledata['PANEL_NORMAL_LIB'])
         self.add(hzconcordance)
@@ -179,7 +179,7 @@ class AlasccaPipeline(PypedreamPipeline):
         vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
                                                                              self.sampledata['PANEL_TUMOR_LIB'],
                                                                              self.sampledata['PANEL_NORMAL_LIB'])
-        vcfaddsample.jobname = "vcf-add-sample-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        vcfaddsample.jobname = "vcf-add-sample/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         self.add(vcfaddsample)
 
         msisensor = MsiSensor()
@@ -189,7 +189,7 @@ class AlasccaPipeline(PypedreamPipeline):
         msisensor.output = "{}/msisensor.tsv".format(self.outdir)
         msisensor.threads = self.maxcores
         msisensor.scratch = self.scratch
-        msisensor.jobname = "msisensor-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        msisensor.jobname = "msisensor/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         self.add(msisensor)
 
         cnvkit = CNVkit(input_bam=tbam,
@@ -205,7 +205,7 @@ class AlasccaPipeline(PypedreamPipeline):
         else:
             cnvkit.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
 
-        cnvkit.jobname = "cnvkit-{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        cnvkit.jobname = "cnvkit/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         self.add(cnvkit)
 
         alascca_cna = AlasccaCNAPlot()
@@ -227,7 +227,7 @@ class AlasccaPipeline(PypedreamPipeline):
         compile_metadata_json = CompileMetadata(self.referral_db_conf, blood_barcode, tumor_barcode,
                                                 output_json=metadata_json,
                                                 addresses=self.addresses)
-        compile_metadata_json.jobname = "compile-metadata-{}-{}".format(tumor_barcode, blood_barcode)
+        compile_metadata_json.jobname = "compile-metadata/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_metadata_json)
 
         genomic_json = "{}/report/{}-{}.genomic.json".format(self.outdir, blood_barcode, tumor_barcode)
@@ -235,14 +235,14 @@ class AlasccaPipeline(PypedreamPipeline):
                                                          input_cn_calls=alascca_cna.output_json,
                                                          input_msisensor=msisensor.output,
                                                          output_json=genomic_json)
-        compile_genomic_json.jobname = "compile-genomic-{}-{}".format(tumor_barcode, blood_barcode)
+        compile_genomic_json.jobname = "compile-genomic/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_genomic_json)
 
         pdf = "{}/report/AlasccaReport-{}-{}.pdf".format(self.outdir, blood_barcode, tumor_barcode)
         writeAlasccaPdf = WriteAlasccaReport(input_genomic_json=compile_genomic_json.output_json,
                                              input_metadata_json=compile_metadata_json.output_json,
                                              output_pdf=pdf)
-        writeAlasccaPdf.jobname = "writeAlasccaPdf-{}-{}".format(tumor_barcode, blood_barcode)
+        writeAlasccaPdf.jobname = "writeAlasccaPdf/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(writeAlasccaPdf)
 
         return {'tbam': tbam, 'nbam': nbam}
@@ -262,7 +262,7 @@ class AlasccaPipeline(PypedreamPipeline):
         freebayes.threads = self.maxcores
         freebayes.scratch = self.scratch
         freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
-        freebayes.jobname = "freebayes-germline-{}".format(library)
+        freebayes.jobname = "freebayes-germline/{}".format(library)
         self.add(freebayes)
         return freebayes.output
 
@@ -279,7 +279,7 @@ class AlasccaPipeline(PypedreamPipeline):
             fastqc.input = fq
             fastqc.outdir = "{}/qc/fastqc/".format(self.outdir)
             fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(self.outdir, basefn)
-            fastqc.jobname = "fastqc-{}".format(basefn)
+            fastqc.jobname = "fastqc/{}".format(basefn)
             qc_files.append(fastqc.output)
             self.add(fastqc)
         return qc_files
@@ -296,7 +296,7 @@ class AlasccaPipeline(PypedreamPipeline):
             basefn = stripsuffix(os.path.basename(bam), ".bam")
             isize = PicardCollectInsertSizeMetrics()
             isize.input = bam
-            isize.jobname = "picard-isize-{}".format(basefn)
+            isize.jobname = "picard-isize/{}".format(basefn)
             isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
             self.add(isize)
 
@@ -318,14 +318,14 @@ class AlasccaPipeline(PypedreamPipeline):
             isize = PicardCollectInsertSizeMetrics()
             isize.input = bam
             isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
-            isize.jobname = "picard-isize-{}".format(basefn)
+            isize.jobname = "picard-isize/{}".format(basefn)
             self.add(isize)
 
             oxog = PicardCollectOxoGMetrics()
             oxog.input = bam
             oxog.reference_sequence = self.refdata['reference_genome']
             oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, basefn)
-            oxog.jobname = "picard-oxog-{}".format(basefn)
+            oxog.jobname = "picard-oxog/{}".format(basefn)
             self.add(oxog)
 
             hsmetrics = PicardCollectHsMetrics()
@@ -337,14 +337,14 @@ class AlasccaPipeline(PypedreamPipeline):
                 'targets-interval_list-slopped20']
             hsmetrics.bait_name = self.sampledata['TARGETS']
             hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
-            hsmetrics.jobname = "picard-hsmetrics-{}".format(basefn)
+            hsmetrics.jobname = "picard-hsmetrics/{}".format(basefn)
             self.add(hsmetrics)
 
             sambamba = SambambaDepth()
             sambamba.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
             sambamba.input = bam
             sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
-            sambamba.jobname = "sambamba-depth-{}".format(basefn)
+            sambamba.jobname = "sambamba-depth/{}".format(basefn)
             self.add(sambamba)
 
             alascca_coverage_hist = CoverageHistogram()
@@ -355,7 +355,7 @@ class AlasccaPipeline(PypedreamPipeline):
                     'targets-bed-slopped20']
             alascca_coverage_hist.input_bam = bam
             alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
-            alascca_coverage_hist.jobname = "alascca-coverage-hist-{}".format(basefn)
+            alascca_coverage_hist.jobname = "alascca-coverage-hist/{}".format(basefn)
             self.add(alascca_coverage_hist)
 
             qc_files += [isize.output_metrics, oxog.output_metrics,
