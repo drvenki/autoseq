@@ -12,7 +12,7 @@ from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
 from autoseq.tools.reports import CompileMetadata, CompileAlasccaGenomicJson, WriteAlasccaReport
 from autoseq.tools.variantcalling import Freebayes, VcfAddSample, call_somatic_variants
-from autoseq.util.library import get_libdict
+from autoseq.util.library import get_libdict, find_fastqs
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
@@ -37,6 +37,9 @@ class AlasccaPipeline(PypedreamPipeline):
         self.addresses = addresses
         self.targets_name = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
 
+        self.panel_tumor_fqs = find_fastqs(self.sampledata['panel']['T'], self.libdir)
+        self.panel_normal_fqs = find_fastqs(self.sampledata['panel']['N'], self.libdir)
+        self.wgs_tumor_fqs = find_fastqs(self.sampledata['wgs']['T'], self.libdir)
 
         panel_bams = self.analyze_panel()
         wgs_bams = self.analyze_lowpass_wgs()
@@ -60,66 +63,62 @@ class AlasccaPipeline(PypedreamPipeline):
         multiqc = MultiQC()
         multiqc.input_files = qc_files
         multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['REPORTID'])
-        multiqc.jobname = "multiqc/{}".format(self.sampledata['REPORTID'])
+        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['reportid'])
+        multiqc.jobname = "multiqc/{}".format(self.sampledata['reportid'])
         self.add(multiqc)
 
     def get_all_fastqs(self):
         fqs = []
+        if self.sampledata['panel']['T']:
+            fqs.extend(self.panel_tumor_fqs[0])
+            fqs.extend(self.panel_tumor_fqs[1])
+        if self.sampledata['panel']['N']:
+            fqs.extend(self.panel_normal_fqs[0])
+            fqs.extend(self.panel_normal_fqs[1])
+        if self.sampledata['wgs']['T']:
+            fqs.extend(self.wgs_tumor_fqs[0])
+            fqs.extend(self.wgs_tumor_fqs[1])
 
-        def add_item(item, lst):
-            if item != [] and item is not None:
-                return lst + item
-            else:
-                return lst
-
-        fqs = add_item(self.sampledata['PANEL_TUMOR_FQ1'], fqs)
-        fqs = add_item(self.sampledata['PANEL_TUMOR_FQ2'], fqs)
-        fqs = add_item(self.sampledata['PANEL_NORMAL_FQ1'], fqs)
-        fqs = add_item(self.sampledata['PANEL_NORMAL_FQ2'], fqs)
-        fqs = add_item(self.sampledata['WGS_TUMOR_FQ1'], fqs)
-        fqs = add_item(self.sampledata['WGS_TUMOR_FQ2'], fqs)
-
-        return fqs
+        return [fq for fq in fqs if fq is not None]
 
     def analyze_lowpass_wgs(self):
-        if self.sampledata['WGS_TUMOR_LIB'] is None or self.sampledata['WGS_TUMOR_LIB'] == "NA":
+        if self.sampledata['wgs']['T'] is None or self.sampledata['wgs']['T'] == "NA":
             logging.info("No low-pass WGS data found.")
             return {'tbam': None, 'nbam': None}
 
         tbam = align_library(self,
-                             self.sampledata['WGS_TUMOR_FQ1'],
-                             self.sampledata['WGS_TUMOR_FQ2'],
-                             self.sampledata['WGS_TUMOR_LIB'],
+                             self.wgs_tumor_fqs[0],
+                             self.wgs_tumor_fqs[1],
+                             self.sampledata['wgs']['T'],
                              self.refdata['bwaIndex'],
                              self.outdir + "/bams/wgs",
                              maxcores=self.maxcores)
 
         qdnaseq_t = QDNASeq(tbam,
                             output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(
-                                self.sampledata['WGS_TUMOR_LIB'])),
+                                self.sampledata['wgs']['T'])),
                             background=None)
         self.add(qdnaseq_t)
 
         return {'tbam': tbam}
 
     def analyze_panel(self):
-        if self.sampledata['PANEL_TUMOR_LIB'] is None or self.sampledata['PANEL_TUMOR_LIB'] == "NA":
+        if self.sampledata['panel']['T'] is None or self.sampledata['panel']['T'] == "NA":
             logging.info("No panel data found.")
             return {}
 
         tbam = align_library(self,
-                             fq1_files=self.sampledata['PANEL_TUMOR_FQ1'],
-                             fq2_files=self.sampledata['PANEL_TUMOR_FQ2'],
-                             lib=self.sampledata['PANEL_TUMOR_LIB'],
+                             fq1_files=self.panel_tumor_fqs[0],
+                             fq2_files=self.panel_tumor_fqs[1],
+                             lib=self.sampledata['panel']['T'],
                              ref=self.refdata['bwaIndex'],
                              outdir=self.outdir + "/bams/panel",
                              maxcores=self.maxcores)
 
         nbam = align_library(self,
-                             fq1_files=self.sampledata['PANEL_NORMAL_FQ1'],
-                             fq2_files=self.sampledata['PANEL_NORMAL_FQ2'],
-                             lib=self.sampledata['PANEL_NORMAL_LIB'],
+                             fq1_files=self.panel_normal_fqs[0],
+                             fq2_files=self.panel_normal_fqs[1],
+                             lib=self.sampledata['panel']['N'],
                              ref=self.refdata['bwaIndex'],
                              outdir=self.outdir + "/bams/panel",
                              maxcores=self.maxcores)
@@ -129,17 +128,17 @@ class AlasccaPipeline(PypedreamPipeline):
             vep = True
 
         somatic_vcfs = call_somatic_variants(self, tbam, nbam,
-                                             tlib=self.sampledata['PANEL_TUMOR_LIB'],
-                                             nlib=self.sampledata['PANEL_NORMAL_LIB'],
-                                             target_name=self.targets,
+                                             tlib=self.sampledata['panel']['T'],
+                                             nlib=self.sampledata['panel']['N'],
+                                             target_name=self.targets_name,
                                              refdata=self.refdata,
                                              outdir=self.outdir,
                                              callers=['vardict'],
                                              vep=vep)
 
-        germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['PANEL_NORMAL_LIB'])
+        germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['panel']['N'])
 
-        libdict = get_libdict(self.sampledata['PANEL_NORMAL_LIB'])
+        libdict = get_libdict(self.sampledata['panel']['N'])
         rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
 
         hzconcordance = HeterzygoteConcordance()
@@ -149,47 +148,47 @@ class AlasccaPipeline(PypedreamPipeline):
         hzconcordance.target_regions = self.refdata['targets'][self.targets_name]['targets-interval_list-slopped20']
         hzconcordance.normalid = rg_sm
         hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
-        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'],
-                                                                        self.sampledata['PANEL_NORMAL_LIB'])
+        hzconcordance.jobname = "hzconcordance/{}".format(self.sampledata['panel']['T'])
+        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['panel']['T'],
+                                                                        self.sampledata['panel']['N'])
         self.add(hzconcordance)
 
         vcfaddsample = VcfAddSample()
         vcfaddsample.input_bam = tbam
         vcfaddsample.input_vcf = germline_vcf
-        vcfaddsample.samplename = self.sampledata['PANEL_TUMOR_LIB']
+        vcfaddsample.samplename = self.sampledata['panel']['T']
         vcfaddsample.filter_hom = True
         vcfaddsample.scratch = self.scratch
         vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
-                                                                             self.sampledata['PANEL_TUMOR_LIB'],
-                                                                             self.sampledata['PANEL_NORMAL_LIB'])
-        vcfaddsample.jobname = "vcf-add-sample/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+                                                                             self.sampledata['panel']['T'],
+                                                                             self.sampledata['panel']['N'])
+        vcfaddsample.jobname = "vcf-add-sample/{}".format(self.sampledata['panel']['T'])
         self.add(vcfaddsample)
 
         msisensor = MsiSensor()
-        msisensor.msi_sites = self.refdata['targets'][self.targets]['msisites']
+        msisensor.msi_sites = self.refdata['targets'][self.targets_name]['msisites']
         msisensor.input_normal_bam = nbam
         msisensor.input_tumor_bam = tbam
         msisensor.output = "{}/msisensor.tsv".format(self.outdir)
         msisensor.threads = self.maxcores
         msisensor.scratch = self.scratch
-        msisensor.jobname = "msisensor/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        msisensor.jobname = "msisensor/{}".format(self.sampledata['panel']['T'])
         self.add(msisensor)
 
         cnvkit = CNVkit(input_bam=tbam,
                         output_cnr="{}/cnv/{}.cnr".format(self.outdir,
-                                                          self.sampledata['PANEL_TUMOR_LIB']),
+                                                          self.sampledata['panel']['T']),
                         output_cns="{}/cnv/{}.cns".format(self.outdir,
-                                                          self.sampledata['PANEL_TUMOR_LIB']),
+                                                          self.sampledata['panel']['T']),
                         scratch=self.scratch
                         )
         # If we have a CNVkit reference
-        if self.refdata['targets'][self.targets]['cnvkit-ref']:
-            cnvkit.reference = self.refdata['targets'][self.targets]['cnvkit-ref']
+        if self.refdata['targets'][self.targets_name]['cnvkit-ref']:
+            cnvkit.reference = self.refdata['targets'][self.targets_name]['cnvkit-ref']
         else:
-            cnvkit.targets_bed = self.refdata['targets'][self.targets]['targets-bed-slopped20']
+            cnvkit.targets_bed = self.refdata['targets'][self.targets_name]['targets-bed-slopped20']
 
-        cnvkit.jobname = "cnvkit/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
+        cnvkit.jobname = "cnvkit/{}".format(self.sampledata['panel']['T'])
         self.add(cnvkit)
 
         alascca_cna = AlasccaCNAPlot()
@@ -199,12 +198,12 @@ class AlasccaPipeline(PypedreamPipeline):
         alascca_cna.input_cns = cnvkit.output_cns
         alascca_cna.chrsizes = self.refdata['chrsizes']
         alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
-                                                                           self.sampledata['PANEL_TUMOR_LIB'])
-        alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['PANEL_TUMOR_LIB'])
+                                                                           self.sampledata['panel']['T'])
+        alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['panel']['T'])
         self.add(alascca_cna)
 
-        tlib = get_libdict(self.sampledata['PANEL_TUMOR_LIB'])
-        nlib = get_libdict(self.sampledata['PANEL_NORMAL_LIB'])
+        tlib = get_libdict(self.sampledata['panel']['T'])
+        nlib = get_libdict(self.sampledata['panel']['N'])
         blood_barcode = nlib['sample_id']
         tumor_barcode = tlib['sample_id']
         metadata_json = "{}/report/{}-{}.metadata.json".format(self.outdir, blood_barcode, tumor_barcode)
@@ -242,7 +241,7 @@ class AlasccaPipeline(PypedreamPipeline):
         freebayes.somatic_only = False
         freebayes.params = None
         freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][self.targets]['targets-bed-slopped20']
+        freebayes.target_bed = self.refdata['targets'][self.targets_name]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
         freebayes.scratch = self.scratch
         freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
@@ -315,17 +314,17 @@ class AlasccaPipeline(PypedreamPipeline):
             hsmetrics = PicardCollectHsMetrics()
             hsmetrics.input = bam
             hsmetrics.reference_sequence = self.refdata['reference_genome']
-            hsmetrics.target_regions = self.refdata['targets'][self.targets][
+            hsmetrics.target_regions = self.refdata['targets'][self.targets_name][
                 'targets-interval_list-slopped20']
-            hsmetrics.bait_regions = self.refdata['targets'][self.targets][
+            hsmetrics.bait_regions = self.refdata['targets'][self.targets_name][
                 'targets-interval_list-slopped20']
-            hsmetrics.bait_name = self.targets
+            hsmetrics.bait_name = self.targets_name
             hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
             hsmetrics.jobname = "picard-hsmetrics/{}".format(basefn)
             self.add(hsmetrics)
 
             sambamba = SambambaDepth()
-            sambamba.targets_bed = self.refdata['targets'][self.targets]['targets-bed-slopped20']
+            sambamba.targets_bed = self.refdata['targets'][self.targets_name]['targets-bed-slopped20']
             sambamba.input = bam
             sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
             sambamba.jobname = "sambamba-depth/{}".format(basefn)
@@ -335,7 +334,7 @@ class AlasccaPipeline(PypedreamPipeline):
             if 'alascca_targets' in self.refdata['targets']:
                 alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
             else:
-                alascca_coverage_hist.input_bed = self.refdata['targets'][self.targets][
+                alascca_coverage_hist.input_bed = self.refdata['targets'][self.targets_name][
                     'targets-bed-slopped20']
             alascca_coverage_hist.input_bam = bam
             alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
