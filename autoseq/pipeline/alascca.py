@@ -98,6 +98,7 @@ class AlasccaPipeline(PypedreamPipeline):
                             output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(
                                 self.sampledata['wgs']['T'])),
                             background=None)
+        qdnaseq_t.jobname = "qdnaseq/{}".format(self.sampledata['wgs']['T'])
         self.add(qdnaseq_t)
 
         return {'tbam': tbam}
@@ -200,6 +201,7 @@ class AlasccaPipeline(PypedreamPipeline):
         alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
                                                                            self.sampledata['panel']['T'])
         alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['panel']['T'])
+        alascca_cna.jobname = "alascca-cna/{}".format(self.sampledata['panel']['T'])
         self.add(alascca_cna)
 
         tlib = get_libdict(self.sampledata['panel']['T'])
