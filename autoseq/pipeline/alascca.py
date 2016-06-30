@@ -19,12 +19,6 @@ __author__ = 'dankle'
 
 
 class AlasccaPipeline(PypedreamPipeline):
-    analysis_id = None
-    sampledata = None
-    refdata = None
-    outdir = None
-    maxcores = None
-    scratch = "/tmp"
 
     def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, scratch="/tmp/", debug=False,
                  referral_db_conf="tests/referrals/referral-db-config.json",
