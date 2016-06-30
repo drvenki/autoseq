@@ -22,6 +22,7 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
         cls.outdir = normpath("~/tmp/alascca-test")
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
         subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
+                              " --libdir /tmp/libraries " +
                               " --scratch ~/tmp/ --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
                               " tests/alascca-test-sample.json", shell=True)
 
