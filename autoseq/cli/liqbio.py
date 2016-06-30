@@ -27,7 +27,7 @@ def liqbio(ctx, libdir, sample):
 
     ctx.obj['pipeline'] = LiqBioPipeline(sampledata=sampledata, refdata=ctx.obj['refdata'],
                                          outdir=ctx.obj['outdir'], libdir=libdir, maxcores=ctx.obj['cores'],
-                                         debug=ctx.obj['debug'], runner=ctx.obj['runner'],
+                                         runner=ctx.obj['runner'],
                                          jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'],
                                          scratch=ctx.obj['scratch'])
 

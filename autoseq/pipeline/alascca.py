@@ -20,7 +20,7 @@ __author__ = 'dankle'
 
 class AlasccaPipeline(PypedreamPipeline):
 
-    def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, scratch="/tmp/", debug=False,
+    def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, scratch="/tmp/",
                  referral_db_conf="tests/referrals/referral-db-config.json",
                  addresses="tests/referrals/addresses.csv",
                  **kwargs):
@@ -35,7 +35,7 @@ class AlasccaPipeline(PypedreamPipeline):
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
 
-        panel_bams = self.analyze_panel(debug=debug)
+        panel_bams = self.analyze_panel()
         wgs_bams = self.analyze_lowpass_wgs()
 
         ################################################
@@ -45,10 +45,10 @@ class AlasccaPipeline(PypedreamPipeline):
         # per-bam qc
         # panel
         all_panel_bams = [bam for bam in panel_bams.values() if bam is not None]
-        qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
+        qc_files += self.run_panel_bam_qc(all_panel_bams)
         # wgs
         all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
+        qc_files += self.run_wgs_bam_qc(all_wgs_bams)
 
         # per-fastq qc
         fqs = self.get_all_fastqs()
@@ -100,7 +100,7 @@ class AlasccaPipeline(PypedreamPipeline):
 
         return {'tbam': tbam}
 
-    def analyze_panel(self, debug=False):
+    def analyze_panel(self):
         if self.sampledata['PANEL_TUMOR_LIB'] is None or self.sampledata['PANEL_TUMOR_LIB'] == "NA":
             logging.info("No panel data found.")
             return {}
@@ -266,7 +266,7 @@ class AlasccaPipeline(PypedreamPipeline):
             self.add(fastqc)
         return qc_files
 
-    def run_wgs_bam_qc(self, bams, debug=False):
+    def run_wgs_bam_qc(self, bams):
         """
         Run QC on wgs bams
         :param bams: list of bams
@@ -286,7 +286,7 @@ class AlasccaPipeline(PypedreamPipeline):
 
         return qc_files
 
-    def run_panel_bam_qc(self, bams, debug=False):
+    def run_panel_bam_qc(self, bams):
         """
         Run QC on panel bams
         :param bams: list of bams

@@ -29,7 +29,7 @@ class LiqBioPipeline(PypedreamPipeline):
     scratch = None
     qc_files = []
 
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp", debug=False,
+    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp",
                  **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         self.sampledata = sampledata
@@ -53,10 +53,10 @@ class LiqBioPipeline(PypedreamPipeline):
         # # panel
         all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
         all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
-        self.qc_files += self.run_panel_bam_qc(all_panel_bams, debug=debug)
+        self.qc_files += self.run_panel_bam_qc(all_panel_bams)
         # # wgs
         # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        # #qc_files += self.run_wgs_bam_qc(all_wgs_bams, debug=debug)
+        # #qc_files += self.run_wgs_bam_qc(all_wgs_bams)
         #
         # # per-fastq qc
         # fqs = self.get_all_fastqs()
@@ -328,7 +328,7 @@ class LiqBioPipeline(PypedreamPipeline):
             self.add(fastqc)
         return qc_files
 
-    def run_wgs_bam_qc(self, bams, debug=False):
+    def run_wgs_bam_qc(self, bams):
         """
         Run QC on wgs bams
         :param bams: list of bams
@@ -344,16 +344,6 @@ class LiqBioPipeline(PypedreamPipeline):
             isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
             self.add(isize)
 
-            if not debug:
-                gcbias = PicardCollectGcBiasMetrics()
-                gcbias.input = bam
-                gcbias.reference_sequence = self.refdata['reference_genome']
-                gcbias.output_summary = "{}/qc/picard/wgs/{}.picard-gcbias-summary.txt".format(self.outdir, basefn)
-                gcbias.output_metrics = "{}/qc/picard/wgs/{}.picard-gcbias.txt".format(self.outdir, basefn)
-                gcbias.jobname = "picard-gcbias-{}".format(basefn)
-                gcbias.stop_after = 100
-                self.add(gcbias)
-
             wgsmetrics = PicardCollectWgsMetrics()
             wgsmetrics.input = bam
             wgsmetrics.reference_sequence = self.refdata['reference_genome']
@@ -362,12 +352,10 @@ class LiqBioPipeline(PypedreamPipeline):
             self.add(wgsmetrics)
 
             qc_files += [isize.output_metrics, wgsmetrics.output_metrics]
-            if not debug:
-                qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
         return qc_files
 
-    def run_panel_bam_qc(self, bams, debug=False):
+    def run_panel_bam_qc(self, bams):
         """
         Run QC on panel bams
         :param bams: list of bams
@@ -386,16 +374,6 @@ class LiqBioPipeline(PypedreamPipeline):
             isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
             isize.jobname = "picard-isize-{}".format(basefn)
             self.add(isize)
-
-            if not debug:
-                gcbias = PicardCollectGcBiasMetrics()
-                gcbias.input = bam
-                gcbias.reference_sequence = self.refdata['reference_genome']
-                gcbias.output_summary = "{}/qc/picard/panel/{}.picard-gcbias-summary.txt".format(self.outdir, basefn)
-                gcbias.output_metrics = "{}/qc/picard/panel/{}.picard-gcbias.txt".format(self.outdir, basefn)
-                gcbias.jobname = "picard-gcbias-{}".format(basefn)
-                gcbias.stop_after = 100
-                self.add(gcbias)
 
             oxog = PicardCollectOxoGMetrics()
             oxog.input = bam
@@ -425,7 +403,5 @@ class LiqBioPipeline(PypedreamPipeline):
 
             qc_files += [isize.output_metrics, oxog.output_metrics,
                          hsmetrics.output_metrics, sambamba.output]
-            if not debug:
-                qc_files += [gcbias.output_summary, gcbias.output_metrics]
 
         return qc_files
