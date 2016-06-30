@@ -82,8 +82,6 @@ class AlasccaPipeline(PypedreamPipeline):
         fqs = add_item(self.sampledata['PANEL_NORMAL_FQ2'], fqs)
         fqs = add_item(self.sampledata['WGS_TUMOR_FQ1'], fqs)
         fqs = add_item(self.sampledata['WGS_TUMOR_FQ2'], fqs)
-        fqs = add_item(self.sampledata['WGS_NORMAL_FQ1'], fqs)
-        fqs = add_item(self.sampledata['WGS_NORMAL_FQ2'], fqs)
 
         return fqs
 
@@ -99,16 +97,6 @@ class AlasccaPipeline(PypedreamPipeline):
                              self.refdata['bwaIndex'],
                              self.outdir + "/bams/wgs",
                              maxcores=self.maxcores)
-        if self.sampledata['WGS_NORMAL_FQ1']:
-            nbam = align_library(self,
-                                 self.sampledata['WGS_NORMAL_FQ1'],
-                                 self.sampledata['WGS_NORMAL_FQ2'],
-                                 self.sampledata['WGS_NORMAL_LIB'],
-                                 self.refdata['bwaIndex'],
-                                 self.outdir + "/bams/wgs",
-                                 maxcores=self.maxcores)
-        else:
-            nbam = None
 
         qdnaseq_t = QDNASeq(tbam,
                             output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(
@@ -116,7 +104,7 @@ class AlasccaPipeline(PypedreamPipeline):
                             background=None)
         self.add(qdnaseq_t)
 
-        return {'tbam': tbam, 'nbam': nbam}
+        return {'tbam': tbam}
 
     def analyze_panel(self, debug=False):
         if self.sampledata['PANEL_TUMOR_LIB'] is None or self.sampledata['PANEL_TUMOR_LIB'] == "NA":
