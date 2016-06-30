@@ -1,13 +1,12 @@
 openpyxl
 pip
-pymongo
 pydotplus
-jsonschema
 click
-git+https://github.com/dakl/localq.git
+multiqc
 genomicassertions>=0.2.5
+
+git+https://github.com/dakl/localq.git
 git+https://github.com/ClinSeq/pypedream.git
 git+https://github.com/ClinSeq/reportgen.git
 git+https://github.com/ClinSeq/referral-manager.git
-multiqc
 
