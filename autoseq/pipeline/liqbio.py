@@ -73,12 +73,12 @@ class LiqBioPipeline(PypedreamPipeline):
     def check_sampledata(self):
         def check_lib(lib):
             if lib:
-		filedir = os.path.join(self.libdir, lib)
-		if not os.path.exists(filedir):
-		    logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, lib))
+                filedir = os.path.join(self.libdir, lib)
+                if not os.path.exists(filedir):
+                    logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, lib))
                     return None
                 if find_fastqs(lib, self.libdir) == (None, None):
-		    logging.warn("No fastq files found for {} in dir {}".format(lib, filedir))
+                    logging.warn("No fastq files found for {} in dir {}".format(lib, filedir))
                     return None
             logging.debug("Library {} has data. Using it.".format(lib))
             return lib

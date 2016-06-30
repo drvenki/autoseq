@@ -65,30 +65,29 @@ class AlasccaCNAPlot(Job):
 
 class CNVkit(Job):
     """Runs CNVkit. Either reference or targets_bed must be supplied"""
+
     def __init__(self, input_bam, output_cns, output_cnr, reference=None, targets_bed=None, scratch="/tmp"):
         self.input_bam = input_bam
         self.reference = reference
         self.output_cnr = output_cnr
         self.output_cns = output_cns
-	self.targets_bed = targets_bed
+        self.targets_bed = targets_bed
         self.scratch = scratch
 
     def command(self):
-	if not self.reference and not self.targets_bed:
-	    raise ValueError("Either reference or targets_bed must be supplied")
-	if self.reference and self.targets_bed:
-	    raise ValueError("Supply either reference OR targets_bed")
+        if not self.reference and not self.targets_bed:
+            raise ValueError("Either reference or targets_bed must be supplied")
+        if self.reference and self.targets_bed:
+            raise ValueError("Supply either reference OR targets_bed")
 
         tmpdir = "{}/cnvkit-{}".format(self.scratch, uuid.uuid4())
         sample_prefix = stripsuffix(os.path.basename(self.input_bam), ".bam")
         cnvkit_cmd = "cnvkit.py batch " + required("", self.input_bam) + \
-		     optional("-r ", self.reference) + \
-		     conditional(self.targets_bed, "-n") + \
-		     optional("-t ", self.targets_bed) + \
+                     optional("-r ", self.reference) + \
+                     conditional(self.targets_bed, "-n") + \
+                     optional("-t ", self.targets_bed) + \
                      required("-d ", tmpdir)
         copy_cns_cmd = "cp {}/{}.cns ".format(tmpdir, sample_prefix) + required(" ", self.output_cns)
         copy_cnr_cmd = "cp {}/{}.cnr ".format(tmpdir, sample_prefix) + required(" ", self.output_cnr)
         rm_cmd = "rm -r {}".format(tmpdir)
         return " && ".join([cnvkit_cmd, copy_cns_cmd, copy_cnr_cmd, rm_cmd])
-
-
