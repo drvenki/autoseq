@@ -20,13 +20,14 @@ __author__ = 'dankle'
 
 class AlasccaPipeline(PypedreamPipeline):
 
-    def __init__(self, sampledata, refdata, outdir, analysis_id=None, maxcores=1, scratch="/tmp/",
+    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp/",
                  referral_db_conf="tests/referrals/referral-db-config.json",
                  addresses="tests/referrals/addresses.csv",
                  **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         logging.debug("Unnormalized outdir is {}".format(outdir))
         logging.debug("self.outdir is {}".format(self.outdir))
+        self.libdir = libdir
         self.sampledata = sampledata
         self.refdata = refdata
         self.maxcores = maxcores
@@ -35,6 +36,7 @@ class AlasccaPipeline(PypedreamPipeline):
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
         self.targets_name = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
+
 
         panel_bams = self.analyze_panel()
         wgs_bams = self.analyze_lowpass_wgs()
