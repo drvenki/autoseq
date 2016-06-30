@@ -47,124 +47,39 @@ class Bwa(Job):
                " && rm {} {}".format(bwalog, samblasterlog)
 
 
-class SkewerPE(Job):
+class Skewer(Job):
     def __init__(self):
         Job.__init__(self)
-        self.input1 = ""
-        self.input2 = ""
-        self.output1 = ""
-        self.output2 = ""
-        self.stats = ""
+        self.input1 = None
+        self.input2 = None
+        self.output1 = None
+        self.output2 = None
+        self.stats = None
         self.jobname = "skewer"
 
     def command(self):
-        tmpdir = "{}/skewer-{}".format(self.scratch, uuid.uuid4())
+        if not self.output1.endswith(".gz") or not self.output2.endswith(".gz"):
+            raise ValueError("Output files need to end with .gz")
+
+        tmpdir = os.path.join(self.scratch, "skewer-" + str(uuid.uuid4()))
         prefix = "{}/skewer".format(tmpdir)
         out_fq1 = prefix + "-trimmed-pair1.fastq.gz"
         out_fq2 = prefix + "-trimmed-pair2.fastq.gz"
         out_stats = prefix + "-trimmed.log"
 
         mkdir_cmd = "mkdir -p {}".format(tmpdir)
+
         skewer_cmd = "skewer -z " + \
                      optional("-t ", self.threads) + " --quiet " + \
                      required("-o ", prefix) + \
-                     required(" ", self.input1) + \
-                     required(" ", self.input2)
-        copy_fq1_cmd = "cp " + out_fq1 + " " + self.output1
-        copy_fq2_cmd = "cp " + out_fq2 + " " + self.output2
+                     required("", self.input1) + \
+                     optional("", self.input2)
+        copy_output_cmd = "cp " + out_fq1 + " " + self.output1 + \
+            conditional(self.input2, " && cp " + out_fq2 + " " + self.output2)
+
         copy_stats_cmd = "cp " + out_stats + " " + self.stats
         rm_cmd = "rm -r {}".format(tmpdir)
-        return " && ".join([mkdir_cmd, skewer_cmd, copy_fq1_cmd, copy_fq2_cmd, copy_stats_cmd, rm_cmd])
-
-
-class SkewerSE(Job):
-    def __init__(self):
-        Job.__init__(self)
-        self.input = None
-        self.output = None
-        self.stats = None
-        self.jobname = "skewer"
-
-    def command(self):
-        tmpdir = "{}/skewer-{}".format(self.scratch, uuid.uuid4())
-        prefix = "{}/skewer".format(tmpdir)
-        out_fq1 = prefix + "-trimmed.fastq.gz"
-        out_stats = prefix + "-trimmed.log"
-
-        mkdir_cmd = "mkdir -p {}".format(tmpdir)
-        skewer_cmd = "skewer -z " + \
-                     optional("-t ", self.threads) + " --quiet " + \
-                     required("-o ", prefix) + \
-                     required(" ", self.input)
-        copy_fq1_cmd = "cp " + out_fq1 + " " + self.output
-        copy_stats_cmd = "cp " + out_stats + " " + self.stats
-        rm_cmd = "rm -r {}".format(tmpdir)
-        return " && ".join([mkdir_cmd, skewer_cmd, copy_fq1_cmd, copy_stats_cmd, rm_cmd])
-
-
-class CatAndSkewer(Job):
-    def __init__(self):
-        Job.__init__(self)
-        self.input1 = ""
-        self.input2 = ""
-        self.output1 = ""
-        self.output2 = ""
-        self.stats = ""
-        self.downsample = -1
-        self.jobname = "skewer"
-
-    def command(self):
-        prefix = "{scratch}/skewer-{uuid}/skewer".format(scratch=self.scratch, uuid=uuid.uuid4())
-        out_fq1 = prefix + "-pair1.fastq.gz"
-        out_fq2 = prefix + "-pair2.fastq.gz"
-        tmp_fq1 = prefix + "-input_1.fastq.gz"
-        tmp_fq2 = prefix + "-input_2.fastq.gz"
-        out_stats = prefix + ".log"
-        head_cmd = ""
-        if self.downsample > 0:
-            head_cmd = "|gzip -cd|head -n " + 4 * self.downsample + "|gzip"
-        mkdir_cmd = "mkdir -p {}".format(os.path.dirname(prefix))
-        cat_fq1_cmd = "cat " + repeat("", self.input1) + head_cmd + " > " + tmp_fq1
-        cat_fq2_cmd = "cat " + repeat("", self.input2) + head_cmd + " > " + tmp_fq2
-        skewer_cmd = "skewer -z -t " + str(self.threads) + " --quiet -o " + prefix + " " + tmp_fq1 + " " + tmp_fq2
-        copy_fq1_cmd = "cp " + out_fq1 + " " + self.output1
-        copy_fq2_cmd = "cp " + out_fq2 + " " + self.output2
-        copy_stats_cmd = "cp " + out_stats + " " + self.stats
-        rm_cmd = "rm " + tmp_fq1 + " " + tmp_fq2
-        return " && ".join(
-            [mkdir_cmd, cat_fq1_cmd, cat_fq2_cmd, skewer_cmd, copy_fq1_cmd, copy_fq2_cmd, copy_stats_cmd, rm_cmd])
-
-
-class Cutadapt(Job):
-    def __init__(self):
-        Job.__init__(self)
-        self.input1 = ""
-        self.input2 = ""
-        self.output1 = ""
-        self.output2 = ""
-        self.scratch = "/tmp/"
-        self.downsample = -1
-        self.jobname = "cutadapt"
-
-    def command(self):
-        adapters = " -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC" + \
-                   " -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT "
-        prefix = "{scratch}/cutadapt-{uuid}/cutadapt".format(scratch=self.scratch, uuid=uuid.uuid4())
-        out_fq1 = prefix + "-pair1.fastq.gz"
-        out_fq2 = prefix + "-pair2.fastq.gz"
-        tmp_fq1 = prefix + "-input_1.fastq.gz"
-        tmp_fq2 = prefix + "-input_2.fastq.gz"
-        head_cmd = ""
-        if self.downsample > 0:
-            head_cmd = "|gzip -cd|head -n " + 4 * self.downsample + "|gzip"
-        mkdir_cmd = "mkdir -p {}".format(os.path.dirname(prefix))
-        cat_fq1_cmd = "cat " + repeat("", self.input1) + head_cmd + " > " + tmp_fq1
-        cat_fq2_cmd = "cat " + repeat("", self.input2) + head_cmd + " > " + tmp_fq2
-        cutadapt_cmd = "cutadapt " + adapters + " -o " + out_fq1 + " -p " + out_fq2 + " " + tmp_fq1 + " " + tmp_fq2
-        copy_fq1_cmd = "cp " + out_fq1 + " " + self.output1
-        copy_fq2_cmd = "cp " + out_fq2 + " " + self.output2
-        rm_cmd = "rm " + tmp_fq1 + " " + tmp_fq2
-        return " && ".join([mkdir_cmd, cat_fq1_cmd, cat_fq2_cmd, cutadapt_cmd, copy_fq1_cmd, copy_fq2_cmd, rm_cmd])
+        return " && ".join([mkdir_cmd, skewer_cmd, copy_output_cmd, copy_stats_cmd, rm_cmd])
 
 
 def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1,
@@ -205,9 +120,10 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
     fq1_abs = [normpath(x) for x in fq1_files]
     fq1_trimmed = []
     for fq1 in fq1_abs:
-        skewer = SkewerSE()
-        skewer.input = fq1
-        skewer.output = outdir + "/skewer/{}".format(os.path.basename(fq1))
+        skewer = Skewer()
+        skewer.input1 = fq1
+        skewer.input2 = None
+        skewer.output1 = outdir + "/skewer/{}".format(os.path.basename(fq1))
         skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
         skewer.threads = maxcores
         skewer.jobname = "skewer/{}".format(os.path.basename(fq1))
@@ -265,7 +181,7 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remov
     fq2_trimmed = []
 
     for fq1, fq2 in pairs:
-        skewer = SkewerPE()
+        skewer = Skewer()
         skewer.input1 = fq1
         skewer.input2 = fq2
         skewer.output1 = outdir + "/skewer/libs/{}".format(os.path.basename(fq1))
