@@ -34,6 +34,7 @@ class AlasccaPipeline(PypedreamPipeline):
         self.scratch = scratch
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
+        self.targets_name = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
 
         panel_bams = self.analyze_panel()
         wgs_bams = self.analyze_lowpass_wgs()
@@ -128,7 +129,7 @@ class AlasccaPipeline(PypedreamPipeline):
         somatic_vcfs = call_somatic_variants(self, tbam, nbam,
                                              tlib=self.sampledata['PANEL_TUMOR_LIB'],
                                              nlib=self.sampledata['PANEL_NORMAL_LIB'],
-                                             target_name=self.sampledata['TARGETS'],
+                                             target_name=self.targets,
                                              refdata=self.refdata,
                                              outdir=self.outdir,
                                              callers=['vardict'],
@@ -143,8 +144,7 @@ class AlasccaPipeline(PypedreamPipeline):
         hzconcordance.input_vcf = germline_vcf
         hzconcordance.input_bam = tbam
         hzconcordance.reference_sequence = self.refdata['reference_genome']
-        hzconcordance.target_regions = self.refdata['targets'][self.sampledata['TARGETS']][
-            'targets-interval_list-slopped20']
+        hzconcordance.target_regions = self.refdata['targets'][self.targets_name]['targets-interval_list-slopped20']
         hzconcordance.normalid = rg_sm
         hzconcordance.filter_reads_with_N_cigar = True
         hzconcordance.jobname = "hzconcordance/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
@@ -165,7 +165,7 @@ class AlasccaPipeline(PypedreamPipeline):
         self.add(vcfaddsample)
 
         msisensor = MsiSensor()
-        msisensor.msi_sites = self.refdata['targets'][self.sampledata['TARGETS']]['msisites']
+        msisensor.msi_sites = self.refdata['targets'][self.targets]['msisites']
         msisensor.input_normal_bam = nbam
         msisensor.input_tumor_bam = tbam
         msisensor.output = "{}/msisensor.tsv".format(self.outdir)
@@ -182,10 +182,10 @@ class AlasccaPipeline(PypedreamPipeline):
                         scratch=self.scratch
                         )
         # If we have a CNVkit reference
-        if self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']:
-            cnvkit.reference = self.refdata['targets'][self.sampledata['TARGETS']]['cnvkit-ref']
+        if self.refdata['targets'][self.targets]['cnvkit-ref']:
+            cnvkit.reference = self.refdata['targets'][self.targets]['cnvkit-ref']
         else:
-            cnvkit.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+            cnvkit.targets_bed = self.refdata['targets'][self.targets]['targets-bed-slopped20']
 
         cnvkit.jobname = "cnvkit/{}".format(self.sampledata['PANEL_TUMOR_LIB'])
         self.add(cnvkit)
@@ -240,7 +240,7 @@ class AlasccaPipeline(PypedreamPipeline):
         freebayes.somatic_only = False
         freebayes.params = None
         freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+        freebayes.target_bed = self.refdata['targets'][self.targets]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
         freebayes.scratch = self.scratch
         freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
@@ -313,17 +313,17 @@ class AlasccaPipeline(PypedreamPipeline):
             hsmetrics = PicardCollectHsMetrics()
             hsmetrics.input = bam
             hsmetrics.reference_sequence = self.refdata['reference_genome']
-            hsmetrics.target_regions = self.refdata['targets'][self.sampledata['TARGETS']][
+            hsmetrics.target_regions = self.refdata['targets'][self.targets][
                 'targets-interval_list-slopped20']
-            hsmetrics.bait_regions = self.refdata['targets'][self.sampledata['TARGETS']][
+            hsmetrics.bait_regions = self.refdata['targets'][self.targets][
                 'targets-interval_list-slopped20']
-            hsmetrics.bait_name = self.sampledata['TARGETS']
+            hsmetrics.bait_name = self.targets
             hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
             hsmetrics.jobname = "picard-hsmetrics/{}".format(basefn)
             self.add(hsmetrics)
 
             sambamba = SambambaDepth()
-            sambamba.targets_bed = self.refdata['targets'][self.sampledata['TARGETS']]['targets-bed-slopped20']
+            sambamba.targets_bed = self.refdata['targets'][self.targets]['targets-bed-slopped20']
             sambamba.input = bam
             sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
             sambamba.jobname = "sambamba-depth/{}".format(basefn)
@@ -333,7 +333,7 @@ class AlasccaPipeline(PypedreamPipeline):
             if 'alascca_targets' in self.refdata['targets']:
                 alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
             else:
-                alascca_coverage_hist.input_bed = self.refdata['targets'][self.sampledata['TARGETS']][
+                alascca_coverage_hist.input_bed = self.refdata['targets'][self.targets][
                     'targets-bed-slopped20']
             alascca_coverage_hist.input_bam = bam
             alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
