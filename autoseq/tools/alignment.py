@@ -43,8 +43,8 @@ class Bwa(Job):
                required("-o ", self.output) + \
                " - " + \
                " && samtools index " + self.output + \
-               " && cat {} {} ".format(bwalog, samblasterlog) + \
-               " && rm {} {} ".format(bwalog, samblasterlog)
+               " && cat {} {}".format(bwalog, samblasterlog) + \
+               " && rm {} {}".format(bwalog, samblasterlog)
 
 
 class SkewerPE(Job):
