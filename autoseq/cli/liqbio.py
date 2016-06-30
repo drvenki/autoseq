@@ -14,7 +14,7 @@ from autoseq.util.path import mkdir
 @click.command()
 @click.argument('sample', type=click.File('r'))
 @click.pass_context
-def liqbio(ctx, libdir, sample):
+def liqbio(ctx, sample):
     logging.info("Running Liquid Biopsy pipeline")
     logging.info("Sample is {}".format(sample))
 
@@ -27,7 +27,7 @@ def liqbio(ctx, libdir, sample):
     ctx.obj['pipeline'] = LiqBioPipeline(sampledata=sampledata,
                                          refdata=ctx.obj['refdata'],
                                          outdir=ctx.obj['outdir'],
-                                         libdir=libdir,
+                                         libdir=ctx.obj['libdir'],
                                          maxcores=ctx.obj['cores'],
                                          runner=ctx.obj['runner'],
                                          jobdb=ctx.obj['jobdb'],

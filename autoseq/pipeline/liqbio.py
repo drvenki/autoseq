@@ -31,6 +31,7 @@ class LiqBioPipeline(PypedreamPipeline):
         self.analysis_id = analysis_id
         self.libdir = libdir
         self.scratch = scratch
+        self.qc_files = []
 
         self.check_sampledata()
 
@@ -47,6 +48,7 @@ class LiqBioPipeline(PypedreamPipeline):
         all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
         all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
         self.qc_files += self.run_panel_bam_qc(all_panel_bams)
+
         # # wgs
         # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
         # #qc_files += self.run_wgs_bam_qc(all_wgs_bams)
@@ -56,6 +58,7 @@ class LiqBioPipeline(PypedreamPipeline):
         # logging.debug("fqs = {}".format(fqs))
         # qc_files += self.run_fastq_qc(fqs)
         #
+
         multiqc = MultiQC()
         multiqc.input_files = self.qc_files
         multiqc.search_dir = self.outdir
