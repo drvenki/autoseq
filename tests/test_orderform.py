@@ -13,7 +13,6 @@ class TestOrderform(unittest.TestCase):
         """
 
         libs = parse_orderform(self.orderform)
-        print libs
         # first item in orderform
         first_item = {'library_id': 'NA12877-T-03098849-TD1-TT1',
                       'capture_kit_name': 'test-regions',
