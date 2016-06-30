@@ -25,7 +25,6 @@ then
     # Get and install anaconda for custom Python installation
     wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh 2> /dev/null > /dev/null
     bash Miniconda-latest-Linux-x86_64.sh -b -p $HOME/miniconda2 -f 2> /dev/null > /dev/null
-    export PATH=$HOME/miniconda2/bin/:/tmp/autoseq-scripts-master/:$PATH 2> /dev/null > /dev/null
     conda config --add channels r 2> /dev/null > /dev/null
     conda config --add channels bioconda 2> /dev/null > /dev/null
 

@@ -17,6 +17,7 @@ before_install:
   - echo "127.0.1.1 "`hostname` | sudo tee /etc/hosts
 
   # test genome and data
+  - export PATH=$HOME/miniconda2/bin/:/tmp/autoseq-scripts-master/:$PATH
   - travis_wait bash tests/setup-tests.sh $TESTS
 
 # command to install dependencies
