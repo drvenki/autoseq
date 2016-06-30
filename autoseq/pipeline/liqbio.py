@@ -21,13 +21,6 @@ __author__ = 'dankle'
 
 
 class LiqBioPipeline(PypedreamPipeline):
-    analysis_id = None
-    sampledata = None
-    refdata = None
-    outdir = None
-    maxcores = None
-    scratch = None
-    qc_files = []
 
     def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp",
                  **kwargs):
