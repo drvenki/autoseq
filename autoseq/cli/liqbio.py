@@ -12,7 +12,6 @@ from autoseq.util.path import mkdir
 
 
 @click.command()
-@click.option('--libdir', default="/tmp", help="directory to search for libraries")
 @click.argument('sample', type=click.File('r'))
 @click.pass_context
 def liqbio(ctx, libdir, sample):
@@ -25,10 +24,14 @@ def liqbio(ctx, libdir, sample):
     if ctx.obj['jobdb']:
         mkdir(os.path.dirname(ctx.obj['jobdb']))
 
-    ctx.obj['pipeline'] = LiqBioPipeline(sampledata=sampledata, refdata=ctx.obj['refdata'],
-                                         outdir=ctx.obj['outdir'], libdir=libdir, maxcores=ctx.obj['cores'],
+    ctx.obj['pipeline'] = LiqBioPipeline(sampledata=sampledata,
+                                         refdata=ctx.obj['refdata'],
+                                         outdir=ctx.obj['outdir'],
+                                         libdir=libdir,
+                                         maxcores=ctx.obj['cores'],
                                          runner=ctx.obj['runner'],
-                                         jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'],
+                                         jobdb=ctx.obj['jobdb'],
+                                         dot_file=ctx.obj['dot_file'],
                                          scratch=ctx.obj['scratch'])
 
     # start main analysis

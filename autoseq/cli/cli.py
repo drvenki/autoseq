@@ -19,6 +19,7 @@ __author__ = 'dankle'
               help='json with reference files to use',
               type=str)
 @click.option('--outdir', default='/tmp/autoseq-test', help='output directory', type=click.Path())
+@click.option('--libdir', default="/tmp", help="directory to search for libraries")
 @click.option('--runner_name', default='shellrunner', help='Runner to use.')
 @click.option('--loglevel', default='INFO', help='level of logging')
 @click.option('--jobdb', default=None, help="sqlite3 database to write job info and stats")
@@ -26,12 +27,13 @@ __author__ = 'dankle'
 @click.option('--cores', default=1, help="max number of cores to allow jobs to use")
 @click.option('--scratch', default="/tmp", help="scratch dir to use")
 @click.pass_context
-def cli(ctx, ref, outdir, runner_name, loglevel, jobdb, dot_file, cores, scratch):
+def cli(ctx, ref, outdir, libdir, runner_name, loglevel, jobdb, dot_file, cores, scratch):
     setup_logging(loglevel)
     logging.debug("Reading reference data from {}".format(ref))
     ctx.obj = {}
     ctx.obj['refdata'] = load_ref(ref)
     ctx.obj['outdir'] = outdir
+    ctx.obj['libdir'] = libdir
     ctx.obj['pipeline'] = None
     ctx.obj['runner'] = get_runner(runner_name, cores)
     ctx.obj['jobdb'] = jobdb
