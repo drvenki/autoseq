@@ -7,41 +7,25 @@ sudo: required
 dist: trusty
 
 env:
-  # - TEST_SUITE=dontrun_test_liqbio.py
-  - TESTS=test_alascca.py
   - TESTS=test_library.py
   - TESTS=test_orderform.py
+  - TESTS=integration/test_alascca.py
+  - TESTS=integration/test_liqbio.py
 
 before_install:
   # Temporal fix for networking problem: https://github.com/travis-ci/travis-ci/issues/1484
   - echo "127.0.1.1 "`hostname` | sudo tee /etc/hosts
 
-  # latex
-  - time sudo apt-get -y install texlive-latex-base
-  - time sudo apt-get -y install latex-xcolor texlive-fonts-recommended texlive-latex-extra
-
-  # test genome and data
-  - bash tests/setup-tests.sh
-
-  # Get and install anaconda for custom Python installation
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh
-  - bash Miniconda-latest-Linux-x86_64.sh -b -p $HOME/miniconda2 -f
+  # export path
   - export PATH=$HOME/miniconda2/bin/:/tmp/autoseq-scripts-master/:$PATH
-  - conda config --add channels r
-  - conda config --add channels bioconda
-
-  - conda config --set always_yes yes --set changeps1 no
-  # - conda update -q conda
-  # Useful for debugging any issues with conda
-  - conda info -a
+  - travis_wait bash tests/setup-tests.sh $TESTS
 
 # command to install dependencies
 install:
-  - conda install --file conda-list.txt
   - pip install -r requirements.txt
   - pip install .
 
-script: nosetests --nocapture tests/$TESTS
+script: py.test --capture=no tests/$TESTS
 notifications:
   slack:
     secure: C9Ygg8L/ukxSTjS3BE+9mdAebGvUheYOQFeLoFl6TKhydK6/dgclRk3gP49BU+iR+GPr2uc8FPaGFK2cjQEo1FTbJKKVv7a8vla/0icfFBI/SqarDtGa95zqd8ixDpc3IEnmSiN+zEr6abdZit7DC0bsMOmtUAkgEJO6fPMQCpurAkoP9di6rtfnIIV2PWTQM07X3MMPbEC16iNx1JdaD/mX8OOoPPFkDQTRK5y//SyDwhscuEh8+zY3R+Va+JXAuW1nxzgJogEIxRvti1YDRjg8dM3KPB9pu7Bjs7jZH2aYJvLV8K+rHVmoV5N1votC/2otA5+jkxQf6cTtDtkkaVpZNBtS+uEPIW0PRJ8rUzMHE+BFBHGjsqhVY7PrgsM3/AE58HcYa3cmUYLvpmEs5YSZ0Zy+8nX+0PPWb3qp3NdRqvTnIJjd/p9des8nTt1K29DYoWwMjQSWjOQbaNrafNdFPRKmDC9EnTbuB4oGTN83qZJ74jBc6V+/t5I84nsEcI7yqnMW/YKSLdgTr+eGemJtDjg4vVTw0X9fm8+ZpH0yY7Plgl7lSKpEB1muVthBOjF58JvRAlsKxPFoJtPtBYMOV4AtON0TnSzpJ9mHkrQ8iIGETr/6H69ac3zqEZDGko5e/fbruIrl8TyXTZ7eZKEHl/2SG7m0n/yo3lreW8I=
