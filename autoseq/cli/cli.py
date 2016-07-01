@@ -115,4 +115,3 @@ def setup_logging(loglevel="INFO"):
 cli.add_command(alascca_cmd)
 cli.add_command(liqbio_cmd)
 cli.add_command(liqbio_prepare_cmd)
-cli.add_command(hopkins_cmd)
