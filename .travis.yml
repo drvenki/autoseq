@@ -9,7 +9,7 @@ dist: trusty
 cache:
   timeout: 1000
   directories:
-  - miniconda2
+  - $HOME/miniconda2
 
 env:
   - TESTS="" # all unit tests
