@@ -63,8 +63,14 @@ class Skewer(Job):
 
         tmpdir = os.path.join(self.scratch, "skewer-" + str(uuid.uuid4()))
         prefix = "{}/skewer".format(tmpdir)
-        out_fq1 = prefix + "-trimmed-pair1.fastq.gz"
-        out_fq2 = prefix + "-trimmed-pair2.fastq.gz"
+
+        if self.input2:
+            out_fq1 = prefix + "-trimmed-pair1.fastq.gz"
+            out_fq2 = prefix + "-trimmed-pair2.fastq.gz"
+        else:
+            out_fq1 = prefix + "-trimmed.fastq.gz"
+            out_fq2 = ""
+
         out_stats = prefix + "-trimmed.log"
 
         mkdir_cmd = "mkdir -p {}".format(tmpdir)
@@ -124,12 +130,13 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
         skewer.input1 = fq1
         skewer.input2 = None
         skewer.output1 = outdir + "/skewer/{}".format(os.path.basename(fq1))
+        skewer.output2 = outdir + "/skewer/unused-dummyfq2-{}".format(os.path.basename(fq1))
         skewer.stats = outdir + "/skewer/skewer-stats-{}.log".format(os.path.basename(fq1))
         skewer.threads = maxcores
         skewer.jobname = "skewer/{}".format(os.path.basename(fq1))
         skewer.scratch = pipeline.scratch
         skewer.is_intermediate = True
-        fq1_trimmed.append(skewer.output)
+        fq1_trimmed.append(skewer.output1)
         pipeline.add(skewer)
 
     cat1 = Cat()
