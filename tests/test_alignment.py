@@ -1,12 +1,11 @@
 import unittest
 
-from mock import patch
+from mock import patch, MagicMock
 
-from autoseq.tools.alignment import Bwa, Skewer
+from autoseq.tools.alignment import Bwa, Skewer, align_library
 
 
 class TestAlignment(unittest.TestCase):
-
     def test_bwa_pe(self):
         """
         test bwa paired end, should contain string "foo_1.fq  foo_2.fq" with a double-space between the file names
@@ -102,3 +101,22 @@ class TestAlignment(unittest.TestCase):
         cmd = skewer.command()
 
         self.assertNotIn("/path/to/out_2.fq.gz", cmd)
+
+    def test_skewer_raises_valuerror_if_output_not_gzipped(self):
+        """
+        test that skewer raises a ValueError if the user tries to use uncompressed output files
+        """
+        skewer = Skewer()
+        skewer.input1 = "in_1.fq.gz"
+        skewer.input2 = None
+        skewer.output1 = "/path/to/out_1.fq"
+        skewer.output2 = "/path/to/out_2.fq.gz"
+        skewer.stats = "stats.txt"
+        skewer.scratch = "/scratch"
+        with self.assertRaises(ValueError):
+            skewer.command()
+
+        skewer.output1 = "/path/to/out_1.fq.gz"
+        skewer.output2 = "/path/to/out_2.fq"
+        with self.assertRaises(ValueError):
+            skewer.command()
