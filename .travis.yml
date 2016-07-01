@@ -6,6 +6,11 @@ python:
 sudo: required
 dist: trusty
 
+cache:
+  timeout: 1000
+  directories:
+  - miniconda2
+
 env:
   - TESTS="" # all unit tests
   - TESTS=integration/test_alascca.py
