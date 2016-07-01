@@ -9,7 +9,6 @@ from pypedream import runners
 from .alascca import alascca as alascca_cmd
 from .liqbio import liqbio as liqbio_cmd
 from .liqbio import liqbio_prepare as liqbio_prepare_cmd
-from .hopkins import hopkins as hopkins_cmd
 
 __author__ = 'dankle'
 
