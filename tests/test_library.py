@@ -8,6 +8,13 @@ class TestLibrary(unittest.TestCase):
     library = 'NA12877-N-03098121-TD1-TT1'
     libdir = 'tests/libraries'
 
+    def test_find_fastqs_for_no_library(self):
+        """
+        test that find_fastqs return (None,None) if called with library=None
+        """
+        files = find_fastqs(library=None, libdir=self.libdir)
+        self.assertEqual(files, (None, None))
+
     def test_find_fastq_gz(self):
         """
         test that files on the format *_1.fastq.gz / *_2.fastq.gz are found

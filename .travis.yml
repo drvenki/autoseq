@@ -26,7 +26,7 @@ before_install:
 
 install:
   - pip install -r requirements.txt
-  - pip install .
+  - pip install --upgrade .
 
 script: py.test --capture=no --ignore=tests/integration tests/$TESTS
 

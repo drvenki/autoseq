@@ -91,7 +91,8 @@ def find_fastqs(library, libdir):
 
     :rtype: tuple[str,str]
     """
-
+    if not library:
+        return (None, None)
     regex_fq1 = '(.+)(_1\.fastq.gz|_1\.fq.gz|R1_\d{3}.fastq.gz)'
     regex_fq2 = '(.+)(_2\.fastq.gz|_2\.fq.gz|R2_\d{3}.fastq.gz)'
 
