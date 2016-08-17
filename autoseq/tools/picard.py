@@ -1,4 +1,4 @@
-from pypedream.job import Job, required, optional, repeat
+from pypedream.job import Job, required, optional, repeat, conditional
 
 
 class PicardCollectInsertSizeMetrics(Job):
@@ -132,18 +132,19 @@ class PicardMergeSamFiles(Job):
     def command(self):
         return "picard -XX:ParallelGCThreads=1 MergeSamFiles " + \
                repeat("INPUT=", self.input_bams) + \
-               required("ASSUME_SORTED=", str(self.assume_sorted).lower() ) + \
+               required("ASSUME_SORTED=", str(self.assume_sorted).lower()) + \
                required("MERGE_SEQUENCE_DICTIONARIES=", str(self.merge_dicts).lower()) + \
                required("OUTPUT=", self.output_bam) + \
                " && samtools index " + required("", self.output_bam)
 
 
 class PicardMarkDuplicates(Job):
-    def __init__(self, input_bam, output_bam, output_metrics):
+    def __init__(self, input_bam, output_bam, output_metrics, remove_duplicates=False):
         Job.__init__(self)
         self.input_bam = input_bam
         self.output_bam = output_bam
         self.output_metrics = output_metrics
+        self.remove_duplicates = remove_duplicates
         self.jobname = "picard-markdups"
 
     def command(self):
@@ -151,5 +152,5 @@ class PicardMarkDuplicates(Job):
                required("INPUT=", self.input_bam) + \
                required("METRICS_FILE=", self.output_metrics) + \
                required("OUTPUT=", self.output_bam) + \
+               conditional(self.remove_duplicates, "REMOVE_DUPLICATES=true") + \
                " && samtools index " + required("", self.output_bam)
-
