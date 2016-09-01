@@ -39,10 +39,8 @@ class AlasccaPipeline(PypedreamPipeline):
 
         self.panel_tumor_fqs = find_fastqs(self.sampledata['panel']['T'], self.libdir)
         self.panel_normal_fqs = find_fastqs(self.sampledata['panel']['N'], self.libdir)
-        self.wgs_tumor_fqs = find_fastqs(self.sampledata['wgs']['T'], self.libdir)
 
         panel_bams = self.analyze_panel()
-        wgs_bams = self.analyze_lowpass_wgs()
 
         ################################################
         # QC
@@ -52,9 +50,6 @@ class AlasccaPipeline(PypedreamPipeline):
         # panel
         all_panel_bams = [bam for bam in panel_bams.values() if bam is not None]
         qc_files += self.run_panel_bam_qc(all_panel_bams)
-        # wgs
-        all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        qc_files += self.run_wgs_bam_qc(all_wgs_bams)
 
         # per-fastq qc
         fqs = self.get_all_fastqs()
@@ -75,33 +70,8 @@ class AlasccaPipeline(PypedreamPipeline):
         if self.sampledata['panel']['N']:
             fqs.extend(self.panel_normal_fqs[0])
             fqs.extend(self.panel_normal_fqs[1])
-        if self.sampledata['wgs']['T']:
-            fqs.extend(self.wgs_tumor_fqs[0])
-            fqs.extend(self.wgs_tumor_fqs[1])
 
         return [fq for fq in fqs if fq is not None]
-
-    def analyze_lowpass_wgs(self):
-        if self.sampledata['wgs']['T'] is None or self.sampledata['wgs']['T'] == "NA":
-            logging.info("No low-pass WGS data found.")
-            return {'tbam': None, 'nbam': None}
-
-        tbam = align_library(self,
-                             self.wgs_tumor_fqs[0],
-                             self.wgs_tumor_fqs[1],
-                             self.sampledata['wgs']['T'],
-                             self.refdata['bwaIndex'],
-                             self.outdir + "/bams/wgs",
-                             maxcores=self.maxcores)
-
-        qdnaseq_t = QDNASeq(tbam,
-                            output_segments=os.path.join(self.outdir, "cnv", "{}-qdnaseq.segments.txt".format(
-                                self.sampledata['wgs']['T'])),
-                            background=None)
-        qdnaseq_t.jobname = "qdnaseq/{}".format(self.sampledata['wgs']['T'])
-        self.add(qdnaseq_t)
-
-        return {'tbam': tbam}
 
     def analyze_panel(self):
         if self.sampledata['panel']['T'] is None or self.sampledata['panel']['T'] == "NA":
@@ -267,26 +237,6 @@ class AlasccaPipeline(PypedreamPipeline):
             fastqc.jobname = "fastqc/{}".format(basefn)
             qc_files.append(fastqc.output)
             self.add(fastqc)
-        return qc_files
-
-    def run_wgs_bam_qc(self, bams):
-        """
-        Run QC on wgs bams
-        :param bams: list of bams
-        :return: list of generated files
-        """
-        qc_files = []
-        logging.debug("bams are {}".format(bams))
-        for bam in bams:
-            basefn = stripsuffix(os.path.basename(bam), ".bam")
-            isize = PicardCollectInsertSizeMetrics()
-            isize.input = bam
-            isize.jobname = "picard-isize/{}".format(basefn)
-            isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
-            self.add(isize)
-
-            qc_files += [isize.output_metrics]
-
         return qc_files
 
     def run_panel_bam_qc(self, bams):
