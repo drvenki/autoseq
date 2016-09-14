@@ -197,10 +197,6 @@ class LiqBioPipeline(PypedreamPipeline):
                 raise ValueError("Multiple capture kits used for libraries for sample {} ({})".format(
                     sample, sample_dicts[sample]))
 
-            if len(set(prep_kits_used_for_sample)) > 1:
-                raise ValueError("Multiple prep kits used for libraries for sample {} ({})".format(
-                    sample, sample_dicts[sample]))
-
             targets_short = capture_kits_used_for_sample[0]  # short name, ex CB
             targets_long = get_capture_kit_name_from_id(capture_kits_used_for_sample[0])  # long name, ex big_design
             prep_kit_short = prep_kits_used_for_sample[0]
