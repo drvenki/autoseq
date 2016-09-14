@@ -106,15 +106,15 @@ class BedtoolsCoverageHistgram(Job):
 
 class CoverageHistogram(Job):
     def __init__(self):
-	Job.__init__(self)
-	self.input_bam = None
-	self.input_bed = None
-	self.min_basequal = None
-	self.output = None
+        Job.__init__(self)
+        self.input_bam = None
+        self.input_bed = None
+        self.min_basequal = None
+        self.output = None
 
     def command(self):
-	return "target_coverage_histogram.py " + \
-	       required("--targets ", self.input_bed) + \
-	       required(" ", self.input_bam) + \
-	       optional("--min_basequal ", self.min_basequal) + \
-	       required("> ", self.output)
+        return "target_coverage_histogram.py " + \
+               required("--targets ", self.input_bed) + \
+               required(" ", self.input_bam) + \
+               optional("--min_basequal ", self.min_basequal) + \
+               required("> ", self.output)

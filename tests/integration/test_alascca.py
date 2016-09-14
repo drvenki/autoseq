@@ -22,6 +22,7 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
         cls.outdir = normpath("~/tmp/alascca-test")
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
         subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
+                              " --libdir /tmp/libraries " +
                               " --scratch ~/tmp/ --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
                               " tests/alascca-test-sample.json", shell=True)
 
@@ -74,12 +75,6 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
                                                        'LB': 'NA12877-N-03098121-TD1',
                                                        'PL': 'ILLUMINA'}])
 
-    def test_wgs_bam_coverage(self):
-        bam = os.path.join(self.outdir, "bams/wgs/",
-                           "NA12877-T-03098849-TD1-WGS.bam")
-        self.assertBamHasCoverageAt(bam, 1, '3', 3617655)  # 1x coverage in that position
-        self.assertBamHasCoverageAt(bam, 0, '3', 3618655)  # no coverage in that position
-
     def test_germline_vcf(self):
         vcf = os.path.join(self.outdir, "variants",
                            "NA12877-N-03098121-TD1-TT1.freebayes-germline.vcf.gz")
@@ -94,14 +89,6 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
             self.assertTrue(header.startswith("Total_Number_of_Sites"))
             dataln = fh.readline().strip()
             self.assertTrue(dataln.startswith("20"))
-
-    def test_qdnaseq(self):
-        qdnaseqf = os.path.join(self.outdir, "cnv", "NA12877-T-03098849-TD1-WGS-qdnaseq.segments.txt")
-        with open(qdnaseqf) as fh:
-            header = fh.readline()
-            self.assertTrue(header.startswith("chromosome"), "Header line does not start with 'chromosome'")
-
-        self.assertGreater(os.stat(qdnaseqf).st_size, 10000000, "QDNAseq output file is too small (<10Mb)")
 
     def test_report_metadata(self):
         metadata_json_fn = "{}/report/{}-{}.metadata.json".format(self.outdir, self.tumor_barcode, self.blood_barcode)

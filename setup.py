@@ -8,7 +8,7 @@ install_reqs = parse_requirements("requirements.txt", session=False)
 reqs = [str(ir.req) for ir in install_reqs if ir.req is not None]
 
 setup(name='autoseq',
-      version='0.4.0',
+      version='0.5.0',
       packages=find_packages(exclude=('tests*', 'docs', 'examples')),
       install_requires=reqs,
       entry_points={

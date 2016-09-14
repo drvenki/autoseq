@@ -27,8 +27,10 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
         cls.outdir = normpath("~/tmp/liqbio-test")
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
         subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
-                              " --scratch ~/tmp/ --jobdb {} --cores 2 liqbio ".format(cls.jobdb) +
-                              " --libdir /tmp/libraries/ tests/liqbio-test-sample.json", shell=True)
+                              " --libdir /tmp/libraries/ " +
+                              " --scratch ~/tmp/ --jobdb {} --cores 2 ".format(cls.jobdb) +
+                              " liqbio "
+                              " tests/liqbio-test-sample.json", shell=True)
 
     def test_jobdb(self):
         jobdb = json.load(open(self.jobdb, 'r'))

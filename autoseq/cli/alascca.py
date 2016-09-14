@@ -24,10 +24,14 @@ def alascca(ctx, sample):
     if ctx.obj['jobdb']:
         mkdir(os.path.dirname(ctx.obj['jobdb']))
 
-    ctx.obj['pipeline'] = AlasccaPipeline(sampledata=sampledata, refdata=ctx.obj['refdata'],
-                                          outdir=ctx.obj['outdir'], maxcores=ctx.obj['cores'],
-                                          debug=ctx.obj['debug'], runner=ctx.obj['runner'],
-                                          jobdb=ctx.obj['jobdb'], dot_file=ctx.obj['dot_file'],
+    ctx.obj['pipeline'] = AlasccaPipeline(sampledata=sampledata,
+                                          refdata=ctx.obj['refdata'],
+                                          outdir=ctx.obj['outdir'],
+                                          libdir=ctx.obj['libdir'],
+                                          maxcores=ctx.obj['cores'],
+                                          runner=ctx.obj['runner'],
+                                          jobdb=ctx.obj['jobdb'],
+                                          dot_file=ctx.obj['dot_file'],
                                           scratch=ctx.obj['scratch'])
 
     # start main analysis
