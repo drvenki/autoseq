@@ -238,7 +238,7 @@ class LiqBioPipeline(PypedreamPipeline):
                 somatic_variants = call_somatic_variants(self, tbam=markdups.output_bam, nbam=nbam, tlib=sample,
                                                          nlib=nlib, target_name=targets_long, refdata=self.refdata,
                                                          outdir=self.outdir,
-                                                         callers=['vardict', 'mutect2'],
+							 callers=['vardict'],
                                                          vep=vep)
 
                 vcfaddsample = VcfAddSample()
