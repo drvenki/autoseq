@@ -33,6 +33,8 @@ class LiqBioPipeline(PypedreamPipeline):
         self.scratch = scratch
         self.qc_files = []
 
+	logging.info("Setting scratch to {}".format(self.scratch))
+
         self.check_sampledata()
 
         panel_files = self.analyze_panel()
