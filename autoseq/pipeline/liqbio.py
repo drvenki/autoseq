@@ -74,7 +74,7 @@ class LiqBioPipeline(PypedreamPipeline):
 	"""
 	Set scratch dir of each job from whatever was passed on from upstream
 	"""
-	for job in self.get_ordered_jobs():
+	for job in self.graph.nodes():
 	    job.scratch = self.scratch
 
     def check_sampledata(self):
