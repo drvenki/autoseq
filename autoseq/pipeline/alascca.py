@@ -62,6 +62,15 @@ class AlasccaPipeline(PypedreamPipeline):
         multiqc.jobname = "multiqc/{}".format(self.sampledata['reportid'])
         self.add(multiqc)
 
+	self.set_scratch()
+
+    def set_scratch(self):
+	"""
+	Set scratch dir of each job from whatever was passed on from upstream
+	"""
+	for job in self.get_ordered_jobs():
+	    job.scratch = self.scratch
+
     def get_all_fastqs(self):
         fqs = []
         if self.sampledata['panel']['T']:

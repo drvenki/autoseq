@@ -22,7 +22,7 @@ __author__ = 'dankle'
 
 class LiqBioPipeline(PypedreamPipeline):
 
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp",
+    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp",
                  **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         self.sampledata = sampledata
@@ -65,6 +65,15 @@ class LiqBioPipeline(PypedreamPipeline):
         multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
         multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
+
+	self.set_scratch()
+
+    def set_scratch(self):
+	"""
+	Set scratch dir of each job from whatever was passed on from upstream
+	"""
+	for job in self.get_ordered_jobs():
+	    job.scratch = self.scratch
 
     def check_sampledata(self):
         def check_lib(lib):
