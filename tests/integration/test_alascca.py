@@ -23,7 +23,7 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
         subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries " +
-                              " --scratch ~/tmp/ --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
+                              " --scratch /scratch/tmp/tmp/foo --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
                               " tests/alascca-test-sample.json", shell=True)
 
     def test_jobdb(self):
@@ -104,25 +104,25 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
             genomic_json = json.load(fh)
 
             # sample is of class A
-            self.assertEqual(genomic_json['ALASSCA Class Report']['ALASCCA class'], 'Mutation class A')
+            self.assertEqual(genomic_json['alascca_class_report']['alascca_class'], 'Mutation class A')
 
             # MSI status is not determined since only 20 markers are in there
-            self.assertEqual(genomic_json["MSI Report"]["MSI Status"], "Not determined")
+            self.assertEqual(genomic_json["msi_report"]["msi_status"], "Not determined")
 
             # no mutations in BRAF, KRAS or NRAS
-            self.assertDictEqual(genomic_json["Simple Somatic Mutations Report"],
+            self.assertDictEqual(genomic_json["simple_somatic_mutations_report"],
                                  {
                                      "BRAF": {
-                                         "Alterations": [],
-                                         "Status": "Not mutated"
+                                         "alterations": [],
+                                         "status": "Not mutated"
                                      },
                                      "KRAS": {
-                                         "Alterations": [],
-                                         "Status": "Not mutated"
+                                         "alterations": [],
+                                         "status": "Not mutated"
                                      },
                                      "NRAS": {
-                                         "Alterations": [],
-                                         "Status": "Not mutated"
+                                         "alterations": [],
+                                         "status": "Not mutated"
                                      }
                                  }
                                  )
