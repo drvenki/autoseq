@@ -21,7 +21,6 @@ __author__ = 'dankle'
 
 
 class LiqBioPipeline(PypedreamPipeline):
-
     def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp",
                  **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
@@ -30,10 +29,7 @@ class LiqBioPipeline(PypedreamPipeline):
         self.maxcores = maxcores
         self.analysis_id = analysis_id
         self.libdir = libdir
-        self.scratch = scratch
         self.qc_files = []
-
-	logging.info("Setting scratch to {}".format(self.scratch))
 
         self.check_sampledata()
 
@@ -67,15 +63,6 @@ class LiqBioPipeline(PypedreamPipeline):
         multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
         multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
-
-	self.set_scratch()
-
-    def set_scratch(self):
-	"""
-	Set scratch dir of each job from whatever was passed on from upstream
-	"""
-	for job in self.graph.nodes():
-	    job.scratch = self.scratch
 
     def check_sampledata(self):
         def check_lib(lib):
@@ -240,7 +227,7 @@ class LiqBioPipeline(PypedreamPipeline):
                 somatic_variants = call_somatic_variants(self, tbam=markdups.output_bam, nbam=nbam, tlib=sample,
                                                          nlib=nlib, target_name=targets_long, refdata=self.refdata,
                                                          outdir=self.outdir,
-							 callers=['vardict'],
+                                                         callers=['vardict'],
                                                          vep=vep)
 
                 vcfaddsample = VcfAddSample()

@@ -3,10 +3,9 @@ import logging
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
-from autoseq.tools.cnvcalling import QDNASeq, CNVkit, AlasccaCNAPlot
+from autoseq.tools.cnvcalling import CNVkit, AlasccaCNAPlot
 from autoseq.tools.intervals import MsiSensor
-from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMetrics, \
-    PicardCollectHsMetrics
+from autoseq.tools.picard import PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
@@ -19,12 +18,11 @@ __author__ = 'dankle'
 
 
 class AlasccaPipeline(PypedreamPipeline):
-
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/tmp/",
+    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp/",
                  referral_db_conf="tests/referrals/referral-db-config.json",
                  addresses="tests/referrals/addresses.csv",
                  **kwargs):
-        PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
+        PypedreamPipeline.__init__(self, normpath(outdir), scratch=scratch, **kwargs)
         logging.debug("Unnormalized outdir is {}".format(outdir))
         logging.debug("self.outdir is {}".format(self.outdir))
         self.libdir = libdir
@@ -32,7 +30,6 @@ class AlasccaPipeline(PypedreamPipeline):
         self.refdata = refdata
         self.maxcores = maxcores
         self.analysis_id = analysis_id
-        self.scratch = scratch
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
         self.targets_name = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
@@ -58,18 +55,13 @@ class AlasccaPipeline(PypedreamPipeline):
         multiqc = MultiQC()
         multiqc.input_files = qc_files
         multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['analysis_id'])
-        multiqc.jobname = "multiqc/{}".format(self.sampledata['analysis_id'])
+        multiqc.output = "{}/multiqc/multiqc-{}-{}".format(self.outdir,
+                                                           self.sampledata['panel']['T'],
+                                                           self.sampledata['panel']['N'])
+        multiqc.jobname = "multiqc/{}-{}".format(self.sampledata['panel']['T'],
+                                              self.sampledata['panel']['N'])
         self.add(multiqc)
 
-	self.set_scratch()
-
-    def set_scratch(self):
-	"""
-	Set scratch dir of each job from whatever was passed on from upstream
-	"""
-	for job in self.get_ordered_jobs():
-	    job.scratch = self.scratch
 
     def get_all_fastqs(self):
         fqs = []
