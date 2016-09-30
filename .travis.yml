@@ -21,7 +21,7 @@ before_install:
   - echo "127.0.1.1 "`hostname` | sudo tee /etc/hosts
 
   # export path
-  - export PATH=$HOME/miniconda2/bin/:/tmp/autoseq-scripts-master/:$PATH
+  - export PATH=$HOME/miniconda2/bin/:$PATH
   - travis_wait bash tests/setup-tests.sh $TESTS
 
 install:

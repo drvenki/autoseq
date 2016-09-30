@@ -7,6 +7,7 @@ echo "Done!"
 bash Miniconda-latest-Linux-x86_64.sh -b -p $HOME/miniconda2 -f
 conda config --add channels r
 conda config --add channels bioconda
+conda config --add channels dakl
 
 conda config --set always_yes yes --set changeps1 no
 # - conda update -q conda
@@ -18,10 +19,6 @@ conda install --file conda-list-tests.txt
 TEST_FILE=$1
 if [[ ${TEST_FILE} == integration* ]];
 then
-
-    # scripts
-    wget -O /tmp/autoseq-scripts.zip https://github.com/dakl/autoseq-scripts/archive/master.zip 2> /dev/null > /dev/null
-    unzip -o /tmp/autoseq-scripts.zip -d /tmp 2> /dev/null > /dev/null
 
     # ref
     mkdir -p /tmp/genome-zipped/
