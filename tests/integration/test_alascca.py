@@ -126,3 +126,12 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
                                      }
                                  }
                                  )
+
+    def test_purity_estimate_file(self):
+        tlib = "NA12877-T-03098849-TD1-TT1"
+        purity_json_fn = "{}/variants/{}-alascca-purity.json".format(self.outdir, tlib)
+        with open(purity_json_fn, 'r') as fh:
+            purity_json = json.load(fh)
+            self.assertEqual(purity_json['somatic.mutations'], 6)
+            self.assertEqual(purity_json['median.allelefreq'], 0.23111)
+            self.assertEqual(purity_json['purity.call'], 'OK')
