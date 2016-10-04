@@ -1,4 +1,4 @@
-FROM dakl/autoseq-base
+FROM dakl/autoseq-docker-base
 
 RUN     mkdir -p /apps/autoseq
 WORKDIR /apps/autoseq
