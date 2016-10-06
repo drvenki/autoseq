@@ -16,7 +16,7 @@ from autoseq.pipeline.liqbio import LiqBioPipeline
 from autoseq.util.path import normpath
 
 
-class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
+class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
     returncode = None
     tmpdir = None
     outdir = None
@@ -113,3 +113,16 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
         self.assertVcfHasSample(vcf, 'NA12877-N-03098121')  # sample is the name of the normal lib id
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '3', 178925677, 'G', 'A')  # SNP
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '17', 7579643, 'CCCCCAGCCCTCCAGGT', 'C')  # deletion
+
+    def test_germline_vcf_with_added_tumor_afs(self):
+        vcf = os.path.join(self.outdir, "variants",
+                           "NA12877-N-03098121-TD1-TT1-and-NA12877-T-03098849.germline-variants-with-somatic-afs.vcf.gz")
+
+        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')
+        self.assertVcfHasSample(vcf, 'NA12877-T-03098849')
+
+        vcf = os.path.join(self.outdir, "variants",
+                           "NA12877-N-03098121-TD1-TT1-and-NA12877-P-03098850.germline-variants-with-somatic-afs.vcf.gz")
+
+        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')
+        self.assertVcfHasSample(vcf, 'NA12877-P-03098850')
