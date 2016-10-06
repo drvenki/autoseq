@@ -3,18 +3,7 @@ language: python
 python:
   - 2.7
 
-sudo: required
 dist: trusty
-
-cache:
-  timeout: 1000
-  directories:
-  - $HOME/miniconda2
-
-env:
-  - TESTS="" # all unit tests
-  - TESTS=integration/test_alascca.py
-  - TESTS=integration/test_liqbio.py
 
 before_install:
   # Temporal fix for networking problem: https://github.com/travis-ci/travis-ci/issues/1484
@@ -22,13 +11,13 @@ before_install:
 
   # export path
   - export PATH=$HOME/miniconda2/bin/:$PATH
-  - travis_wait bash tests/setup-tests.sh $TESTS
+  - travis_wait bash tests/setup-tests.sh
 
 install:
   - pip install -r requirements.txt
   - pip install .
 
-script: py.test --capture=no --ignore=tests/integration tests/$TESTS
+script: py.test --capture=no --ignore=tests/integration tests/
 
 notifications:
   slack:

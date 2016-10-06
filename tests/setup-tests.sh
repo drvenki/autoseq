@@ -15,25 +15,3 @@ conda config --set always_yes yes --set changeps1 no
 conda info -a
 conda install --file conda-list-tests.txt
 
-
-TEST_FILE=$1
-if [[ ${TEST_FILE} == integration* ]];
-then
-
-    # ref
-    mkdir -p /tmp/genome-zipped/
-    mkdir /tmp/genome
-    wget --no-clobber -O /tmp/genome-zipped/test-genome.tar.gz https://export.uppmax.uu.se/b2010040/test-genome.tar.gz 2> /dev/null > /dev/null
-    tar xvfz /tmp/genome-zipped/test-genome.tar.gz -C /tmp 2> /dev/null > /dev/null
-
-    # test data
-    wget --no-clobber -O /tmp/test-libraries.tar.gz https://export.uppmax.uu.se/b2010040/test-libraries.tar.gz 2> /dev/null > /dev/null
-    tar xvfz /tmp/test-libraries.tar.gz -C /tmp 2> /dev/null > /dev/null
-
-    # latex
-    time sudo apt-get -y install texlive-latex-base 2> /dev/null > /dev/null
-    time sudo apt-get -y install latex-xcolor texlive-fonts-recommended texlive-latex-extra 2> /dev/null > /dev/null
-
-    # binaries for pipeline/s
-    conda install --file conda-list.txt
-fi
