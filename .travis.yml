@@ -11,7 +11,7 @@ before_install:
 
   # export path
   - export PATH=$HOME/miniconda2/bin/:$PATH
-  - travis_wait bash tests/setup-tests.sh
+  - bash tests/setup-tests.sh
 
 install:
   - pip install -r requirements.txt
