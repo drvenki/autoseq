@@ -20,7 +20,7 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
     @classmethod
     def setUpClass(cls):
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
-        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  dakl/autoseq " +
+        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  clinseq/autoseq " +
                               " --ref /tmp/test-genome/autoseq-genome.json " +
                               " --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries/ " +

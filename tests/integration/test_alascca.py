@@ -23,7 +23,7 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
     @classmethod
     def setUpClass(cls):
 
-        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  dakl/autoseq " +
+        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  clinseq/autoseq " +
                               " --ref /tmp/test-genome/autoseq-genome.json " +
                               " --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries " +
