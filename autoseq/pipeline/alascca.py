@@ -59,9 +59,8 @@ class AlasccaPipeline(PypedreamPipeline):
                                                            self.sampledata['panel']['T'],
                                                            self.sampledata['panel']['N'])
         multiqc.jobname = "multiqc/{}-{}".format(self.sampledata['panel']['T'],
-                                              self.sampledata['panel']['N'])
+                                                 self.sampledata['panel']['N'])
         self.add(multiqc)
-
 
     def get_all_fastqs(self):
         fqs = []
@@ -169,8 +168,10 @@ class AlasccaPipeline(PypedreamPipeline):
         alascca_cna.input_cnr = cnvkit.output_cnr
         alascca_cna.input_cns = cnvkit.output_cns
         alascca_cna.chrsizes = self.refdata['chrsizes']
-        alascca_cna.output_json = "{}/variants/{}-alascca-cna.json".format(self.outdir,
-                                                                           self.sampledata['panel']['T'])
+        alascca_cna.output_cna = "{}/variants/{}-alascca-cna.json".format(self.outdir,
+                                                                          self.sampledata['panel']['T'])
+        alascca_cna.output_purity = "{}/variants/{}-alascca-purity.json".format(self.outdir,
+                                                                                self.sampledata['panel']['T'])
         alascca_cna.output_png = "{}/qc/{}-alascca-cna.png".format(self.outdir, self.sampledata['panel']['T'])
         alascca_cna.jobname = "alascca-cna/{}".format(self.sampledata['panel']['T'])
         self.add(alascca_cna)
@@ -188,7 +189,7 @@ class AlasccaPipeline(PypedreamPipeline):
 
         genomic_json = "{}/report/{}-{}.genomic.json".format(self.outdir, blood_barcode, tumor_barcode)
         compile_genomic_json = CompileAlasccaGenomicJson(input_somatic_vcf=somatic_vcfs['vardict'],
-                                                         input_cn_calls=alascca_cna.output_json,
+                                                         input_cn_calls=alascca_cna.output_cna,
                                                          input_msisensor=msisensor.output,
                                                          output_json=genomic_json)
         compile_genomic_json.jobname = "compile-genomic/{}-{}".format(tumor_barcode, blood_barcode)

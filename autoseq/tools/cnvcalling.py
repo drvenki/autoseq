@@ -49,7 +49,8 @@ class AlasccaCNAPlot(Job):
         self.input_somatic_vcf = None
         self.chrsizes = None
         self.output_png = None
-        self.output_json = None
+        self.output_cna = None
+        self.output_purity = None
         self.jobname = "alascca-cna"
 
     def command(self):
@@ -60,7 +61,8 @@ class AlasccaCNAPlot(Job):
                required("--somaticvcf ", self.input_somatic_vcf) + \
                required("--chrsizes ", self.chrsizes) + \
                required("--png ", self.output_png) + \
-               required("--json ", self.output_json)
+               required("--json.cna ", self.output_cna) + \
+               required("--json.purity ", self.output_purity)
 
 
 class CNVkit(Job):

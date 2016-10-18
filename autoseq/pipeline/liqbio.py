@@ -233,11 +233,12 @@ class LiqBioPipeline(PypedreamPipeline):
                 vcfaddsample = VcfAddSample()
                 vcfaddsample.input_bam = markdups.output_bam
                 vcfaddsample.input_vcf = germline_vcf
-                vcfaddsample.samplename = lib
+                vcfaddsample.samplename = sample
                 vcfaddsample.filter_hom = True
-                vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
-                                                                                     sample,
-                                                                                     nlib)
+                vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format(
+                    self.outdir,
+                    nlib,
+                    sample)
                 vcfaddsample.jobname = "vcf-add-sample-{}".format(sample)
                 self.add(vcfaddsample)
 

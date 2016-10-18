@@ -1,5 +1,6 @@
 {
-  "reportid": "NA12877-ALASCCA",
+  "analysis_id": 1337,
+  "analysis_name": "NA12877-ALASCCA",
   "panel": {
     "T": "NA12877-T-03098849-TD1-TT1",
     "N": "NA12877-N-03098121-TD1-TT1"

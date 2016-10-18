@@ -6,6 +6,7 @@ import subprocess
 from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
+from autoseq.tests import alascca_test_outdir
 from autoseq.util.path import normpath
 
 
@@ -16,12 +17,15 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
     somatic_vcf = None
     blood_barcode = '03098849'
     tumor_barcode = '03098121'
+    outdir = normpath(alascca_test_outdir)
+    jobdb = os.path.join(outdir, "jobdb.json")
 
     @classmethod
     def setUpClass(cls):
-        cls.outdir = normpath("~/tmp/alascca-test")
-        cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
-        subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
+
+        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  clinseq/autoseq " +
+                              " --ref /tmp/test-genome/autoseq-genome.json " +
+                              " --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries " +
                               " --scratch /scratch/tmp/tmp/foo --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
                               " tests/alascca-test-sample.json", shell=True)
@@ -126,3 +130,12 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
                                      }
                                  }
                                  )
+
+    def test_purity_estimate_file(self):
+        tlib = "NA12877-T-03098849-TD1-TT1"
+        purity_json_fn = "{}/variants/{}-alascca-purity.json".format(self.outdir, tlib)
+        with open(purity_json_fn, 'r') as fh:
+            purity_json = json.load(fh)
+            self.assertEqual(purity_json['somatic.mutations'], 6)
+            self.assertEqual(purity_json['median.allelefreq'], 0.23111)
+            self.assertEqual(purity_json['purity.call'], 'OK')

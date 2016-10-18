@@ -1,32 +1,28 @@
 import json
 import os
-import tempfile
+import subprocess
 import unittest
 
-import sys
-
-import time
-
-import subprocess
 from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
-from autoseq.cli.cli import load_ref, get_runner
-from autoseq.pipeline.liqbio import LiqBioPipeline
+from autoseq.tests import liqbio_test_outdir
 from autoseq.util.path import normpath
 
 
-class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
+class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
     returncode = None
     tmpdir = None
     outdir = None
     somatic_vcf = None
+    outdir = normpath(liqbio_test_outdir)
 
     @classmethod
     def setUpClass(cls):
-        cls.outdir = normpath("~/tmp/liqbio-test")
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
-        subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
+        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  clinseq/autoseq " +
+                              " --ref /tmp/test-genome/autoseq-genome.json " +
+                              " --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries/ " +
                               " --scratch ~/tmp/ --jobdb {} --cores 2 ".format(cls.jobdb) +
                               " liqbio "
@@ -113,3 +109,16 @@ class TestWorkflow(unittest.TestCase, VariantAssertions, ReadAssertions):
         self.assertVcfHasSample(vcf, 'NA12877-N-03098121')  # sample is the name of the normal lib id
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '3', 178925677, 'G', 'A')  # SNP
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '17', 7579643, 'CCCCCAGCCCTCCAGGT', 'C')  # deletion
+
+    def test_germline_vcf_with_added_tumor_afs(self):
+        vcf = os.path.join(self.outdir, "variants",
+                           "NA12877-N-03098121-TD1-TT1-and-NA12877-T-03098849.germline-variants-with-somatic-afs.vcf.gz")
+
+        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')
+        self.assertVcfHasSample(vcf, 'NA12877-T-03098849')
+
+        vcf = os.path.join(self.outdir, "variants",
+                           "NA12877-N-03098121-TD1-TT1-and-NA12877-P-03098850.germline-variants-with-somatic-afs.vcf.gz")
+
+        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')
+        self.assertVcfHasSample(vcf, 'NA12877-P-03098850')

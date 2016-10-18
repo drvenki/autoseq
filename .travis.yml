@@ -3,32 +3,26 @@ language: python
 python:
   - 2.7
 
-sudo: required
 dist: trusty
-
-cache:
-  timeout: 1000
-  directories:
-  - $HOME/miniconda2
-
-env:
-  - TESTS="" # all unit tests
-  - TESTS=integration/test_alascca.py
-  - TESTS=integration/test_liqbio.py
 
 before_install:
   # Temporal fix for networking problem: https://github.com/travis-ci/travis-ci/issues/1484
   - echo "127.0.1.1 "`hostname` | sudo tee /etc/hosts
 
   # export path
-  - export PATH=$HOME/miniconda2/bin/:/tmp/autoseq-scripts-master/:$PATH
-  - travis_wait bash tests/setup-tests.sh $TESTS
+  - export PATH=$HOME/miniconda2/bin/:$PATH
+  - bash tests/setup-tests.sh
 
 install:
   - pip install -r requirements.txt
   - pip install .
 
-script: py.test --capture=no --ignore=tests/integration tests/$TESTS
+script: py.test --capture=no --ignore=tests/integration tests/
+
+after_success:
+  - docker build -t dakl/autoseq .
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"; docker push dakl/autoseq; fi
+
 
 notifications:
   slack:
