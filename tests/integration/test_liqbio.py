@@ -1,18 +1,12 @@
 import json
 import os
-import tempfile
+import subprocess
 import unittest
 
-import sys
-
-import time
-
-import subprocess
 from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
-from autoseq.cli.cli import load_ref, get_runner
-from autoseq.pipeline.liqbio import LiqBioPipeline
+from autoseq.tests import liqbio_test_outdir
 from autoseq.util.path import normpath
 
 
@@ -21,12 +15,14 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
     tmpdir = None
     outdir = None
     somatic_vcf = None
+    outdir = normpath(liqbio_test_outdir)
 
     @classmethod
     def setUpClass(cls):
-        cls.outdir = normpath("~/tmp/liqbio-test")
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
-        subprocess.check_call("autoseq --ref /tmp/test-genome/autoseq-genome.json --outdir {} ".format(cls.outdir) +
+        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  dakl/autoseq " +
+                              " --ref /tmp/test-genome/autoseq-genome.json " +
+                              " --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries/ " +
                               " --scratch ~/tmp/ --jobdb {} --cores 2 ".format(cls.jobdb) +
                               " liqbio "
