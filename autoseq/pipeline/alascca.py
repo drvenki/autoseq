@@ -55,9 +55,7 @@ class AlasccaPipeline(PypedreamPipeline):
         multiqc = MultiQC()
         multiqc.input_files = qc_files
         multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/multiqc-{}-{}".format(self.outdir,
-                                                           self.sampledata['panel']['T'],
-                                                           self.sampledata['panel']['N'])
+        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.analysis_id)
         multiqc.jobname = "multiqc/{}-{}".format(self.sampledata['panel']['T'],
                                                  self.sampledata['panel']['N'])
         self.add(multiqc)

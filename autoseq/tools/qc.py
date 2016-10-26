@@ -48,7 +48,6 @@ class MultiQC(Job):
         self.output = None
         self.report_title = None
         self.data_format = 'json'
-        self.filename = "multiqc"
         self.jobname = "multiqc"
 
     def command(self):
@@ -64,7 +63,6 @@ class MultiQC(Job):
                optional("-n ", basefn) + \
                optional("-k ", self.data_format) + \
                optional("-i ", self.report_title) + \
-               optional("-n ", self.filename) + \
                " --data-dir --zip-data-dir -v -f"
 
 
