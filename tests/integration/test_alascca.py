@@ -17,17 +17,17 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
     somatic_vcf = None
     blood_barcode = '03098849'
     tumor_barcode = '03098121'
-    outdir = normpath(alascca_test_outdir)
+    outdir = alascca_test_outdir
     jobdb = os.path.join(outdir, "jobdb.json")
 
     @classmethod
     def setUpClass(cls):
 
-        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  clinseq/autoseq " +
+        subprocess.check_call("autoseq " +
                               " --ref /tmp/test-genome/autoseq-genome.json " +
                               " --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries " +
-                              " --scratch /scratch/tmp/tmp/foo --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
+                              " --scratch /scratch/tmp/autoseq-integration-tests/alascca --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
                               " tests/alascca-test-sample.json", shell=True)
 
     def test_jobdb(self):

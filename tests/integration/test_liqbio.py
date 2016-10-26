@@ -15,16 +15,16 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
     tmpdir = None
     outdir = None
     somatic_vcf = None
-    outdir = normpath(liqbio_test_outdir)
+    outdir = liqbio_test_outdir
 
     @classmethod
     def setUpClass(cls):
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
-        subprocess.check_call("docker run -v /tmp:/tmp -v /home:/home  clinseq/autoseq " +
+        subprocess.check_call("autoseq " +
                               " --ref /tmp/test-genome/autoseq-genome.json " +
                               " --outdir {} ".format(cls.outdir) +
                               " --libdir /tmp/libraries/ " +
-                              " --scratch ~/tmp/ --jobdb {} --cores 2 ".format(cls.jobdb) +
+                              " --scratch /scratch/tmp/autoseq-integration-tests/liqbio --jobdb {} --cores 2 ".format(cls.jobdb) +
                               " liqbio "
                               " tests/liqbio-test-sample.json", shell=True)
 

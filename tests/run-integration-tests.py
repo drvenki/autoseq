@@ -8,20 +8,14 @@ from autoseq.tests import alascca_test_outdir, liqbio_test_outdir
 from autoseq.util.path import normpath
 
 test_files = ['integration/test_alascca.py', 'integration/test_liqbio.py']
-docker_image = "clinseq/autoseq"
 
 
 @click.command()
-@click.option('--pull', is_flag=True, help='Pull new image from docker hub.')
 @click.option('--force-download', is_flag=True, help="Download test libs and ref even if in place")
-def run_tests(pull, force_download):
+def run_tests(force_download):
     """Run the autoseq integration tests"""
 
     logging.basicConfig(level=logging.INFO)
-
-    if pull:
-        logging.info("Pulling new docker image as requested.")
-        subprocess.check_call(['docker', 'pull' , docker_image])
 
     download_test_libraries(force_download)
     download_test_genome(force_download)
