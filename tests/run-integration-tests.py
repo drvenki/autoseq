@@ -1,11 +1,12 @@
 import logging
 import os
-import sys
-import click
+import shutil
 import subprocess
+import sys
+
+import click
 
 from autoseq.tests import alascca_test_outdir, liqbio_test_outdir
-from autoseq.util.path import normpath
 
 test_files = ['integration/test_alascca.py', 'integration/test_liqbio.py']
 
@@ -20,10 +21,10 @@ def run_tests(force_download):
     download_test_libraries(force_download)
     download_test_genome(force_download)
 
-    if os.path.exists(normpath(alascca_test_outdir)) or os.path.exists(liqbio_test_outdir):
+    if os.path.exists(alascca_test_outdir) or os.path.exists(liqbio_test_outdir):
         if query_yes_no("Output path exists, delete old files? (Use 'N' to continute with the present state)"):
-            os.remove(alascca_test_outdir)
-            os.remove(liqbio_test_outdir)
+            shutil.rmtree(alascca_test_outdir)
+            shutil.rmtree(liqbio_test_outdir)
 
     for f in test_files:
         subprocess.check_call(['py.test', '--capture=no', '--ignore=tests/integration', 'tests/{}'.format(f)])
