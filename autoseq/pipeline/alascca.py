@@ -103,7 +103,8 @@ class AlasccaPipeline(PypedreamPipeline):
                                              refdata=self.refdata,
                                              outdir=self.outdir,
                                              callers=['vardict'],
-                                             vep=vep)
+                                             vep=vep,
+                                             min_alt_frac=0.02)
 
         germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['panel']['N'])
 

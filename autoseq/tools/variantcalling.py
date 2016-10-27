@@ -236,7 +236,7 @@ class InstallVep(Job):
 
 
 def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata, outdir,
-                          callers=['vardict', 'freebayes'], vep=True):
+                          callers=['vardict', 'freebayes'], vep=True, min_alt_frac=0.1):
     """
     Call somatic variants.
     :param pipeline:
@@ -250,6 +250,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
     :param callers: list of callers to use (conbination of mutect2, vardict, freebayes)
     # :return: dict of generated files
     :param vep: boolean whether to run vep on generated vcfs or not
+    :param min_alt_frac:
     :return:
     """
     d = {}
@@ -274,6 +275,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
         freebayes.reference_sequence = refdata['reference_genome']
         freebayes.target_bed = refdata['targets'][target_name]['targets-bed-slopped20']
         freebayes.threads = pipeline.maxcores
+        freebayes.min_alt_frac = min_alt_frac
         freebayes.scratch = pipeline.scratch
         freebayes.jobname = "freebayes-somatic/{}".format(tlib)
         freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(outdir, tlib, nlib)
@@ -297,8 +299,10 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
                           reference_sequence=refdata['reference_genome'],
                           reference_dict=refdata['reference_dict'],
                           target_bed=refdata['targets'][target_name]['targets-bed-slopped20'],
-                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, tlib, nlib)
+                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, tlib, nlib),
+                          min_alt_frac=min_alt_frac
                           )
+
         vardict.jobname = "vardict/{}".format(tlib)
         pipeline.add(vardict)
 
