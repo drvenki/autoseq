@@ -33,27 +33,25 @@ class AlasccaPipeline(PypedreamPipeline):
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
         self.targets_name = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
-
         self.panel_tumor_fqs = find_fastqs(self.sampledata['panel']['T'], self.libdir)
         self.panel_normal_fqs = find_fastqs(self.sampledata['panel']['N'], self.libdir)
+        self.qc_files = []
 
         panel_bams = self.analyze_panel()
 
         ################################################
         # QC
-        qc_files = []
 
         # per-bam qc
-        # panel
         all_panel_bams = [bam for bam in panel_bams.values() if bam is not None]
-        qc_files += self.run_panel_bam_qc(all_panel_bams)
+        self.qc_files += self.run_panel_bam_qc([panel_bams['tbam'], panel_bams['nbam']])
 
         # per-fastq qc
         fqs = self.get_all_fastqs()
-        qc_files += self.run_fastq_qc(fqs)
+        self.qc_files += self.run_fastq_qc(fqs)
 
         multiqc = MultiQC()
-        multiqc.input_files = qc_files
+        multiqc.input_files = self.qc_files
         multiqc.search_dir = self.outdir
         multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.analysis_id)
         multiqc.jobname = "multiqc/{}-{}".format(self.sampledata['panel']['T'],
@@ -122,6 +120,7 @@ class AlasccaPipeline(PypedreamPipeline):
         hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['panel']['T'],
                                                                         self.sampledata['panel']['N'])
         self.add(hzconcordance)
+        self.qc_files.append(hzconcordance.output)
 
         vcfaddsample = VcfAddSample()
         vcfaddsample.input_bam = tbam
