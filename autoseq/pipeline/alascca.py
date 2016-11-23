@@ -43,7 +43,6 @@ class AlasccaPipeline(PypedreamPipeline):
         # QC
 
         # per-bam qc
-        all_panel_bams = [bam for bam in panel_bams.values() if bam is not None]
         self.qc_files += self.run_panel_bam_qc([panel_bams['tbam'], panel_bams['nbam']])
 
         # per-fastq qc
