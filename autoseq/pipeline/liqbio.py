@@ -30,6 +30,7 @@ class LiqBioPipeline(PypedreamPipeline):
         self.analysis_id = analysis_id
         self.libdir = libdir
         self.qc_files = []
+        self.scratch = scratch
 
         self.check_sampledata()
 
