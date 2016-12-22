@@ -4,6 +4,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import CNVkit, AlasccaCNAPlot
+from autoseq.tools.contamination import ContEst
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
@@ -159,6 +160,30 @@ class AlasccaPipeline(PypedreamPipeline):
         cnvkit.jobname = "cnvkit/{}".format(self.sampledata['panel']['T'])
         self.add(cnvkit)
 
+        # TODO: Make function that assigns the correct inputs to ContEst() to avoid repetition of code for both T & N? Or keep like this?
+        contest_tumor = ContEst()
+        contest_tumor.reference_genome = self.refdata['reference_genome']
+        contest_tumor.input_genotype_bam = tbam
+        contest_tumor.input_genotype_bam = nbam
+        contest_tumor.population_af_vcf = self.get_pop_af_vcf()
+        # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
+        contest_tumor.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['T'])  # TODO: Should the analysis id also be in name of out file?
+        contest_tumor.jobname = "contest_tumor/{}".format(self.sampledata['panel']['T'])  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
+        if contest_tumor.population_af_vcf:
+            self.add(contest_tumor)
+
+        contest_normal = ContEst()
+        contest_normal.reference_genome = self.refdata['reference_genome']
+        contest_normal.input_eval_bam = nbam
+        contest_normal.input_genotype_bam = tbam
+        contest_normal.population_af_vcf = self.get_pop_af_vcf()
+        contest_normal.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['N'])  # Should the analysis id also be in name of out file?
+        contest_normal.jobname = "contest_normal/{}".format(self.sampledata['panel']['N']) #Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
+        if contest_normal.population_af_vcf:
+            self.add(contest_normal)
+
         alascca_cna = AlasccaCNAPlot()
         alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
         alascca_cna.input_germline_vcf = vcfaddsample.output
@@ -296,3 +321,18 @@ class AlasccaPipeline(PypedreamPipeline):
                          hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
 
         return qc_files
+
+    def get_pop_af_vcf(self):
+        """Get the path to the population allele frequency vcf to use in ContEst.
+        Currently only available for panels CB (big design), CS (clinseq v3) & CZ (clinseq v4)"""
+
+        tpanel = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
+        npanel = get_libdict(self.sampledata['panel']['N'])['capture_kit_name']
+
+        # TODO: Move this selection of which vcf to use somewhere else in the pipeline? Maybe possible to specify on command line?
+        if tpanel == "CB" and npanel == "CB":
+            return self.refdata['contest_vcfs']['big'] # "path/to/big_swegene_contest.vcf"
+        elif tpanel in ["CS", "CZ"] and npanel in ["CS", "CZ"]:
+            return self.refdata['contest_vcfs']['V3V4'] # "path/to/clinseqV3V4_exac_contest.vcf"
+        elif tpanel in ["CB", "CS", "CZ"] and npanel in ["CB", "CS", "CZ"]:
+            return self.refdata['contest_vcfs']['V3V4big'] # "path/to/clinseqV3V4big_intersection_exac_contest.vcf"
