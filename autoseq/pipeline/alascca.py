@@ -333,6 +333,6 @@ class AlasccaPipeline(PypedreamPipeline):
         if tpanel == "CB" and npanel == "CB":
             return self.refdata['contest_vcfs']['big'] # "path/to/big_swegene_contest.vcf"
         elif tpanel in ["CS", "CZ"] and npanel in ["CS", "CZ"]:
-            return self.refdata['contest_vcfs']['V3V4'] # "path/to/clinseqV3V4_exac_contest.vcf"
+            return self.refdata['contest_vcfs']['clinseqV3V4'] # "path/to/clinseqV3V4_exac_contest.vcf"
         elif tpanel in ["CB", "CS", "CZ"] and npanel in ["CB", "CS", "CZ"]:
-            return self.refdata['contest_vcfs']['V3V4big'] # "path/to/clinseqV3V4big_intersection_exac_contest.vcf"
+            return self.refdata['contest_vcfs']['clinseqV3V4big'] # "path/to/clinseqV3V4big_intersection_exac_contest.vcf"
