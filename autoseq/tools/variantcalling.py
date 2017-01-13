@@ -215,7 +215,7 @@ class CurlSplitAndLeftAlign(Job):
 
     def command(self):
         required("", self.input_reference_sequence_fai)
-        return "curl " + \
+        return "curl -L " + \
                required(" ", self.remote) + \
                "| gzip -d |" + vt_split_and_leftaln(self.input_reference_sequence, allow_ref_mismatches=True) + \
                "| bgzip " + required(" > ", self.output) + \
