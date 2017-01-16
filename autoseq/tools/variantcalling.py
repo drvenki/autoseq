@@ -231,7 +231,7 @@ class InstallVep(Job):
     def command(self):
         return "vep_install.pl --SPECIES homo_sapiens_vep --AUTO c --ASSEMBLY GRCh37 --NO_HTSLIB " + \
                required("--CACHEDIR ", self.output_dir) + \
-               " && vep_convert_cache.pl " + required("--CACHEDIR ", self.output_dir) + \
+               " && vep_convert_cache.pl " + required("--dir ", self.output_dir) + \
                " --species homo_sapiens --version 83_GRCh37"
 
 
