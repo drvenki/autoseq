@@ -1,4 +1,4 @@
-import logging
+import logging, pdb
 
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
@@ -330,9 +330,9 @@ class AlasccaPipeline(PypedreamPipeline):
         npanel = get_libdict(self.sampledata['panel']['N'])['capture_kit_name']
 
         # TODO: Move this selection of which vcf to use somewhere else in the pipeline? Maybe possible to specify on command line?
-        if tpanel == "CB" and npanel == "CB":
+        if tpanel == "big_design" and npanel == "big_design":
             return self.refdata['contest_vcfs']['big'] # "path/to/big_swegene_contest.vcf"
-        elif tpanel in ["CS", "CZ"] and npanel in ["CS", "CZ"]:
+        elif tpanel in ["clinseq_v3_targets", "clinseq_v4"] and npanel in ["clinseq_v3_targets", "clinseq_v4"]:
             return self.refdata['contest_vcfs']['clinseqV3V4'] # "path/to/clinseqV3V4_exac_contest.vcf"
-        elif tpanel in ["CB", "CS", "CZ"] and npanel in ["CB", "CS", "CZ"]:
+        elif tpanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"] and npanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"]:
             return self.refdata['contest_vcfs']['clinseqV3V4big'] # "path/to/clinseqV3V4big_intersection_exac_contest.vcf"
