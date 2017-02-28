@@ -42,4 +42,34 @@ class TestAlascca(unittest.TestCase):
 
         self.assertEquals(self.dummy_alascca_pipeline.get_pop_af_vcf(), self.dummy_path_to_big_vcf)
 
+    @patch('autoseq.pipeline.alascca.get_libdict')
+    def test_get_pop_af_vcf_tcs_ncs(self, mock_get_libdict):
+        mock_get_libdict.side_effect = [{"capture_kit_name": "clinseq_v3_targets"}, {"capture_kit_name": "clinseq_v3_targets"}]
+
+        self.assertEquals(self.dummy_alascca_pipeline.get_pop_af_vcf(), self.dummy_path_to_V3V4_vcf)
+
+    @patch('autoseq.pipeline.alascca.get_libdict')
+    def test_get_pop_af_vcf_tcs_ncz(self, mock_get_libdict):
+        mock_get_libdict.side_effect = [{"capture_kit_name": "clinseq_v3_targets"}, {"capture_kit_name": "clinseq_v4"}]
+
+        self.assertEquals(self.dummy_alascca_pipeline.get_pop_af_vcf(), self.dummy_path_to_V3V4_vcf)
+
+    @patch('autoseq.pipeline.alascca.get_libdict')
+    def test_get_pop_af_vcf_tcb_ncz(self, mock_get_libdict):
+        mock_get_libdict.side_effect = [{"capture_kit_name": "big_design"}, {"capture_kit_name": "clinseq_v4"}]
+
+        self.assertEquals(self.dummy_alascca_pipeline.get_pop_af_vcf(), self.dummy_path_to_V3V4big_vcf)
+
+    @patch('autoseq.pipeline.alascca.get_libdict')
+    def test_get_pop_af_vcf_tcs_ncb(self, mock_get_libdict):
+        mock_get_libdict.side_effect = [{"capture_kit_name": "clinseq_v3_targets"}, {"capture_kit_name": "big_design"}]
+
+        self.assertEquals(self.dummy_alascca_pipeline.get_pop_af_vcf(), self.dummy_path_to_V3V4big_vcf)
+
+    @patch('autoseq.pipeline.alascca.get_libdict')
+    def test_get_pop_af_vcf_invalid_combo(self, mock_get_libdict):
+        mock_get_libdict.side_effect = [{"capture_kit_name": "core_design"}, {"capture_kit_name": "big_design"}]
+
+        self.assertRaises(ValueError, lambda: self.dummy_alascca_pipeline.get_pop_af_vcf())
+
 #    def test_get_pop_af_vcf_tpanel_cs_npanel_cs(self):

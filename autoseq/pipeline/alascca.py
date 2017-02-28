@@ -336,3 +336,5 @@ class AlasccaPipeline(PypedreamPipeline):
             return self.refdata['contest_vcfs']['clinseqV3V4'] # "path/to/clinseqV3V4_exac_contest.vcf"
         elif tpanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"] and npanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"]:
             return self.refdata['contest_vcfs']['clinseqV3V4big'] # "path/to/clinseqV3V4big_intersection_exac_contest.vcf"
+        else:
+            raise ValueError("Invalid tpanel/npanel combination: {}/{}".format(tpanel, npanel))
