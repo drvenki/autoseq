@@ -4,7 +4,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import CNVkit, AlasccaCNAPlot
-from autoseq.tools.contamination import ContEst
+from autoseq.tools.contamination import ContEst, ContEstToContamCaveat
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
@@ -183,6 +183,16 @@ class AlasccaPipeline(PypedreamPipeline):
         # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
         if contest_normal.population_af_vcf:
             self.add(contest_normal)
+
+        # Generate ContEst contamination QC call JSON files from the ContEst
+        # outputs:
+        process_contest_tumor = ContEstToContamCaveat()
+        process_contest_tumor.input_contest_results = contest_tumor.output
+        process_contest_tumor.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.self.sampledata['panel']['T'])
+        if contest_tumor.population_af_vcf:
+            # Only add the contest output processing if contest is to be run
+            # for the tumor sample:
+            self.add(process_contest_tumor)
 
         alascca_cna = AlasccaCNAPlot()
         alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
