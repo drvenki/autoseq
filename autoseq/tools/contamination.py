@@ -26,7 +26,17 @@ class ContEst(Job):
             required("-o ", self.output)
 
 
+class ContEstToContamCaveat(Job):
+    """Runs script to convert ContEst output to JSON file with contamination QC
+    estimatimate."""
 
+    def __init__(self):
+        Job.__init__(self)
+        self.input_contest_results = None
+        self.output = None
+        self.jobname = "contest"
 
-
-
+    def command(self):
+        return "contest_to_contam_caveat.py " + \
+            required(" ", self.input_contest_results) + \
+            required("> ", self.output)
