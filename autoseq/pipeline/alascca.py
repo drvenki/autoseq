@@ -220,9 +220,24 @@ class AlasccaPipeline(PypedreamPipeline):
         self.add(compile_metadata_json)
 
         genomic_json = "{}/report/{}-{}.genomic.json".format(self.outdir, blood_barcode, tumor_barcode)
+        # FIXME: This is getting quite nasty (linking outputs and inputs, some conditional and others
+        # generated in a different scope). Not sure how Daniel intended this sort of thing
+        # to be done...
+        contam_qc = None
+        if contest_tumor.population_af_vcf:
+            contam_qc = process_contest_tumor.output
+        tumor_prefix = stripsuffix(os.path.basename(tbam), ".bam")
+        normal_prefix = stripsuffix(os.path.basename(nbam), ".bam")
+        tcov_qc = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, tumor_prefix)
+        ncov_qc = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, normal_prefix)
+
         compile_genomic_json = CompileAlasccaGenomicJson(input_somatic_vcf=somatic_vcfs['vardict'],
                                                          input_cn_calls=alascca_cna.output_cna,
                                                          input_msisensor=msisensor.output,
+                                                         input_purity_qc=alascca_cna.output_purity,
+                                                         input_contam_qc=contam_qc,
+                                                         input_tcov_qc=tcov_qc,
+                                                         input_ncov_qc=ncov_qc,
                                                          output_json=genomic_json)
         compile_genomic_json.jobname = "compile-genomic/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_genomic_json)
@@ -327,8 +342,15 @@ class AlasccaPipeline(PypedreamPipeline):
             alascca_coverage_hist.jobname = "alascca-coverage-hist/{}".format(basefn)
             self.add(alascca_coverage_hist)
 
+            coverage_qc_call = CoverageCaveat()
+            coverage_qc_call.input_histogram = alascca_coverage_hist.output
+            coverage_qc_call.output = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, basefn)
+            coverage_qc_call.jobname = "coverage-qc-call/{}".format(basefn)
+            self.add(coverage_qc_call)
+
             qc_files += [isize.output_metrics, oxog.output_metrics,
-                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
+                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output,
+                         coverage_qc_call.output]
 
         return qc_files
 

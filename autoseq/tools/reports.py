@@ -25,11 +25,17 @@ class CompileMetadata(Job):
 
 
 class CompileAlasccaGenomicJson(Job):
-    def __init__(self, input_somatic_vcf, input_cn_calls, input_msisensor, output_json):
+    def __init__(self, input_somatic_vcf, input_cn_calls, input_msisensor,
+                 input_purity_qc, input_contam_qc, input_tcov_qc, input_ncov_qc,
+                 output_json):
         Job.__init__(self)
         self.input_somatic_vcf = input_somatic_vcf
         self.input_cn_calls = input_cn_calls
         self.input_msisensor = input_msisensor
+        self.input_purity_qc = input_purity_qc
+        self.input_contam_qc = input_contam_qc
+        self.input_tcov_qc = input_tcov_qc
+        self.input_ncov_qc = input_ncov_qc
         self.output_json = output_json
 
     def command(self):
@@ -37,6 +43,10 @@ class CompileAlasccaGenomicJson(Job):
                required('', self.input_somatic_vcf) + \
                required('', self.input_cn_calls) + \
                required('', self.input_msisensor) + \
+               required('--tumorCovJSON', self.input_tcov_qc) + \
+               required('--normalCovJSON', self.input_tcov_qc) + \
+               required('--purityJSON', self.input_purity_qc) + \
+               required('--contaminationJSON', self.input_contam_qc) + \
                required('--output ', self.output_json)
 
 
