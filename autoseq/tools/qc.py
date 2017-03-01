@@ -122,7 +122,7 @@ class CoverageHistogram(Job):
 
 class CoverageCaveat(Job):
     def __init__(self):
-        Job.__init__(self):
+        Job.__init__(self)
         self.input_histogram = None
         self.output = None
         self.high_thresh_fraction = 0.95
