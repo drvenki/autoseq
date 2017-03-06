@@ -7,7 +7,6 @@ from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
 from autoseq.tests import alascca_test_outdir
-from autoseq.util.path import normpath
 
 
 class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
