@@ -163,7 +163,7 @@ class AlasccaPipeline(PypedreamPipeline):
         # TODO: Make function that assigns the correct inputs to ContEst() to avoid repetition of code for both T & N? Or keep like this?
         contest_tumor = ContEst()
         contest_tumor.reference_genome = self.refdata['reference_genome']
-        contest_tumor.input_genotype_bam = tbam
+        contest_tumor.input_eval_bam = tbam
         contest_tumor.input_genotype_bam = nbam
         contest_tumor.population_af_vcf = self.get_pop_af_vcf()
         # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
@@ -188,7 +188,7 @@ class AlasccaPipeline(PypedreamPipeline):
         # outputs:
         process_contest_tumor = ContEstToContamCaveat()
         process_contest_tumor.input_contest_results = contest_tumor.output
-        process_contest_tumor.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.self.sampledata['panel']['T'])
+        process_contest_tumor.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
         if contest_tumor.population_af_vcf:
             # Only add the contest output processing if contest is to be run
             # for the tumor sample:
@@ -368,5 +368,7 @@ class AlasccaPipeline(PypedreamPipeline):
             return self.refdata['contest_vcfs']['clinseqV3V4'] # "path/to/clinseqV3V4_exac_contest.vcf"
         elif tpanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"] and npanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"]:
             return self.refdata['contest_vcfs']['clinseqV3V4big'] # "path/to/clinseqV3V4big_intersection_exac_contest.vcf"
+        elif tpanel == "test-regions" and npanel == "test-regions":
+            return self.refdata['contest_vcfs']['test-regions'] # "path/to/test-regions_contest.vcf"
         else:
             raise ValueError("Invalid tpanel/npanel combination: {}/{}".format(tpanel, npanel))

@@ -132,7 +132,9 @@ class CoverageCaveat(Job):
 
     def command(self):
         return "extract_coverage_caveat.py " + \
+               required(" ", self.input_histogram) + \
                required("--high-thresh-fraction ", self.high_thresh_fraction) + \
                required("--high-thresh-fold-cov ", self.high_thresh_fold_cov) + \
                required("--low-thresh-fraction ", self.low_thresh_fraction) + \
-               required("--low-thresh-fold-cov ", self.low_thresh_fold_cov)
+               required("--low-thresh-fold-cov ", self.low_thresh_fold_cov) + \
+               required("> ", self.output)

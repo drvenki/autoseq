@@ -43,10 +43,10 @@ class CompileAlasccaGenomicJson(Job):
                required('', self.input_somatic_vcf) + \
                required('', self.input_cn_calls) + \
                required('', self.input_msisensor) + \
-               required('--tumorCovJSON', self.input_tcov_qc) + \
-               required('--normalCovJSON', self.input_tcov_qc) + \
-               required('--purityJSON', self.input_purity_qc) + \
-               required('--contaminationJSON', self.input_contam_qc) + \
+               required('--tumorCovJSON ', self.input_tcov_qc) + \
+               required('--normalCovJSON ', self.input_ncov_qc) + \
+               required('--purityJSON ', self.input_purity_qc) + \
+               required('--contaminationJSON ', self.input_contam_qc) + \
                required('--output ', self.output_json)
 
 

@@ -29,7 +29,8 @@ class TestAlascca(unittest.TestCase):
         self.dummy_path_to_V3V4big_vcf = "dummy_path_to_V3V4big_vcf"
         dummy_refdata = {"contest_vcfs": {"big": self.dummy_path_to_big_vcf,
                                           "clinseqV3V4": self.dummy_path_to_V3V4_vcf,
-                                          "clinseqV3V4big": self.dummy_path_to_V3V4big_vcf}}
+                                          "clinseqV3V4big": self.dummy_path_to_V3V4big_vcf,
+                                          "test-regions": self.dummy_path_to_test_regions_vcf}}
 
         self.dummy_alascca_pipeline = AlasccaPipeline({"panel":{"T":0, "N":0}},
                                                       dummy_refdata,
