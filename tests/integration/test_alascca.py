@@ -6,17 +6,16 @@ import subprocess
 from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
-from autoseq.tests import alascca_test_outdir
+from autoseq.tests import alascca_test_outdir, alascca_purity_test_outdir
 
 
 class TestAlasccaPurity(unittest.TestCase, VariantAssertions, ReadAssertions):
     returncode = None
     tmpdir = None
-    outdir = None
     somatic_vcf = None
     blood_barcode = '03098849'
     tumor_barcode = '03098121'
-    outdir = alascca_test_outdir
+    outdir = alascca_purity_test_outdir
     jobdb = os.path.join(outdir, "jobdb.json")
 
     @classmethod
