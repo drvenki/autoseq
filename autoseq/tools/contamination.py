@@ -17,7 +17,7 @@ class ContEst(Job):
     def command(self):
         min_genotype_ratio = "0.95"
 
-        return "java -Xmx15g -jar GenomeAnalysisTK.jar -T ContEst " + \
+        return "java -Xmx15g -jar $GATK -T ContEst " + \
             required("-R ", self.reference_genome) + \
             required("-I:eval ", self.input_eval_bam) + \
             required("-I:genotype ", self.input_genotype_bam) + \
@@ -34,7 +34,7 @@ class ContEstToContamCaveat(Job):
         Job.__init__(self)
         self.input_contest_results = None
         self.output = None
-        self.jobname = "contest"
+        self.jobname = "contest_to_contam_qc"
 
     def command(self):
         return "contest_to_contam_caveat.py " + \
