@@ -1,7 +1,7 @@
 bcftools=1.2
 bedtools=2.25.0
 bioconductor-qdnaseq
-bioconductor-variantannotation=1.16.4
+bioconductor-variantannotation
 bwa=0.7.12
 cffi
 click
@@ -26,7 +26,6 @@ pytest
 pyvcf=0.6.8.dev0
 r-data.table
 r-devtools
-r-devtools
 r-getopt
 r-ggplot2=2.1.0
 r-httr
@@ -35,7 +34,6 @@ r-pscbs
 r-rcurl
 r-reshape
 r-rjsonio=1.3_0
-r=3.2.2
 sambamba=0.5.9
 samblaster=0.1.22
 samtools=1.2
