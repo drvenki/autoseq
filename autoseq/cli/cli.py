@@ -66,7 +66,7 @@ def load_ref(ref):
     items = ["bwaIndex", "chrsizes", "clinvar", "cosmic", "dbSNP", "exac", "genesGenePred", "genesGtf", "vep_dir",
              "genesGtfGenesOnly", "icgc", "qdnaseq_background", "reference_dict", "reference_genome", "cnvkit-ref",
              "msisites", "targets-bed-slopped20", "targets-interval_list", "targets-interval_list-slopped20",
-             "test-regions"]
+             "test-regions", "big", "clinseqV3V4", "clinseqV3V4big"]
     with open(ref, 'r') as fh:
         refjson = json.load(fh)
 
