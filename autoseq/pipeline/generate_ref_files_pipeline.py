@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import sys
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
@@ -45,6 +46,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.prepare_genes()
         self.prepare_intervals()
         self.prepare_variants()
+        self.prepare_contest_vcfs()
 
         fetch_vep_cache = InstallVep()
         fetch_vep_cache.output_dir = "{}/vep/".format(self.outdir)
@@ -160,6 +162,22 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             self.reference_data['targets'][kit_name]['targets-interval_list-slopped20'] = slop_interval_list.output
             self.reference_data['targets'][kit_name]['targets-bed-slopped20'] = interval_list_to_bed.output
             self.reference_data['targets'][kit_name]['msisites'] = intersect_msi.output_msi_sites
+
+    def prepare_contest_vcfs(self):
+        self.reference_data['contest_vcfs'] = {}
+        contest_vcfs_dir = "{}/contest_vcfs/".format(self.genome_resources)
+        input_files = [f for f in os.listdir(contest_vcfs_dir)]
+
+        for f in input_files:
+            file_full_path = "{}/contest_vcfs/{}".format(self.genome_resources, f)
+            logging.debug("Parsing contest vcf file {}".format(file_full_path))
+            combined_kits = re.sub("_.*", "", f)    # the kit(s) which the vcf contains SNPs for,
+                                                    # eg "big" or "clinseqV3V4"
+            copy_file = Copy(input_file=file_full_path,
+                             output_file="{}/contest_vcfs/{}".format(self.outdir, os.path.basename(file_full_path)))
+            self.add(copy_file)
+            self.reference_data['contest_vcfs'][combined_kits] = copy_file.output
+            # TODO: Is it necessary to specify creation of the subdir "contest_vcfs" somewhere?
 
     def prepare_genes(self):
         curl_ensembl_gtf = Curl()

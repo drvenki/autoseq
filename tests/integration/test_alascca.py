@@ -6,8 +6,33 @@ import subprocess
 from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
-from autoseq.tests import alascca_test_outdir
-from autoseq.util.path import normpath
+from autoseq.tests import alascca_test_outdir, alascca_purity_test_outdir
+
+
+class TestAlasccaPurity(unittest.TestCase, VariantAssertions, ReadAssertions):
+    returncode = None
+    tmpdir = None
+    somatic_vcf = None
+    blood_barcode = '03098849'
+    tumor_barcode = '03098121'
+    outdir = alascca_purity_test_outdir
+    jobdb = os.path.join(outdir, "jobdb.json")
+
+    @classmethod
+    def setUpClass(cls):
+        subprocess.check_call("autoseq " +
+                              " --ref /tmp/test-genome/autoseq-genome.json " +
+                              " --outdir {} ".format(cls.outdir) +
+                              " --libdir /tmp/libraries " +
+                              " --scratch /scratch/tmp/autoseq-integration-tests/alascca --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
+                              " tests/alascca-test-sample_low_purity.json", shell=True)
+
+    def test_purity_estimate_file(self):
+        tlib = "NA12877-T-03098849-TD1-TT1_low_purity"
+        purity_json_fn = "{}/variants/{}-alascca-purity.json".format(self.outdir, tlib)
+        with open(purity_json_fn, 'r') as fh:
+            purity_json = json.load(fh)
+            self.assertEqual(purity_json['CALL'], 'FAIL')
 
 
 class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
@@ -118,15 +143,15 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
                                  {
                                      "BRAF": {
                                          "alterations": [],
-                                         "status": "Not mutated"
+                                         "status": "Not determined"
                                      },
                                      "KRAS": {
                                          "alterations": [],
-                                         "status": "Not mutated"
+                                         "status": "Not determined"
                                      },
                                      "NRAS": {
                                          "alterations": [],
-                                         "status": "Not mutated"
+                                         "status": "Not determined"
                                      }
                                  }
                                  )
@@ -136,6 +161,4 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
         purity_json_fn = "{}/variants/{}-alascca-purity.json".format(self.outdir, tlib)
         with open(purity_json_fn, 'r') as fh:
             purity_json = json.load(fh)
-            self.assertEqual(purity_json['somatic.mutations'], 6)
-            self.assertEqual(purity_json['median.allelefreq'], 0.23111)
-            self.assertEqual(purity_json['purity.call'], 'OK')
+            self.assertEqual(purity_json['CALL'], 'OK')
