@@ -4,6 +4,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import CNVkit, AlasccaCNAPlot
+from autoseq.tools.contamination import ContEst, ContEstToContamCaveat
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
@@ -43,7 +44,6 @@ class AlasccaPipeline(PypedreamPipeline):
         # QC
 
         # per-bam qc
-        all_panel_bams = [bam for bam in panel_bams.values() if bam is not None]
         self.qc_files += self.run_panel_bam_qc([panel_bams['tbam'], panel_bams['nbam']])
 
         # per-fastq qc
@@ -160,6 +160,40 @@ class AlasccaPipeline(PypedreamPipeline):
         cnvkit.jobname = "cnvkit/{}".format(self.sampledata['panel']['T'])
         self.add(cnvkit)
 
+        # TODO: Make function that assigns the correct inputs to ContEst() to avoid repetition of code for both T & N? Or keep like this?
+        contest_tumor = ContEst()
+        contest_tumor.reference_genome = self.refdata['reference_genome']
+        contest_tumor.input_eval_bam = tbam
+        contest_tumor.input_genotype_bam = nbam
+        contest_tumor.population_af_vcf = self.get_pop_af_vcf()
+        # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
+        contest_tumor.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['T'])  # TODO: Should the analysis id also be in name of out file?
+        contest_tumor.jobname = "contest_tumor/{}".format(self.sampledata['panel']['T'])  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
+        if contest_tumor.population_af_vcf:
+            self.add(contest_tumor)
+
+        contest_normal = ContEst()
+        contest_normal.reference_genome = self.refdata['reference_genome']
+        contest_normal.input_eval_bam = nbam
+        contest_normal.input_genotype_bam = tbam
+        contest_normal.population_af_vcf = self.get_pop_af_vcf()
+        contest_normal.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['N'])  # Should the analysis id also be in name of out file?
+        contest_normal.jobname = "contest_normal/{}".format(self.sampledata['panel']['N']) #Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
+        if contest_normal.population_af_vcf:
+            self.add(contest_normal)
+
+        # Generate ContEst contamination QC call JSON files from the ContEst
+        # outputs:
+        process_contest_tumor = ContEstToContamCaveat()
+        process_contest_tumor.input_contest_results = contest_tumor.output
+        process_contest_tumor.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
+        if contest_tumor.population_af_vcf:
+            # Only add the contest output processing if contest is to be run
+            # for the tumor sample:
+            self.add(process_contest_tumor)
+
         alascca_cna = AlasccaCNAPlot()
         alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
         alascca_cna.input_germline_vcf = vcfaddsample.output
@@ -186,9 +220,24 @@ class AlasccaPipeline(PypedreamPipeline):
         self.add(compile_metadata_json)
 
         genomic_json = "{}/report/{}-{}.genomic.json".format(self.outdir, blood_barcode, tumor_barcode)
+        # FIXME: This is getting quite nasty (linking outputs and inputs, some conditional and others
+        # generated in a different scope). Not sure how Daniel intended this sort of thing
+        # to be done...
+        contam_qc = None
+        if contest_tumor.population_af_vcf:
+            contam_qc = process_contest_tumor.output
+        tumor_prefix = stripsuffix(os.path.basename(tbam), ".bam")
+        normal_prefix = stripsuffix(os.path.basename(nbam), ".bam")
+        tcov_qc = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, tumor_prefix)
+        ncov_qc = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, normal_prefix)
+
         compile_genomic_json = CompileAlasccaGenomicJson(input_somatic_vcf=somatic_vcfs['vardict'],
                                                          input_cn_calls=alascca_cna.output_cna,
                                                          input_msisensor=msisensor.output,
+                                                         input_purity_qc=alascca_cna.output_purity,
+                                                         input_contam_qc=contam_qc,
+                                                         input_tcov_qc=tcov_qc,
+                                                         input_ncov_qc=ncov_qc,
                                                          output_json=genomic_json)
         compile_genomic_json.jobname = "compile-genomic/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_genomic_json)
@@ -293,7 +342,33 @@ class AlasccaPipeline(PypedreamPipeline):
             alascca_coverage_hist.jobname = "alascca-coverage-hist/{}".format(basefn)
             self.add(alascca_coverage_hist)
 
+            coverage_qc_call = CoverageCaveat()
+            coverage_qc_call.input_histogram = alascca_coverage_hist.output
+            coverage_qc_call.output = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, basefn)
+            coverage_qc_call.jobname = "coverage-qc-call/{}".format(basefn)
+            self.add(coverage_qc_call)
+
             qc_files += [isize.output_metrics, oxog.output_metrics,
-                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output]
+                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output,
+                         coverage_qc_call.output]
 
         return qc_files
+
+    def get_pop_af_vcf(self):
+        """Get the path to the population allele frequency vcf to use in ContEst.
+        Currently only available for panels CB (big design), CS (clinseq v3) & CZ (clinseq v4)"""
+
+        tpanel = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
+        npanel = get_libdict(self.sampledata['panel']['N'])['capture_kit_name']
+
+        # TODO: Move this selection of which vcf to use somewhere else in the pipeline? Maybe possible to specify on command line?
+        if tpanel == "big_design" and npanel == "big_design":
+            return self.refdata['contest_vcfs']['big'] # "path/to/big_swegene_contest.vcf"
+        elif tpanel in ["clinseq_v3_targets", "clinseq_v4"] and npanel in ["clinseq_v3_targets", "clinseq_v4"]:
+            return self.refdata['contest_vcfs']['clinseqV3V4'] # "path/to/clinseqV3V4_exac_contest.vcf"
+        elif tpanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"] and npanel in ["big_design", "clinseq_v3_targets", "clinseq_v4"]:
+            return self.refdata['contest_vcfs']['clinseqV3V4big'] # "path/to/clinseqV3V4big_intersection_exac_contest.vcf"
+        elif tpanel == "test-regions" and npanel == "test-regions":
+            return self.refdata['contest_vcfs']['test-regions'] # "path/to/test-regions_contest.vcf"
+        else:
+            raise ValueError("Invalid tpanel/npanel combination: {}/{}".format(tpanel, npanel))

@@ -22,7 +22,7 @@ def run_tests(force_download):
     download_test_genome(force_download)
 
     if os.path.exists(alascca_test_outdir) or os.path.exists(liqbio_test_outdir):
-        if query_yes_no("Output path exists, delete old files? (Use 'N' to continute with the present state)"):
+        if query_yes_no("Output path exists, delete old files? (Use 'N' to continue with the present state)"):
             for p in [alascca_test_outdir, liqbio_test_outdir]:
                 if os.path.exists(p):
                     shutil.rmtree(p)

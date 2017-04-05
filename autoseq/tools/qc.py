@@ -118,3 +118,23 @@ class CoverageHistogram(Job):
                required(" ", self.input_bam) + \
                optional("--min_basequal ", self.min_basequal) + \
                required("> ", self.output)
+
+
+class CoverageCaveat(Job):
+    def __init__(self):
+        Job.__init__(self)
+        self.input_histogram = None
+        self.output = None
+        self.high_thresh_fraction = 0.95
+        self.high_thresh_fold_cov = 100
+        self.low_thresh_fraction = 0.95
+        self.low_thresh_fold_cov = 50
+
+    def command(self):
+        return "extract_coverage_caveat.py " + \
+               required(" ", self.input_histogram) + \
+               required("--high-thresh-fraction ", self.high_thresh_fraction) + \
+               required("--high-thresh-fold-cov ", self.high_thresh_fold_cov) + \
+               required("--low-thresh-fraction ", self.low_thresh_fraction) + \
+               required("--low-thresh-fold-cov ", self.low_thresh_fold_cov) + \
+               required("> ", self.output)

@@ -197,9 +197,10 @@ class VcfFilter(Job):
         self.jobname = "vcffilter"
 
     def command(self):
-        return "vcffilter " + \
-               required("-f ", self.filter) + \
+        return "zcat" + \
                required(" ", self.input) + \
+               "| vcffilter " + \
+               required("-f ", self.filter) + \
                "| bgzip " + required(" > ", self.output) + \
                " && tabix -p vcf {output}".format(output=self.output)
 
