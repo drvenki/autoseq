@@ -10,6 +10,13 @@ python -c 'import sys; from autoseq.util.bcbio import call_somatic; print call_s
 """
 
 
+def depth_freq_filter_input_stream(input_stream, tumor_index, aligner):
+    processed_output = ""
+    for line in input_stream.readlines():
+        processed_output = processed_output + depth_freq_filter(line, tumor_index, aligner)
+    return processed_output
+
+
 def depth_freq_filter(line, tumor_index, aligner):
     """Command line to filter VarDict calls based on depth, frequency and quality.
 
