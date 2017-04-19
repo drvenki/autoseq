@@ -96,7 +96,7 @@ class VarDict(Job):
         required("", self.input_normal)
 
         freq_filter = (" bcftools filter -e 'STATUS !~ \".*Somatic\"' 2> /dev/null "
-                       "| %s -c 'from autoseq.util.bcbio import depth_freq_filter; import sys; print depth_freq_filter_input_stream(sys.stdin, %s, \"%s\")' " %
+                       "| %s -c 'from autoseq.util.bcbio import depth_freq_filter_input_stream; import sys; print depth_freq_filter_input_stream(sys.stdin, %s, \"%s\")' " %
                        (sys.executable, 0, 'bwa'))
 
         somatic_filter = (" sed 's/\\.*Somatic\\\"/Somatic/' "  # changes \".*Somatic\" to Somatic
