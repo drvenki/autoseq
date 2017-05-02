@@ -27,10 +27,10 @@ class TestOrderform(unittest.TestCase):
         self.assertIn(first_item, libs,
                       "NA12877-T-03098849-TD1-TT1 could not be parsed from orderform")
 
-        last_item = {'library_id': 'NA12877-P-03098850-TD1-WGS',
+        last_item = {'library_id': 'NA12877-CFDNA-03098850-TD1-WGS',
                      'capture_kit_name': 'lowpass_wgs',
                      'capture_id': 'WGS',
-                     'type': 'P',
+                     'type': 'CFDNA',
                      'sample_id': '03098850',
                      'prep_kit_name': 'THRUPLEX_DNASEQ',
                      'sdid': 'NA12877',
@@ -40,7 +40,7 @@ class TestOrderform(unittest.TestCase):
                      }
         # last item in orderform
         self.assertIn(last_item, libs,
-                      "NA12877-P-03098850-TD1-WGS could not be parsed from orderform")
+                      "NA12877-CFDNA-03098850-TD1-WGS could not be parsed from orderform")
 
     def test_make_sample_dict(self):
         libs = parse_orderform(self.orderform)
@@ -53,12 +53,12 @@ class TestOrderform(unittest.TestCase):
             "panel": {
                 "T": "NA12877-T-03098849-TD1-TT1",
                 "N": "NA12877-N-03098121-TD1-TT1",
-                "P": ["NA12877-P-03098850-TD1-TT1", "NA12877-P-03098850-TD1-TT2"]
+                "CFDNA": ["NA12877-CFDNA-03098850-TD1-TT1", "NA12877-CFDNA-03098850-TD1-TT2"]
             },
             "wgs": {
                 "T": "NA12877-T-03098849-TD1-WGS",
                 "N": "NA12877-N-03098121-TD1-WGS",
-                "P": ["NA12877-P-03098850-TD1-WGS"]
+                "CFDNA": ["NA12877-CFDNA-03098850-TD1-WGS"]
             }
         }
 

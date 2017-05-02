@@ -82,12 +82,12 @@ class LiqBioPipeline(PypedreamPipeline):
             self.sampledata[datatype]['T'] = check_lib(self.sampledata[datatype]['T'])
             self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['N'])
             plibs_with_data = []
-            for plib in self.sampledata[datatype]['P']:
+            for plib in self.sampledata[datatype]['CFDNA']:
                 plib_checked = check_lib(plib)
                 if plib_checked:
                     plibs_with_data.append(plib_checked)
 
-            self.sampledata[datatype]['P'] = plibs_with_data
+            self.sampledata[datatype]['CFDNA'] = plibs_with_data
 
     def get_all_fastqs(self):
         fqs = []
@@ -97,7 +97,7 @@ class LiqBioPipeline(PypedreamPipeline):
         if self.sampledata['panel']['N']:
             fqs.extend(find_fastqs(self.sampledata['panel']['N'], self.libdir)[0])
             fqs.extend(find_fastqs(self.sampledata['panel']['N'], self.libdir)[1])
-        for plib in self.sampledata['panel']['P']:
+        for plib in self.sampledata['panel']['CFDNA']:
             fqs.extend(find_fastqs(plib, self.libdir)[0])
             fqs.extend(find_fastqs(plib, self.libdir)[1])
 
@@ -110,7 +110,7 @@ class LiqBioPipeline(PypedreamPipeline):
 
         tlib = self.sampledata['wgs']['T']
         nlib = self.sampledata['wgs']['N']
-        plibs = self.sampledata['wgs']['P']
+        plibs = self.sampledata['wgs']['CFDNA']
 
         if nlib:
             nfiles = self.align_and_qdnaseq(nlib)
@@ -152,7 +152,7 @@ class LiqBioPipeline(PypedreamPipeline):
         somatic_variants = {}
         tlib = self.sampledata['panel']['T']
         nlib = self.sampledata['panel']['N']
-        plibs = self.sampledata['panel']['P']
+        plibs = self.sampledata['panel']['CFDNA']
 
         # align germline normal
         if nlib:
@@ -213,7 +213,7 @@ class LiqBioPipeline(PypedreamPipeline):
             self.qc_files.append(markdups.output_metrics)
             self.add(markdups)
 
-            if set([smp['type'] for smp in sample_dicts[sample]]) == set('P'):
+            if set([smp['type'] for smp in sample_dicts[sample]]) == set('CFDNA'):
                 # if it's a plasma sample
                 pbams.append(markdups.output_bam)
             elif set([smp['type'] for smp in sample_dicts[sample]]) == set('T'):

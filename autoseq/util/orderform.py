@@ -32,7 +32,7 @@ def parse_orderform(xlsx):
 
             lib = get_libdict(library_name)
             logging.debug("Parsed library {}".format(lib))
-            if lib['type'] not in ['T', 'N', 'P']:
+            if lib['type'] not in ['T', 'N', 'CFDNA']:
                 logging.warning(
                     "Unexpected library type detected: {} for library {}".format(lib['type'], lib['library_id']))
             libraries.append(lib)

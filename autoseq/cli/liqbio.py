@@ -70,14 +70,14 @@ def make_sample_dicts(libraries):
         panel_n_lib = [lib['library_id'] for lib in libraries if
                        lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] != "WGS"]
         panel_p_libs = [lib['library_id'] for lib in libraries if
-                        lib['sdid'] == sdid and lib['type'] == "P" and lib['capture_id'] != "WGS"]
+                        lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] != "WGS"]
 
         wgs_t_lib = [lib['library_id'] for lib in libraries if
                      lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] == "WGS"]
         wgs_n_lib = [lib['library_id'] for lib in libraries if
                      lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] == "WGS"]
         wgs_p_libs = [lib['library_id'] for lib in libraries if
-                      lib['sdid'] == sdid and lib['type'] == "P" and lib['capture_id'] == "WGS"]
+                      lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] == "WGS"]
 
         def fix_lib(lib):
             """lib is a vector of libraries.
@@ -101,12 +101,12 @@ def make_sample_dicts(libraries):
              'panel': {
                  'T': panel_t_lib,
                  'N': panel_n_lib,
-                 'P': panel_p_libs
+                 'CFDNA': panel_p_libs
              },
              'wgs': {
                  'T': wgs_t_lib,
                  'N': wgs_n_lib,
-                 'P': wgs_p_libs
+                 'CFDNA': wgs_p_libs
              }
         }
         dicts[sdid] = d
