@@ -148,7 +148,7 @@ class PicardMarkDuplicates(Job):
         self.jobname = "picard-markdups"
 
     def command(self):
-	return "picard -XX:ParallelGCThreads=1 " + \
+	return "picard -Xmx5g -XX:ParallelGCThreads=1 " + \
 	       required("-Djava.io.tmpdir=", self.scratch) + \
 	       " MarkDuplicates " + \
                required("INPUT=", self.input_bam) + \
