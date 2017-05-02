@@ -14,7 +14,7 @@ from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
 from autoseq.tools.unix import Copy
 from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
-from autoseq.util.library import get_libdict, get_capture_kit_name_from_id, find_fastqs
+from autoseq.util.library import get_libdict, get_capture_kit_name_from_id, find_fastqs, parse_capture_kit_id
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
@@ -172,7 +172,8 @@ class LiqBioPipeline(PypedreamPipeline):
         sample_dicts = collections.defaultdict(list)
         for lib in libs:
             libdict = get_libdict(lib)
-            sample = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
+            sample = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'],
+                                          parse_capture_kit_id[lib])
             bam = align_library(self,
                                 fq1_files=find_fastqs(lib, self.libdir)[0],
                                 fq2_files=find_fastqs(lib, self.libdir)[1],

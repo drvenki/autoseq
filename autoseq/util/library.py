@@ -80,6 +80,14 @@ def get_libdict(library_id):
     return d
 
 
+def parse_capture_kit_id(library_id):
+    """Parse the two-letter capture kit ID from the specified library ID."""
+
+    elems = library_id.split("-")
+    capture_kit_string = elems[-1]
+    return capture_kit_string[:2]
+
+
 def find_fastqs(library, libdir):
     """Find fastq files for a given library id in a given direcory.
 
