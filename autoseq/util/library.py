@@ -47,7 +47,8 @@ def get_libdict(library_id):
     :rtype: dict[str,str]
     """
     projects_lookup = {'AL': 'ALASCCA',
-                       'LB': 'LIQUID_BIOPSY'}
+                       'LB': 'LIQUID_BIOPSY',
+                       'OT': 'OTHER'}
 
     project_long = None
     project_short = None
