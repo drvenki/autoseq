@@ -173,7 +173,7 @@ class LiqBioPipeline(PypedreamPipeline):
         for lib in libs:
             libdict = get_libdict(lib)
             sample = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'],
-                                          parse_capture_kit_id[lib])
+                                          parse_capture_kit_id(lib))
             bam = align_library(self,
                                 fq1_files=find_fastqs(lib, self.libdir)[0],
                                 fq2_files=find_fastqs(lib, self.libdir)[1],

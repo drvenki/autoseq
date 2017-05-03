@@ -32,7 +32,7 @@ def get_capture_kit_name_from_id(capture_id):
                            "CB": "big_design",
                            "AL": "alascca_targets",
                            "TT": "test-regions",
-                           "CP": "progresion",
+                           "CP": "progression",
                            'CM': "monitor"
                            }
     if capture_id == 'WGS':
