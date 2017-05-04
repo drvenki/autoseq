@@ -32,7 +32,7 @@ def get_capture_kit_name_from_id(capture_id):
                            "CB": "big_design",
                            "AL": "alascca_targets",
                            "TT": "test-regions",
-                           "CP": "progresion",
+                           "CP": "progression",
                            'CM': "monitor"
                            }
     if capture_id == 'WGS':
@@ -47,7 +47,8 @@ def get_libdict(library_id):
     :rtype: dict[str,str]
     """
     projects_lookup = {'AL': 'ALASCCA',
-                       'LB': 'LIQUID_BIOPSY'}
+                       'LB': 'LIQUID_BIOPSY',
+                       'OT': 'OTHER'}
 
     project_long = None
     project_short = None
@@ -77,6 +78,14 @@ def get_libdict(library_id):
     d['project_id'] = project_short
 
     return d
+
+
+def parse_capture_kit_id(library_id):
+    """Parse the two-letter capture kit ID from the specified library ID."""
+
+    elems = library_id.split("-")
+    capture_kit_string = elems[-1]
+    return capture_kit_string[:2]
 
 
 def find_fastqs(library, libdir):

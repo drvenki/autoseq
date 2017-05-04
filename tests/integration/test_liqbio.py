@@ -71,20 +71,20 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
                                                        'LB': 'NA12877-T-03098849-TD1',
                                                        'PL': 'ILLUMINA'}])
 
-        bam = os.path.join(self.outdir, "bams", "panel", "NA12877-P-03098850-TD-TT-nodups.bam")
-        self.assertBamHeaderElementEquals(bam, 'RG', [{'LB': 'NA12877-P-03098850-TD1',
-                                                       'ID': 'NA12877-P-03098850-TD1-TT1',
-                                                       'SM': 'NA12877-P-03098850',
+        bam = os.path.join(self.outdir, "bams", "panel", "NA12877-CFDNA-03098850-TD-TT-nodups.bam")
+        self.assertBamHeaderElementEquals(bam, 'RG', [{'LB': 'NA12877-CFDNA-03098850-TD1',
+                                                       'ID': 'NA12877-CFDNA-03098850-TD1-TT1',
+                                                       'SM': 'NA12877-CFDNA-03098850',
                                                        'PL': 'ILLUMINA'},
-                                                      {'LB': 'NA12877-P-03098850-TD1',
-                                                       'ID': 'NA12877-P-03098850-TD1-TT2',
-                                                       'SM': 'NA12877-P-03098850',
+                                                      {'LB': 'NA12877-CFDNA-03098850-TD1',
+                                                       'ID': 'NA12877-CFDNA-03098850-TD1-TT2',
+                                                       'SM': 'NA12877-CFDNA-03098850',
                                                        'PL': 'ILLUMINA'}]
                                           )
 
     def test_qdnaseq(self):
         qdnaseq_file_names = ["NA12877-T-03098849-TD1-WGS-qdnaseq.segments.txt",
-                              "NA12877-P-03098850-TD1-WGS-qdnaseq.segments.txt",
+                              "NA12877-CFDNA-03098850-TD1-WGS-qdnaseq.segments.txt",
                               "NA12877-N-03098121-TD1-WGS-qdnaseq.segments.txt"]
         for qdnaseqf in qdnaseq_file_names:
             absf = os.path.join(self.outdir, "cnv", qdnaseqf)
@@ -118,7 +118,7 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
         self.assertVcfHasSample(vcf, 'NA12877-T-03098849')
 
         vcf = os.path.join(self.outdir, "variants",
-                           "NA12877-N-03098121-TD1-TT1-and-NA12877-P-03098850.germline-variants-with-somatic-afs.vcf.gz")
+                           "NA12877-N-03098121-TD1-TT1-and-NA12877-CFDNA-03098850.germline-variants-with-somatic-afs.vcf.gz")
 
         self.assertVcfHasSample(vcf, 'NA12877-N-03098121')
-        self.assertVcfHasSample(vcf, 'NA12877-P-03098850')
+        self.assertVcfHasSample(vcf, 'NA12877-CFDNA-03098850')
