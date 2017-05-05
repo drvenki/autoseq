@@ -12,6 +12,7 @@ Each sample/preparation/capture item should have a corresponding barcode with th
 * `CAPTUREID` specifies the capture that was performed on the library (if any). It must match either `WGS` (indicating that no capture was performed), or else a two-letter shortname indicating the capture kit used, followed by a string matching `[0-9]+`, which can be used to indicate the date on which the prep was performed. The date should *preferably* be in the format `YYYYMMDDHHMM`.
 
 *NOTE:* The combination `SDID-TYPE-SAMPLEID` must uniquely identify a single sample.
+
 *NOTE:* This ID is not garuanteed to be unique, but in practice should be if the preparation and capture times are included within the `PREPID` and `CAPTUREID` fields.
 
 ### Allowed Prep IDs
