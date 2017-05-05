@@ -13,7 +13,7 @@ Each sample/preparation/capture item should have a corresponding barcode with th
 
 *NOTE:* The combination `SDID-TYPE-SAMPLEID` must uniquely identify a single sample.
 
-*NOTE:* This ID is not garuanteed to be unique, but in practice should be if the preparation and capture times are included within the `PREPID` and `CAPTUREID` fields.
+*NOTE:* A clinseq barcode is not garuanteed to uniquely specify a single sample+library+capture item, but in practice it should be unique if precise preparation and capture times are included within the `PREPID` and `CAPTUREID` fields.
 
 ### Allowed Prep IDs
 
