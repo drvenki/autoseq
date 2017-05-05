@@ -1,15 +1,18 @@
 # autoseq
 
-## Library naming
+## Clinseq barcodes
 
-Sample should be named of the format `PROJECT-SDID-TYPE-SAMPLEID-PREPID-CAPTUREID` where
+Each sample/preparation/capture item should have a corresponding barcode with the format `PROJECT-SDID-TYPE-SAMPLEID-PREPID-CAPTUREID` where:
 
 * `PROJECT` is a two-letter short project designator. One of `AL` (alascca), `LB` (liquid biopspy) and `OT` (other)
-* `SDID` is an identifier for a single individual. 
+* `SDID` is an identifier for a single individual. It must match the pattern `P-[a-zA-Z0-9]+` (NOTE: This necessitates an additional "-" within this field).
 * `TYPE` is the sample type, one of `T` (tumor), `N` (normal) and `CFDNA` (ctDNA)
-* `SAMPLEID` identifies a single biological sample, for example piece of a tumor or a single tube of plasma. The combination `SDID-TYPE-SAMPLEID` must uniquely identify a single sample. 
-* `PREPID` describes what prepkit was used. It must be a two-letter shortname and a single digit. If a second prep is carried out on the same sample, the digit is incremented by one. Examples: `TD1`, `TD2` etc.
-* `CAPTUREID` describes the capture that was performed on a library. 
+* `SAMPLEID` identifies a single biological sample, for example piece of a tumor or a single tube of plasma. It must match the pattern `[a-zA-Z0-9]+`.
+* `PREPID` specifies the library preparation kit used. It must be a two-letter shortname followed by a string matching `[0-9]+`, which can be used to indicate the date on which the prep was performed. The date string should *preferably* be in the format `YYYYMMDDHHMM`. For example, `201701241540` would indicate year 2017, January 24th, at 15:40.
+* `CAPTUREID` specifies the capture that was performed on the library (if any). It must match either `WGS` (indicating that no capture was performed), or else a two-letter shortname indicating the capture kit used, followed by a string matching `[0-9]+`, which can be used to indicate the date on which the prep was performed. The date should *preferably* be in the format `YYYYMMDDHHMM`.
+
+*NOTE:* The combination `SDID-TYPE-SAMPLEID` must uniquely identify a single sample.
+*NOTE:* This ID is not garuanteed to be unique, but in practice should be if the preparation and capture times are included within the `PREPID` and `CAPTUREID` fields.
 
 ### Allowed Prep IDs
 
