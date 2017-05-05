@@ -33,7 +33,7 @@ def get_capture_kit_name_from_id(capture_id):
                            "AL": "alascca_targets",
                            "TT": "test-regions",
                            "CP": "progression",
-                           'CM': "monitor"
+                           "CM": "monitor"
                            }
     if capture_id == 'WGS':
         return 'lowpass_wgs'
