@@ -230,7 +230,8 @@ class LiqBioPipeline(PypedreamPipeline):
                                                          nlib=nlib, target_name=targets_long, refdata=self.refdata,
                                                          outdir=self.outdir,
                                                          callers=['vardict'],
-                                                         vep=vep)
+                                                         vep=vep,
+                                                         min_alt_frac=0.01)
 
                 vcfaddsample = VcfAddSample()
                 vcfaddsample.input_bam = markdups.output_bam
