@@ -1,4 +1,3 @@
-import collections
 import json
 import logging
 
@@ -6,15 +5,14 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
-from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
 from autoseq.tools.unix import Copy
-from autoseq.tools.variantcalling import Mutect2, Freebayes, VEP, VcfAddSample, VarDict, call_somatic_variants
-from autoseq.util.library import get_libdict, get_capture_kit_name_from_id, find_fastqs, parse_capture_kit_id
+from autoseq.tools.variantcalling import Freebayes, VEP
+from autoseq.util.library import get_libdict, find_fastqs
 from autoseq.util.path import normpath, stripsuffix
 
 __author__ = 'dankle'
@@ -143,132 +141,6 @@ class LiqBioPipeline(PypedreamPipeline):
         self.add(qdnaseq)
 
         return {'bam': bam}  # , 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
-
-    def analyze_panel(self):
-        tbam = None
-        nbam = None
-        pbams = []
-        germline_vcf = None
-        somatic_variants = {}
-        tlib = self.sampledata['panel']['T']
-        nlib = self.sampledata['panel']['N']
-        plibs = self.sampledata['panel']['CFDNA']
-
-        # align germline normal
-        if nlib:
-            nbam = align_library(self,
-                                 fq1_files=find_fastqs(nlib, self.libdir)[0],
-                                 fq2_files=find_fastqs(nlib, self.libdir)[1],
-                                 lib=nlib,
-                                 ref=self.refdata['bwaIndex'],
-                                 outdir=self.outdir + "/bams/panel",
-                                 maxcores=self.maxcores)
-
-            germline_vcf = self.call_germline_variants(nbam, library=nlib)
-
-        # process tumor and plasma samples
-        libs = [x for x in plibs + [tlib] if x is not None]
-        sample_bams = collections.defaultdict(list)
-        sample_dicts = collections.defaultdict(list)
-        for lib in libs:
-            libdict = get_libdict(lib)
-            sample = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'],
-                                          parse_capture_kit_id(lib))
-            bam = align_library(self,
-                                fq1_files=find_fastqs(lib, self.libdir)[0],
-                                fq2_files=find_fastqs(lib, self.libdir)[1],
-                                lib=lib,
-                                ref=self.refdata['bwaIndex'],
-                                outdir=self.outdir + "/bams/panel",
-                                maxcores=self.maxcores,
-                                remove_duplicates=False)
-            sample_bams[sample].append(bam)
-            sample_dicts[sample].append(libdict)
-
-        for sample, bams in sample_bams.items():
-            # don't allow samples with different captures to be merged.
-            capture_kits_used_for_sample = [sampledict['capture_id'][0:2] for sampledict in sample_dicts[sample]]
-            prep_kits_used_for_sample = [sampledict['prep_id'][0:2] for sampledict in sample_dicts[sample]]
-            if len(set(capture_kits_used_for_sample)) > 1:
-                raise ValueError("Multiple capture kits used for libraries for sample {} ({})".format(
-                    sample, sample_dicts[sample]))
-
-            targets_short = capture_kits_used_for_sample[0]  # short name, ex CB
-            targets_long = get_capture_kit_name_from_id(capture_kits_used_for_sample[0])  # long name, ex big_design
-            prep_kit_short = prep_kits_used_for_sample[0]
-
-            merge_bams = PicardMergeSamFiles(input_bams=bams,
-                                             output_bam="{}/bams/panel/{}-{}-{}.bam".format(
-                                                 self.outdir, sample, prep_kit_short, targets_short))
-
-            merge_bams.is_intermediate = True
-            merge_bams.jobname = "picard-mergebams-{}".format(sample)
-            self.add(merge_bams)
-
-            markdups = PicardMarkDuplicates(merge_bams.output_bam,
-                                            output_bam="{}/bams/panel/{}-{}-{}-nodups.bam".format(
-                                                self.outdir, sample, prep_kit_short, targets_short),
-                                            output_metrics="{}/qc/picard/panel/{}-{}-{}-markdups-metrics.txt".format(
-                                                self.outdir, sample, prep_kit_short, targets_short))
-            markdups.is_intermediate = False
-            self.qc_files.append(markdups.output_metrics)
-            self.add(markdups)
-
-            if set([smp['type'] for smp in sample_dicts[sample]]) == set('CFDNA'):
-                # if it's a plasma sample
-                pbams.append(markdups.output_bam)
-            elif set([smp['type'] for smp in sample_dicts[sample]]) == set('T'):
-                # if it's a tumor sample
-                tbam = markdups.output_bam
-
-            vep = False
-            if self.refdata['vep_dir']:
-                vep = True
-
-            if nlib:
-                somatic_variants = call_somatic_variants(self, tbam=markdups.output_bam, nbam=nbam, tlib=sample,
-                                                         nlib=nlib, target_name=targets_long, refdata=self.refdata,
-                                                         outdir=self.outdir,
-                                                         callers=['vardict'],
-                                                         vep=vep)
-
-                vcfaddsample = VcfAddSample()
-                vcfaddsample.input_bam = markdups.output_bam
-                vcfaddsample.input_vcf = germline_vcf
-                vcfaddsample.samplename = sample
-                vcfaddsample.filter_hom = True
-                vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format(
-                    self.outdir,
-                    nlib,
-                    sample)
-                vcfaddsample.jobname = "vcf-add-sample-{}".format(sample)
-                self.add(vcfaddsample)
-
-                msisensor = MsiSensor()
-                msisensor.msi_sites = self.refdata['targets'][targets_long]['msisites']
-                msisensor.input_normal_bam = nbam
-                msisensor.input_tumor_bam = markdups.output_bam
-                msisensor.output = "{}/msisensor.tsv".format(self.outdir)
-                msisensor.threads = self.maxcores
-                msisensor.jobname = "msisensor-{}".format(sample)
-                self.add(msisensor)
-
-                libdict = get_libdict(nlib)
-                rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
-
-                hzconcordance = HeterzygoteConcordance()
-                hzconcordance.input_vcf = germline_vcf
-                hzconcordance.input_bam = markdups.output_bam
-                hzconcordance.reference_sequence = self.refdata['reference_genome']
-                hzconcordance.target_regions = self.refdata['targets'][targets_long]['targets-interval_list-slopped20']
-                hzconcordance.normalid = rg_sm
-                hzconcordance.filter_reads_with_N_cigar = True
-                hzconcordance.jobname = "hzconcordance-{}".format(lib)
-                hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, lib, nlib)
-                self.add(hzconcordance)
-
-        return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams,
-                'somatic_variants': somatic_variants}
 
     def call_germline_variants(self, bam, library):
         """
