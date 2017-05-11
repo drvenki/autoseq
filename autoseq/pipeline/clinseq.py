@@ -13,11 +13,11 @@ class CancerPanelResults(object):
     against a corresponding normal sample library capture.
     """
 
-    def __init__(self):
-        self.somatic_vcf = None
-        self.hzconcordance_output = None
-        self.msi_output = None
-        self.contam_call = None
+    def __init__(self, somatic_vcf, msi_output, hzconcordance_output, contam_call):
+        self.somatic_vcf = somatic_vcf
+        self.msi_output = msi_output
+        self.hzconcordance_output = hzconcordance_output
+        self.contam_call = contam_call
 
 
 class ClinseqPipeline(PypedreamPipeline):
@@ -320,6 +320,11 @@ class ClinseqPipeline(PypedreamPipeline):
         hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(pipeline.outdir, sample_str,
                                                                         normal_clinseq_barcode)
         pipeline.add(hzconcordance)
+        
+        # FIXME: ADD IN CONTAM CALL CALCULATION USING CONTEST AND SUBSEQUENT
+        
+        cancer_vs_normal_results = CancerPanelResults(\
+            somatic_variants, msisensor.output, hzconcordance.output, contam_call)
 
 
 def parse_capture_tuple(clinseq_barcode):
