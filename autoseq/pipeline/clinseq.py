@@ -3,7 +3,9 @@ from autoseq.util.path import normpath
 from autoseq.tools.alignment import align_library
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardMergeSamFiles, PicardMarkDuplicates
-from autoseq.tools.variantcalling import Freebayes, VEP
+from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
+from autoseq.tools.intervals import MsiSensor
+from autoseq.tools.qc import *
 import collections
 
 
@@ -13,11 +15,21 @@ class CancerPanelResults(object):
     against a corresponding normal sample library capture.
     """
 
-    def __init__(self, somatic_vcf, msi_output, hzconcordance_output, contam_call):
+    def __init__(self, somatic_vcf, msi_output, hzconcordance_output, normal_contest_output,
+                 cancer_contest_output, cancer_contam_call):
         self.somatic_vcf = somatic_vcf
         self.msi_output = msi_output
         self.hzconcordance_output = hzconcordance_output
-        self.contam_call = contam_call
+        self.normal_contest_output = normal_contest_output
+        self.cancer_contest_output = cancer_contest_output
+        self.cancer_contam_call = cancer_contam_call
+
+
+def compose_sample_str(sample_library_capture_tup):
+    return "{}-{}-{}-{}".format(sample_library_capture_tup[0],
+                                sample_library_capture_tup[1],
+                                sample_library_capture_tup[2],
+                                sample_library_capture_tup[3])
 
 
 class ClinseqPipeline(PypedreamPipeline):
@@ -52,6 +64,12 @@ class ClinseqPipeline(PypedreamPipeline):
         all_capture_tuples = self.capture_to_merged_bam.keys()
         return filter(lambda curr_tup: curr_tup[0] == "N", all_capture_tuples)
 
+    def get_vep(self):
+        vep = False
+        if self.refdata['vep_dir']:
+            vep = True
+
+        return vep
 
     def get_unique_cancer_captures(self):
         """
@@ -258,7 +276,7 @@ class ClinseqPipeline(PypedreamPipeline):
         for cancer_capture in self.get_unique_cancer_captures():
             cancer_capture_to_results[cancer_capture] = \
                 self.configure_panel_analysis_cancer_vs_normal(\
-                    normal_capture_tuple, cancer_capture)
+                    normal_capture_tuple, cancer_capture, germline_vcf)
 
         self.normal_capture_to_results = \
             (germline_vcf, cancer_capture_to_results)
@@ -275,56 +293,61 @@ class ClinseqPipeline(PypedreamPipeline):
         for normal_capture in self.get_unique_normal_captures():
             self.configure_panel_analysis_with_normal(normal_capture)
 
-    def configure_panel_analysis_cancer_vs_normal(self, normal_capture_tuple, cancer_capture):
-        sample_str = "{}-{}".format(sample_type, sample_id)
+    def configure_panel_analysis_cancer_vs_normal(self, normal_capture_tuple, cancer_capture_tuple, normal_vcf):
+        normal_bam = self.capture_to_merged_bam[normal_capture_tuple]
+        normal_sample_str = compose_sample_str(normal_capture_tuple)
+        normal_target_name = self.get_capture_name(normal_capture_tuple[3])
 
-        # XXXFIXME: Need to figure out how to specify target_name below (i.e. the full name)
+        cancer_bam = self.capture_to_merged_bam[cancer_capture_tuple]
+        cancer_sample_str = compose_sample_str(cancer_capture_tuple)
+        cancer_target_name = self.get_capture_name(cancer_capture_tuple[3])
 
         # Configure somatic variant calling:
-        somatic_variants = call_somatic_variants(pipeline, tbam=cancer_bam, nbam=normal_bam, tlib=sample_str,
-                                                 nlib=normal_clinseq_barcode, target_name=XXXFIXTHIS,
-                                                 refdata=pipeline.refdata, outdir=pipeline.outdir,
-                                                 callers=['vardict'], vep=vep)
+        somatic_variants = call_somatic_variants(self, tbam=cancer_bam, nbam=normal_bam, tlib=cancer_sample_str,
+                                                 nlib=normal_sample_str, target_name=cancer_target_name,
+                                                 refdata=self.refdata, outdir=self.outdir,
+                                                 callers=['vardict'], vep=self.get_vep())
 
         # Configure VCF add sample:
         vcfaddsample = VcfAddSample()
         vcfaddsample.input_bam = cancer_bam
-        vcfaddsample.input_vcf = germline_vcf
-        vcfaddsample.samplename = sample_str
+        vcfaddsample.input_vcf = normal_vcf
+        vcfaddsample.samplename = cancer_sample_str
         vcfaddsample.filter_hom = True
         vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format( \
-            pipeline.outdir, normal_clinseq_barcode, sample_str)
-        vcfaddsample.jobname = "vcf-add-sample-{}".format(sample_str)
-        pipeline.add(vcfaddsample)
+            self.outdir, normal_sample_str, cancer_sample_str)
+        vcfaddsample.jobname = "vcf-add-sample-{}".format(cancer_sample_str)
+        self.add(vcfaddsample)
 
         # Configure MSI sensor:
         msisensor = MsiSensor()
-        msisensor.msi_sites = pipeline.refdata['targets'][targets_long]['msisites']
+        msisensor.msi_sites = self.refdata['targets'][cancer_target_name]['msisites']
         msisensor.input_normal_bam = normal_bam
         msisensor.input_tumor_bam = cancer_bam
-        msisensor.output = "{}/msisensor.tsv".format(pipeline.outdir)
-        msisensor.threads = pipeline.maxcores
-        msisensor.jobname = "msisensor-{}".format(sample_str)
-        pipeline.add(msisensor)
+        msisensor.output = "{}/msisensor.tsv".format(self.outdir)
+        msisensor.threads = self.maxcores
+        msisensor.jobname = "msisensor-{}".format(cancer_sample_str)
+        self.add(msisensor)
 
         hzconcordance = HeterzygoteConcordance()
-        hzconcordance.input_vcf = germline_vcf
+        hzconcordance.input_vcf = normal_vcf
         hzconcordance.input_bam = cancer_bam
-        hzconcordance.reference_sequence = pipeline.refdata['reference_genome']
-        hzconcordance.target_regions = pipeline.refdata['targets'][targets_long]['targets-interval_list-slopped20']
-        hzconcordance.normalid = "{}-{}-{}".format(parse_sdid(normal_clinseq_barcode),
-                                                   parse_sample_type(normal_clinseq_barcode),
-                                                   parse_sample_id(normal_clinseq_barcode))
+        hzconcordance.reference_sequence = self.refdata['reference_genome']
+        hzconcordance.target_regions = self.refdata['targets'][cancer_target_name]['targets-interval_list-slopped20']
+        hzconcordance.normalid = normal_sample_str
         hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance-{}".format(sample_str)
-        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(pipeline.outdir, sample_str,
-                                                                        normal_clinseq_barcode)
-        pipeline.add(hzconcordance)
-        
-        # FIXME: ADD IN CONTAM CALL CALCULATION USING CONTEST AND SUBSEQUENT
-        
-        cancer_vs_normal_results = CancerPanelResults(\
-            somatic_variants, msisensor.output, hzconcordance.output, contam_call)
+        hzconcordance.jobname = "hzconcordance-{}".format(cancer_sample_str)
+        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, cancer_sample_str,
+                                                                        normal_sample_str)
+        self.add(hzconcordance)
+
+        # FIXME: ADD IN CONTAMINATION CALL CALCULATION USING CONTEST AND SUBSEQUENT
+        normal_contest_output = None
+        cancer_contest_output = None
+        cancer_contam_call = None
+
+        return CancerPanelResults(somatic_variants, msisensor.output, hzconcordance.output,
+                                  normal_contest_output, cancer_contest_output, cancer_contam_call)
 
 
 def parse_capture_tuple(clinseq_barcode):
@@ -341,3 +364,19 @@ def parse_capture_tuple(clinseq_barcode):
             parse_sample_id(clinseq_barcode),
             parse_prep_kit_id(clinseq_barcode),
             parse_capture_kit_id(clinseq_barcode))
+
+
+def parse_sample_type(clinseq_barcode):
+    return clinseq_barcode.split("-")[3]
+
+
+def parse_sample_id(clinseq_barcode):
+    return clinseq_barcode.split("-")[4]
+
+
+def parse_prep_kit_id(clinseq_barcode):
+    return clinseq_barcode.split("-")[5][:2]
+
+
+def parse_capture_kit_id(clinseq_barcode):
+    return clinseq_barcode.split("-")[6][:2]
