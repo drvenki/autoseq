@@ -232,7 +232,7 @@ class ClinseqPipeline(PypedreamPipeline):
         
         return fqs
 
-    def configure_fastq_qc(self):
+    def configure_fastq_qcs(self):
         """
         Configure QC on all fastq files that exist for this pipeline instance.
         :return: List of qc output filenames.
