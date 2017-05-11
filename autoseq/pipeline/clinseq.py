@@ -55,6 +55,29 @@ class ClinseqPipeline(PypedreamPipeline):
         # CancerPanelResults objects as values.
         self.normal_capture_to_results = {}
 
+    def check_sampledata(self):
+        def check_clinseq_barcode_for_data(lib):
+            if lib:
+                filedir = os.path.join(self.libdir, lib)
+                if not os.path.exists(filedir):
+                    logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, lib))
+                    return None
+                if find_fastqs(lib, self.libdir) == (None, None):
+                    logging.warn("No fastq files found for {} in dir {}".format(lib, filedir))
+                    return None
+            logging.debug("Library {} has data. Using it.".format(lib))
+            return lib
+
+        for datatype in ['panel', 'wgs']:
+            for sample_type in ['N', 'T', 'CFDNA']:
+                clinseq_barcodes_with_data = []
+                for clinseq_barcode in self.sampledata[datatype][sample_type]:
+                    barcode_checked = check_clinseq_barcode_for_data(clinseq_barcode)
+                    if barcode_checked:
+                        clinseq_barcodes_with_data.append(barcode_checked)
+
+                self.sampledata[datatype][sample_type] = clinseq_barcodes_with_data
+
     def get_unique_normal_captures(self):
         """
         Obtain tuples for all unique normal sample library captures in this pipeline instance.

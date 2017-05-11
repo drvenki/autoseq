@@ -19,6 +19,7 @@ class LiqBioPipeline(ClinseqPipeline):
         ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir, analysis_id,
                                  maxcores, scratch, **kwargs)
 
+        # Remove sample capture items for which data is not available:
         self.check_sampledata()
 
         # Configure the low-pass whole genome analysis:
@@ -35,30 +36,6 @@ class LiqBioPipeline(ClinseqPipeline):
 
         # Configure MultiQC:
         self.configure_multi_qc()
-
-    def check_sampledata(self):
-        def check_lib(lib):
-            if lib:
-                filedir = os.path.join(self.libdir, lib)
-                if not os.path.exists(filedir):
-                    logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, lib))
-                    return None
-                if find_fastqs(lib, self.libdir) == (None, None):
-                    logging.warn("No fastq files found for {} in dir {}".format(lib, filedir))
-                    return None
-            logging.debug("Library {} has data. Using it.".format(lib))
-            return lib
-
-        for datatype in ['panel', 'wgs']:
-            self.sampledata[datatype]['T'] = check_lib(self.sampledata[datatype]['T'])
-            self.sampledata[datatype]['N'] = check_lib(self.sampledata[datatype]['N'])
-            plibs_with_data = []
-            for plib in self.sampledata[datatype]['CFDNA']:
-                plib_checked = check_lib(plib)
-                if plib_checked:
-                    plibs_with_data.append(plib_checked)
-
-            self.sampledata[datatype]['CFDNA'] = plibs_with_data
 
     def analyze_lowpass_wgs(self):
         tbam = None
