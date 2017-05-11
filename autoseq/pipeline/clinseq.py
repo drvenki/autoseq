@@ -123,27 +123,29 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: The filename of the output merged bam
         """
 
-        # String indicating the sample, for use in output file names below:
+        # Strings indicating the sample and capture, for use in output file names below:
         sample_str = "{}-{}".format(sample_type, sample_id)
-        merged_bam_filename = "{}/bams/panel/{}-{}-{}.bam".format(self.outdir,
-                                                                  sample_str,
-                                                                  prep_kit_id,
-                                                                  capture_kit_id)
+        capture_str = "{}-{}-{}".format(sample_str, prep_kit_id, capture_kit_id)
 
+        # Configure merging:
+        merged_bam_filename = \
+            "{}/bams/panel/{}.bam".format(self.outdir, capture_str)
         merge_bams = PicardMergeSamFiles(input_bams, merged_bam_filename)
         merge_bams.is_intermediate = True
         merge_bams.jobname = "picard-mergebams-{}".format(sample_str)
         self.add(merge_bams)
 
-        markdups = PicardMarkDuplicates(merge_bams.output_bam,
-                                        output_bam="{}/bams/panel/{}-{}-{}-nodups.bam".format(
-                                            self.outdir, sample_str, prep_kit_id, capture_kit_id),
-                                        output_metrics="{}/qc/picard/panel/{}-{}-{}-markdups-metrics.txt".format(
-                                            self.outdir, sample_str, prep_kit_id, capture_kit_id))
-
+        # Configure duplicate marking:
+        mark_dups_bam_filename = \
+            "{}/bams/panel/{}-nodups.bam".format(self.outdir, capture_str)
+        mark_dups_metrics_filename = \
+            "{}/qc/picard/panel/{}-markdups-metrics.txt".format(self.outdir, capture_str)
+        markdups = PicardMarkDuplicates(\
+            merge_bams.output_bam, mark_dups_bam_filename, mark_dups_metrics_filename)
         markdups.is_intermediate = False
-        self.qc_files.append(markdups.output_metrics)
         self.add(markdups)
+
+        self.qc_files.append(markdups.output_metrics)
         return markdups.output_bam
 
     def configure_align_and_merge(self):
