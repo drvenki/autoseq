@@ -30,6 +30,9 @@ class LiqBioPipeline(ClinseqPipeline):
         # Configure QC of all panel data:
         self.configure_all_panel_qcs()
 
+        # Configure fastq QCs:
+        self.configure_fastq_qcs()
+
         # Configure MultiQC:
         self.configure_multi_qc()
 
@@ -97,24 +100,6 @@ class LiqBioPipeline(ClinseqPipeline):
         self.add(qdnaseq)
 
         return {'bam': bam}  # , 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
-
-    def run_fastq_qc(self, fastq_files):
-        """
-        Run QC on fastq files
-        :param fastq_files:
-        :return:
-        """
-        qc_files = []
-        for fq in fastq_files:
-            basefn = stripsuffix(os.path.basename(fq), ".fastq.gz")
-            fastqc = FastQC()
-            fastqc.input = fq
-            fastqc.outdir = "{}/qc/fastqc/".format(self.outdir)
-            fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(self.outdir, basefn)
-            fastqc.jobname = "fastqc-{}".format(basefn)
-            qc_files.append(fastqc.output)
-            self.add(fastqc)
-        return qc_files
 
     def run_wgs_bam_qc(self, bams):
         """

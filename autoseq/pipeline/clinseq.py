@@ -195,6 +195,39 @@ class ClinseqPipeline(PypedreamPipeline):
         self.qc_files.append(markdups.output_metrics)
         return markdups.output_bam
 
+    def get_all_fastq_files(self):
+        """
+        Get all fastq files that exist for this pipeline instance.
+
+        :return: A list of fastq filenames. 
+        """
+
+        fqs = []
+        for clinseq_barcode in get_all_clinseq_barcodes():
+            # FIXME: Not sure what to do when the files don't exist in the specified folder:
+            curr_fqs = find_fastqs(clinseq_barcode, self.libdir)
+            fqs.append(curr_fqs)
+
+
+    def run_fastq_qc(self):
+        """
+        Run QC on all fastq files that exist for this pipeline instance.
+        :return: List of qc output filenames.
+        """
+
+        qc_files = []
+        for fq in self.get_all_fastq_files():
+            basefn = stripsuffix(os.path.basename(fq), ".fastq.gz")
+            fastqc = FastQC()
+            fastqc.input = fq
+            fastqc.outdir = "{}/qc/fastqc/".format(self.outdir)
+            fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(self.outdir, basefn)
+            fastqc.jobname = "fastqc-{}".format(basefn)
+            qc_files.append(fastqc.output)
+            self.add(fastqc)
+
+        return qc_files
+
     def configure_align_and_merge(self):
         capture_to_barcodes = self.get_unique_capture_to_clinseq_barcodes()
         for capture_tuple in capture_to_barcodes.keys():
