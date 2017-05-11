@@ -3,6 +3,7 @@ from autoseq.util.path import normpath
 from autoseq.tools.alignment import align_library
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardMergeSamFiles, PicardMarkDuplicates
+from autoseq.tools.variantcalling import Freebayes, VEP
 import collections
 
 
@@ -31,9 +32,15 @@ class ClinseqPipeline(PypedreamPipeline):
         self.qc_files = []
         self.scratch = scratch
 
-        self.panel_germline_vcf = None
+        # Overall dictionary of unique captures (tuples) to corresponding merged bams:
         self.capture_to_merged_bam = collections.defaultdict(list)
-        self.cancer_capture_to_results = collections.defaultdict(list)
+        
+        # Dictionary of unique normal captures (tuples) to results obtained by
+        # analysis based on that normal capture. Results values tuples containing:
+        # - The resulting germlineVCF,
+        # - A dictionary of with unique cancer captures (tuples) as keys and
+        # CancerPanelResults objects as values.
+        self.normal_capture_to_results = {}
 
     def get_prep_kit_name(self, prep_kit_code):
         """
@@ -204,68 +211,92 @@ class ClinseqPipeline(PypedreamPipeline):
         else:
             return freebayes.output
 
-
-    def configure_panel_analysis(self):
+    def configure_panel_analysis_with_normal(self, normal_capture_tuple):
         """
-        Configure generic analysis of all panel data for this clinseq pipeline.
+        Configure panel analyses focused on a specific unique normal library capture.
+        """
+
+        if normal_capture_tuple[0] is not "N":
+            raise ValueError("Invalid input tuple: " + normal_capture_tuple)
+
+        normal_sample_id = normal_capture_tuple[1]
+        normal_library_prep_id = normal_capture_tuple[2]
+        normal_capture_kit_id = normal_capture_tuple[3]
+
+        normal_bam = self.capture_to_merged_bam[normal_capture_tuple]
+
+        # Configure germline variant calling:
+        germline_vcf = self.call_germline_variants(\
+            normal_sample_id, normal_library_prep_id, normal_capture_kit_id, normal_bam)
+
+        # For each unique cancer library capture, configure a comparative analysis against
+        # this normal capture:
+        cancer_capture_to_results = {}
+        for cancer_capture in self.getunique_cancer_captures():
+            cancer_capture_to_results[cancer_capture] = \
+                self.configure_panel_analysis_cancer_vs_normal(\
+                    normal_capture_tuple, cancer_capture)
+
+        self.normal_capture_to_results = \
+            (germline_vcf, cancer_capture_to_results)
+
+    def configure_panel_analyses(self):
+        """
+        Configure generic analyses of all panel data for this clinseq pipeline.
         """
 
         # Configure alignment and merging for each unique sample library capture:
         self.configure_align_and_merge()
 
-        # Configure germline calling:
-        self.germline_vcf = self.call_germline_variants(
-            clinseq_barcode_to_bamfile[normal_clinseq_barcode], normal_clinseq_barcode)
-        
+        # Configure a separate group of analyses for each unique normal library capture:
+        for normal_capture in self.get_unique_normal_captures():
+            self.configure_panel_analysis_with_normal(normal_capture)
 
+    def configure_panel_analysis_cancer_vs_normal(self, normal_capture_tuple, cancer_capture):
+        sample_str = "{}-{}".format(sample_type, sample_id)
 
+        # XXXFIXME: Need to figure out how to specify target_name below (i.e. the full name)
 
+        # Configure somatic variant calling:
+        somatic_variants = call_somatic_variants(pipeline, tbam=cancer_bam, nbam=normal_bam, tlib=sample_str,
+                                                 nlib=normal_clinseq_barcode, target_name=XXXFIXTHIS,
+                                                 refdata=pipeline.refdata, outdir=pipeline.outdir,
+                                                 callers=['vardict'], vep=vep)
 
-def analyze_panel(pipeline):
-    """
-Configures core analysis of all panel-captured libraries for a given pipeline.
+        # Configure VCF add sample:
+        vcfaddsample = VcfAddSample()
+        vcfaddsample.input_bam = cancer_bam
+        vcfaddsample.input_vcf = germline_vcf
+        vcfaddsample.samplename = sample_str
+        vcfaddsample.filter_hom = True
+        vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format( \
+            pipeline.outdir, normal_clinseq_barcode, sample_str)
+        vcfaddsample.jobname = "vcf-add-sample-{}".format(sample_str)
+        pipeline.add(vcfaddsample)
 
-The panel-capture libraries can include:
-- Zero or one normal library captures
-- Zero or one tumor library captures
-- Zero or more cfDNA library captures
+        # Configure MSI sensor:
+        msisensor = MsiSensor()
+        msisensor.msi_sites = pipeline.refdata['targets'][targets_long]['msisites']
+        msisensor.input_normal_bam = normal_bam
+        msisensor.input_tumor_bam = cancer_bam
+        msisensor.output = "{}/msisensor.tsv".format(pipeline.outdir)
+        msisensor.threads = pipeline.maxcores
+        msisensor.jobname = "msisensor-{}".format(sample_str)
+        pipeline.add(msisensor)
 
-Configures the following core analyses:
-- Alignment for all normal, cfDNA, and tumor library captures
-- Merging and duplicate removal for each unique tumor and cfDNA (sample, capture kit) pairing.
-- If germline is present:
--- Germline calling
--- Additional core non_normal vs normal analyses
-
-    :param pipeline: Analysis pipeline specifying the library captures to analyse and other relevant parameters
-    :return: A dictionary with (sample type, sample barcode, capture kit code) tuples as keys, and CancerPanelResults
-    objects as values.
-    """
-
-    # If there is a normal library capture, then do additional core panel analyses
-    # supported by that item:
-    if normal_clinseq_barcode != None:
-        # Configure germline calling:
-        
-
-        # For each unique cfDNA and tumor capture:
-        for capture_tup in capture_tup_to_merged_bam.keys():
-            # Configure additional core analysis with the resulting bam file together
-            # with the normal bam file and the germline VCF:
-            analyze_panel_cancer_vs_normal(pipeline, capture_tup[0], capture_tup[1], capture_tup[2],
-                                           capture_tup_to_merged_bam[capture_tup],
-                                           clinseq_barcode_to_bamfile[normal_clinseq_barcode],
-                                           germline_vcf,
-                                           normal_clinseq_barcode)
-
-    # Create and return a merged cancer and normal final bam file dictionary:
-    # XXX CONTINUE HERE; FIGURE OUT THE REQUIRED STRUCTURE FOR THIS FINAL OUTPUT DICTIONARY, AND IMPLEMENT IT
-    # HERE BY AGGREGATING THE REQUIRED DATA. Can work with + adapt these data structures and functions:
-    # XXX IS IT / WILL IT ALWAYS BE SUFFICIENT TO HAVE ONLY THE SAME TYPE, SIMPLE ID, AND CAPTURE KIT ID FOR
-    # EACH OF THE CANCER MERGED BAM FILES? If so then just include the capture_tup tuples as keys in the dictionary
-    # as planned.
-    # get_capture_tup_to_clinseq_barcodes(normal_clinseq_barcode)
-    # capture_tup_to_merged_bam[]
+        hzconcordance = HeterzygoteConcordance()
+        hzconcordance.input_vcf = germline_vcf
+        hzconcordance.input_bam = cancer_bam
+        hzconcordance.reference_sequence = pipeline.refdata['reference_genome']
+        hzconcordance.target_regions = pipeline.refdata['targets'][targets_long]['targets-interval_list-slopped20']
+        hzconcordance.normalid = "{}-{}-{}".format(parse_sdid(normal_clinseq_barcode),
+                                                   parse_sample_type(normal_clinseq_barcode),
+                                                   parse_sample_id(normal_clinseq_barcode))
+        hzconcordance.filter_reads_with_N_cigar = True
+        hzconcordance.jobname = "hzconcordance-{}".format(sample_str)
+        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(pipeline.outdir, sample_str,
+                                                                        normal_clinseq_barcode)
+        pipeline.add(hzconcordance)
 
 
 def parse_capture_tuple(clinseq_barcode):

@@ -10,7 +10,6 @@ from autoseq.tools.picard import PicardCollectInsertSizeMetrics
 from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
 from autoseq.tools.unix import Copy
-from autoseq.tools.variantcalling import Freebayes, VEP
 from autoseq.util.library import get_libdict, find_fastqs
 from autoseq.util.path import normpath, stripsuffix
 
