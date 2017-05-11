@@ -4,14 +4,11 @@ import logging
 from autoseq.pipeline.clinseq import ClinseqPipeline
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
-from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMetrics, \
-    PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics
+from autoseq.tools.picard import PicardCollectWgsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
-from autoseq.tools.picard import PicardCollectOxoGMetrics
 from autoseq.tools.qc import *
-from autoseq.tools.unix import Copy
-from autoseq.util.library import get_libdict, find_fastqs
-from autoseq.util.path import normpath, stripsuffix
+from autoseq.util.library import find_fastqs
+from autoseq.util.path import stripsuffix
 
 __author__ = 'dankle'
 
@@ -33,7 +30,8 @@ class LiqBioPipeline(ClinseqPipeline):
         # Configure QC of all panel data:
         for capture_tup in self.capture_to_merged_bam.keys():
             self.qc_files += \
-                self.run_panel_bam_qc(self.capture_to_merged_bam[capture_tup])
+                self.run_panel_bam_qc(self.capture_to_merged_bam[capture_tup],
+                                      capture_tup[3])
 
         # Configure MultiQC:
         multiqc = MultiQC()
@@ -178,49 +176,3 @@ class LiqBioPipeline(ClinseqPipeline):
             qc_files += [isize.output_metrics, wgsmetrics.output_metrics]
 
         return qc_files
-
-    def run_panel_bam_qc(self, bam):
-        """
-        Run QC on panel bams
-        :param bams: list of bams
-        :return: list of generated files
-        """
-
-        lib = stripsuffix(os.path.basename(bam), ".bam")
-        lib = stripsuffix(lib, '-nodups')
-        targets = get_libdict(lib)['capture_kit_name']
-        logging.debug("Adding QC jobs for {}".format(bam))
-        basefn = stripsuffix(os.path.basename(bam), ".bam")
-        isize = PicardCollectInsertSizeMetrics()
-        isize.input = bam
-        isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
-        isize.jobname = "picard-isize-{}".format(basefn)
-        self.add(isize)
-
-        oxog = PicardCollectOxoGMetrics()
-        oxog.input = bam
-        oxog.reference_sequence = self.refdata['reference_genome']
-        oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, basefn)
-        oxog.jobname = "picard-oxog-{}".format(basefn)
-        self.add(oxog)
-
-        hsmetrics = PicardCollectHsMetrics()
-        hsmetrics.input = bam
-        hsmetrics.reference_sequence = self.refdata['reference_genome']
-        hsmetrics.target_regions = self.refdata['targets'][targets][
-            'targets-interval_list-slopped20']
-        hsmetrics.bait_regions = self.refdata['targets'][targets][
-            'targets-interval_list-slopped20']
-        hsmetrics.bait_name = targets
-        hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
-        hsmetrics.jobname = "picard-hsmetrics-{}".format(basefn)
-        self.add(hsmetrics)
-
-        sambamba = SambambaDepth()
-        sambamba.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
-        sambamba.input = bam
-        sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
-        sambamba.jobname = "sambamba-depth-{}".format(basefn)
-        self.add(sambamba)
-
-        return [isize.output_metrics, oxog.output_metrics, hsmetrics.output_metrics, sambamba.output]
