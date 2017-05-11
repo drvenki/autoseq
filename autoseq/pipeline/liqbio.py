@@ -57,20 +57,6 @@ class LiqBioPipeline(ClinseqPipeline):
 
             self.sampledata[datatype]['CFDNA'] = plibs_with_data
 
-    def get_all_fastqs(self):
-        fqs = []
-        if self.sampledata['panel']['T']:
-            fqs.extend(find_fastqs(self.sampledata['panel']['T'], self.libdir)[0])
-            fqs.extend(find_fastqs(self.sampledata['panel']['T'], self.libdir)[1])
-        if self.sampledata['panel']['N']:
-            fqs.extend(find_fastqs(self.sampledata['panel']['N'], self.libdir)[0])
-            fqs.extend(find_fastqs(self.sampledata['panel']['N'], self.libdir)[1])
-        for plib in self.sampledata['panel']['CFDNA']:
-            fqs.extend(find_fastqs(plib, self.libdir)[0])
-            fqs.extend(find_fastqs(plib, self.libdir)[1])
-
-        return [fq for fq in fqs if fq is not None]
-
     def analyze_lowpass_wgs(self):
         tbam = None
         nbam = None
