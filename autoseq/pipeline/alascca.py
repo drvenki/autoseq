@@ -1,7 +1,6 @@
 import logging
 
-from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
-
+from autoseq.pipeline.clinseq import ClinseqPipeline
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import CNVkit, AlasccaCNAPlot
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat
@@ -18,25 +17,21 @@ from autoseq.util.path import normpath, stripsuffix
 __author__ = 'dankle'
 
 
-class AlasccaPipeline(PypedreamPipeline):
+class AlasccaPipeline(ClinseqPipeline):
     def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp/",
                  referral_db_conf="tests/referrals/referral-db-config.json",
                  addresses="tests/referrals/addresses.csv",
                  **kwargs):
-        PypedreamPipeline.__init__(self, normpath(outdir), scratch=scratch, **kwargs)
+        ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir, analysis_id,
+                                 maxcores, scratch, **kwargs)
+
         logging.debug("Unnormalized outdir is {}".format(outdir))
         logging.debug("self.outdir is {}".format(self.outdir))
-        self.libdir = libdir
-        self.sampledata = sampledata
-        self.refdata = refdata
-        self.maxcores = maxcores
-        self.analysis_id = analysis_id
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
         self.targets_name = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
         self.panel_tumor_fqs = find_fastqs(self.sampledata['panel']['T'], self.libdir)
         self.panel_normal_fqs = find_fastqs(self.sampledata['panel']['N'], self.libdir)
-        self.qc_files = []
 
         panel_bams = self.analyze_panel()
 

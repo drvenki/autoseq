@@ -8,38 +8,6 @@ from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.qc import *
 
 
-def get_non_normal_clinseq_barcodes(pipeline):
-    return filter(lambda bc: bc != None,
-                  [pipeline.sampledata['panel']['T']]
-                  + pipeline.sampledata['panel']['CFDNA'])
-
-
-def get_capture_tup_to_clinseq_barcodes(clinseq_barcodes):
-    capture_tup_to_barcodes = collections.defaultdict(list)
-    for clinseq_barcode in clinseq_barcodes:
-        curr_tup = (parse_sample_type(clinseq_barcode), parse_sample_id(clinseq_barcode),
-                    parse_capture_kit_id(clinseq_barcode))
-        capture_tup_to_barcodes[curr_tup].append(clinseq_barcode)
-
-    return capture_tup_to_barcodes
-
-
-def parse_capture_tuple(clinseq_barcode):
-    """
-    Convenience function for use in the context of joint panel analysis.
-
-    Extracts the sample type, sample ID, library prep ID, and capture kit ID,
-    from the specified clinseq barcode.
-
-    :param clinseq_barcode: List of one or more clinseq barcodes 
-    :return: (sample type, sample ID, capture kit ID) tuple
-    """
-    return (parse_sample_type(clinseq_barcode),
-            parse_sample_id(clinseq_barcode),
-            parse_prep_kit_id(clinseq_barcode),
-            parse_capture_kit_id(clinseq_barcode))
-
-
 def merge_and_rm_dup(pipeline, clinseq_barcodes, barcode_to_bams):
     """
     Configures Picard merging and duplicate marking, for the specified group of clinseq barcodes,
@@ -84,6 +52,19 @@ def merge_and_rm_dup(pipeline, clinseq_barcodes, barcode_to_bams):
     return markdups.output_bam
 
 
+class CancerPanelResults(object):
+    """"
+    A collection of results produced by analysing a cancer library capture. Used as an alternative to a tuple.
+    """
+
+    def __init__(self):
+        self.merged_bam = None
+        self.somatic_vcf = None
+        self.hzconcordance_output = None
+        self.msi_output = None
+        self.contam_call = None
+
+
 def analyze_panel(pipeline):
     """
 Configures core analysis of all panel-captured libraries for a given pipeline.
@@ -101,12 +82,11 @@ Configures the following core analyses:
 -- Additional core non_normal vs normal analyses
 
     :param pipeline: Analysis pipeline specifying the library captures to analyse and other relevant parameters
-    :return: A dictionary with (sample type, sample barcode, capture kit code) tuples as keys, and bam filename lists
-    as keys.
+    :return: A dictionary with (sample type, sample barcode, capture kit code) tuples as keys, and CancerPanelResults
+    objects as values.
     """
 
-    non_normal_clinseq_barcodes = get_non_normal_clinseq_barcodes(pipeline)
-    normal_clinseq_barcode = pipeline.sampledata['panel']['N']
+    all_clinseq_barcodes = get_all_clinseq_barcodes(pipeline)
 
     # Configure alignment jobs for all library capture items:
     clinseq_barcode_to_bamfile = {}
@@ -127,7 +107,8 @@ Configures the following core analyses:
     capture_tup_to_merged_bam = dict.fromkeys(capture_tup_to_clinseq_barcodes.keys(),[])
     for capture_tup in capture_tup_to_merged_bam.keys():
         capture_tup_to_merged_bam[capture_tup] = \
-            merge_and_rm_dup(capture_tup_to_clinseq_barcodes[capture_tup],
+            merge_and_rm_dup(pipeline,
+                             capture_tup_to_clinseq_barcodes[capture_tup],
                              clinseq_barcode_to_bamfile)
 
     # If there is a normal library capture, then do additional core panel analyses
@@ -146,19 +127,22 @@ Configures the following core analyses:
                                            clinseq_barcode_to_bamfile[normal_clinseq_barcode],
                                            germline_vcf,
                                            normal_clinseq_barcode)
-    
+
     # Create and return a merged cancer and normal final bam file dictionary:
     # XXX CONTINUE HERE; FIGURE OUT THE REQUIRED STRUCTURE FOR THIS FINAL OUTPUT DICTIONARY, AND IMPLEMENT IT
     # HERE BY AGGREGATING THE REQUIRED DATA. Can work with + adapt these data structures and functions:
+    # XXX IS IT / WILL IT ALWAYS BE SUFFICIENT TO HAVE ONLY THE SAME TYPE, SIMPLE ID, AND CAPTURE KIT ID FOR
+    # EACH OF THE CANCER MERGED BAM FILES? If so then just include the capture_tup tuples as keys in the dictionary
+    # as planned.
     # get_capture_tup_to_clinseq_barcodes(normal_clinseq_barcode)
     # capture_tup_to_merged_bam[]
 
 
-def analyze_panel_cancer_vs_normal(pipeline, sample_type, sample_id, capture_kit_id,
+def contrast_cancer_vs_normal_panel(pipeline, sample_type, sample_id, capture_kit_id,
                                    cancer_bam, normal_bam, germline_vcf, normal_clinseq_barcode):
     """
     Configures several core analyses for a cancer vs normal comparison with library panel capture data.
-    
+
     :param pipeline: 
     :param sample_type: 
     :param sample_id: 
@@ -203,7 +187,6 @@ def analyze_panel_cancer_vs_normal(pipeline, sample_type, sample_id, capture_kit
     msisensor.output = "{}/msisensor.tsv".format(pipeline.outdir)
     msisensor.threads = pipeline.maxcores
     msisensor.jobname = "msisensor-{}".format(sample_str)
-    
     pipeline.add(msisensor)
 
     hzconcordance = HeterzygoteConcordance()

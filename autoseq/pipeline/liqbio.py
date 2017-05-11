@@ -1,8 +1,7 @@
 import json
 import logging
 
-from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
-
+from autoseq.pipeline.clinseq import ClinseqPipeline
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
 from autoseq.tools.picard import PicardCollectGcBiasMetrics, PicardCollectWgsMetrics, \
@@ -18,17 +17,11 @@ from autoseq.util.path import normpath, stripsuffix
 __author__ = 'dankle'
 
 
-class LiqBioPipeline(PypedreamPipeline):
+class LiqBioPipeline(ClinseqPipeline):
     def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp",
                  **kwargs):
-        PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
-        self.sampledata = sampledata
-        self.refdata = refdata
-        self.maxcores = maxcores
-        self.analysis_id = analysis_id
-        self.libdir = libdir
-        self.qc_files = []
-        self.scratch = scratch
+        ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir, analysis_id,
+                                 maxcores, scratch, **kwargs)
 
         self.check_sampledata()
 
