@@ -226,15 +226,15 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         fqs = []
-        for clinseq_barcode in get_all_clinseq_barcodes():
-            # FIXME: Not sure what to do when the files don't exist in the specified folder:
+        for clinseq_barcode in self.get_all_clinseq_barcodes():
             curr_fqs = find_fastqs(clinseq_barcode, self.libdir)
             fqs.append(curr_fqs)
+        
+        return fqs
 
-
-    def run_fastq_qc(self):
+    def configure_fastq_qc(self):
         """
-        Run QC on all fastq files that exist for this pipeline instance.
+        Configure QC on all fastq files that exist for this pipeline instance.
         :return: List of qc output filenames.
         """
 
