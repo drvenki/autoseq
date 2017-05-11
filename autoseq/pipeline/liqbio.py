@@ -28,30 +28,10 @@ class LiqBioPipeline(ClinseqPipeline):
         self.configure_panel_analyses()
 
         # Configure QC of all panel data:
-        for capture_tup in self.capture_to_merged_bam.keys():
-            self.qc_files += \
-                self.run_panel_bam_qc(self.capture_to_merged_bam[capture_tup],
-                                      capture_tup[3])
+        self.configure_all_panel_qcs()
 
         # Configure MultiQC:
-        multiqc = MultiQC()
-        multiqc.input_files = self.qc_files
-        multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
-        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
-        self.add(multiqc)
-
-        ################################################
-        # QC
-        # # wgs
-        # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
-        # #qc_files += self.run_wgs_bam_qc(all_wgs_bams)
-        #
-        # # per-fastq qc
-        # fqs = self.get_all_fastqs()
-        # logging.debug("fqs = {}".format(fqs))
-        # qc_files += self.run_fastq_qc(fqs)
-        #
+        self.configure_multi_qc()
 
     def check_sampledata(self):
         def check_lib(lib):

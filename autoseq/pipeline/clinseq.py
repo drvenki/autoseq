@@ -350,7 +350,21 @@ class ClinseqPipeline(PypedreamPipeline):
         return CancerPanelResults(somatic_variants, msisensor.output, hzconcordance.output,
                                   normal_contest_output, cancer_contest_output, cancer_contam_call)
 
-    def run_panel_bam_qc(self, bam, capture_kit_code):
+    def configure_all_panel_qcs(self):
+        for capture_tup in self.capture_to_merged_bam.keys():
+            self.qc_files += \
+                self.configure_panel_bam_qc(self.capture_to_merged_bam[capture_tup],
+                                      capture_tup[3])
+
+    def configure_multi_qc(self):
+        multiqc = MultiQC()
+        multiqc.input_files = self.qc_files
+        multiqc.search_dir = self.outdir
+        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
+        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
+        self.add(multiqc)
+
+    def configure_panel_bam_qc(self, bam, capture_kit_code):
         """
         Run QC on panel bams
         :param bams: list of bams
