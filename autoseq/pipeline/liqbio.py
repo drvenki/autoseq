@@ -22,9 +22,6 @@ class LiqBioPipeline(ClinseqPipeline):
         # Remove sample capture items for which data is not available:
         self.check_sampledata()
 
-        # Configure the low-pass whole genome analysis:
-        wgs_bams = self.analyze_lowpass_wgs()
-
         # Configure all panel analyses:
         self.configure_panel_analyses()
 
@@ -33,6 +30,9 @@ class LiqBioPipeline(ClinseqPipeline):
 
         # Configure fastq QCs:
         self.configure_fastq_qcs()
+
+        # Configure the low-pass whole genome analysis:
+        wgs_bams = self.analyze_lowpass_wgs()
 
         # Configure MultiQC:
         self.configure_multi_qc()

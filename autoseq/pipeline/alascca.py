@@ -25,120 +25,48 @@ class AlasccaPipeline(ClinseqPipeline):
         ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir, analysis_id,
                                  maxcores, scratch, **kwargs)
 
-        logging.debug("Unnormalized outdir is {}".format(outdir))
-        logging.debug("self.outdir is {}".format(self.outdir))
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
-        self.targets_name = get_libdict(self.sampledata['panel']['T'])['capture_kit_name']
-        self.panel_tumor_fqs = find_fastqs(self.sampledata['panel']['T'], self.libdir)
-        self.panel_normal_fqs = find_fastqs(self.sampledata['panel']['N'], self.libdir)
 
-        panel_bams = self.analyze_panel()
+        # Check to ensure that the sample data is valid for an ALASCCA analysis:
+        self.validate_sample_data_for_alascca()
 
-        ################################################
-        # QC
+        # Remove sample capture items for which data is not available:
+        self.check_sampledata()
 
-        # per-bam qc
-        self.qc_files += self.run_panel_bam_qc([panel_bams['tbam'], panel_bams['nbam']])
+        # Configure all panel analyses:
+        self.configure_panel_analyses()
 
-        # per-fastq qc
-        fqs = self.get_all_fastqs()
-        self.qc_files += self.run_fastq_qc(fqs)
+        # Configure ALASCCA report generation:
+        self.configure_alascca_report_generation()
 
-        multiqc = MultiQC()
-        multiqc.input_files = self.qc_files
-        multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.analysis_id)
-        multiqc.jobname = "multiqc/{}-{}".format(self.sampledata['panel']['T'],
-                                                 self.sampledata['panel']['N'])
-        self.add(multiqc)
+        # Configure QC of all panel data:
+        self.configure_all_panel_qcs()
 
-    def get_all_fastqs(self):
-        fqs = []
-        if self.sampledata['panel']['T']:
-            fqs.extend(self.panel_tumor_fqs[0])
-            fqs.extend(self.panel_tumor_fqs[1])
-        if self.sampledata['panel']['N']:
-            fqs.extend(self.panel_normal_fqs[0])
-            fqs.extend(self.panel_normal_fqs[1])
+        # Configure fastq QCs:
+        self.configure_fastq_qcs()
 
-        return [fq for fq in fqs if fq is not None]
+        # Configure MultiQC:
+        self.configure_multi_qc()
 
+    def validate_sample_data_for_alascca(self):
+        """
+        Checks validity of the sample data. Raises a ValueError if the sampledata dictionary does
+        not fit into the expected ALASCCA analysis pipeline limitations.
+        """
+
+        # FIXME: Implement this
+        pass
+
+    def configure_alascca_report_generation(self):
+        """
+        Configure the Jobs for generating the ALASCCA report from the processed data.
+        """
+
+        pass
+
+    # FIXME: BREAK OUT THIS REMAINING PANEL ANALYSIS STUFF AND PUT IT IN OTHER ALASCCA-SPECIFIC PIPELINE GENERATION METHOD(S):
     def analyze_panel(self):
-        if self.sampledata['panel']['T'] is None or self.sampledata['panel']['T'] == "NA":
-            logging.info("No panel data found.")
-            return {}
-
-        tbam = align_library(self,
-                             fq1_files=self.panel_tumor_fqs[0],
-                             fq2_files=self.panel_tumor_fqs[1],
-                             lib=self.sampledata['panel']['T'],
-                             ref=self.refdata['bwaIndex'],
-                             outdir=self.outdir + "/bams/panel",
-                             maxcores=self.maxcores)
-
-        nbam = align_library(self,
-                             fq1_files=self.panel_normal_fqs[0],
-                             fq2_files=self.panel_normal_fqs[1],
-                             lib=self.sampledata['panel']['N'],
-                             ref=self.refdata['bwaIndex'],
-                             outdir=self.outdir + "/bams/panel",
-                             maxcores=self.maxcores)
-
-        vep = False
-        if self.refdata['vep_dir']:
-            vep = True
-
-        somatic_vcfs = call_somatic_variants(self, tbam, nbam,
-                                             tlib=self.sampledata['panel']['T'],
-                                             nlib=self.sampledata['panel']['N'],
-                                             target_name=self.targets_name,
-                                             refdata=self.refdata,
-                                             outdir=self.outdir,
-                                             callers=['vardict'],
-                                             vep=vep,
-                                             min_alt_frac=0.02)
-
-        germline_vcf = self.call_germline_variants(nbam, library=self.sampledata['panel']['N'])
-
-        libdict = get_libdict(self.sampledata['panel']['N'])
-        rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
-
-        hzconcordance = HeterzygoteConcordance()
-        hzconcordance.input_vcf = germline_vcf
-        hzconcordance.input_bam = tbam
-        hzconcordance.reference_sequence = self.refdata['reference_genome']
-        hzconcordance.target_regions = self.refdata['targets'][self.targets_name]['targets-interval_list-slopped20']
-        hzconcordance.normalid = rg_sm
-        hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance/{}".format(self.sampledata['panel']['T'])
-        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, self.sampledata['panel']['T'],
-                                                                        self.sampledata['panel']['N'])
-        self.add(hzconcordance)
-        self.qc_files.append(hzconcordance.output)
-
-        vcfaddsample = VcfAddSample()
-        vcfaddsample.input_bam = tbam
-        vcfaddsample.input_vcf = germline_vcf
-        vcfaddsample.samplename = self.sampledata['panel']['T']
-        vcfaddsample.filter_hom = True
-        vcfaddsample.scratch = self.scratch
-        vcfaddsample.output = "{}/variants/{}-and-{}.germline.vcf.gz".format(self.outdir,
-                                                                             self.sampledata['panel']['T'],
-                                                                             self.sampledata['panel']['N'])
-        vcfaddsample.jobname = "vcf-add-sample/{}".format(self.sampledata['panel']['T'])
-        self.add(vcfaddsample)
-
-        msisensor = MsiSensor()
-        msisensor.msi_sites = self.refdata['targets'][self.targets_name]['msisites']
-        msisensor.input_normal_bam = nbam
-        msisensor.input_tumor_bam = tbam
-        msisensor.output = "{}/msisensor.tsv".format(self.outdir)
-        msisensor.threads = self.maxcores
-        msisensor.scratch = self.scratch
-        msisensor.jobname = "msisensor/{}".format(self.sampledata['panel']['T'])
-        self.add(msisensor)
-
         cnvkit = CNVkit(input_bam=tbam,
                         output_cnr="{}/cnv/{}.cnr".format(self.outdir,
                                                           self.sampledata['panel']['T']),
@@ -154,40 +82,6 @@ class AlasccaPipeline(ClinseqPipeline):
 
         cnvkit.jobname = "cnvkit/{}".format(self.sampledata['panel']['T'])
         self.add(cnvkit)
-
-        # TODO: Make function that assigns the correct inputs to ContEst() to avoid repetition of code for both T & N? Or keep like this?
-        contest_tumor = ContEst()
-        contest_tumor.reference_genome = self.refdata['reference_genome']
-        contest_tumor.input_eval_bam = tbam
-        contest_tumor.input_genotype_bam = nbam
-        contest_tumor.population_af_vcf = self.get_pop_af_vcf()
-        # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
-        contest_tumor.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['T'])  # TODO: Should the analysis id also be in name of out file?
-        contest_tumor.jobname = "contest_tumor/{}".format(self.sampledata['panel']['T'])  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
-        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
-        if contest_tumor.population_af_vcf:
-            self.add(contest_tumor)
-
-        contest_normal = ContEst()
-        contest_normal.reference_genome = self.refdata['reference_genome']
-        contest_normal.input_eval_bam = nbam
-        contest_normal.input_genotype_bam = tbam
-        contest_normal.population_af_vcf = self.get_pop_af_vcf()
-        contest_normal.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['N'])  # Should the analysis id also be in name of out file?
-        contest_normal.jobname = "contest_normal/{}".format(self.sampledata['panel']['N']) #Is it ok that the job name does not contain analysis id, i.e. may not be unique?
-        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
-        if contest_normal.population_af_vcf:
-            self.add(contest_normal)
-
-        # Generate ContEst contamination QC call JSON files from the ContEst
-        # outputs:
-        process_contest_tumor = ContEstToContamCaveat()
-        process_contest_tumor.input_contest_results = contest_tumor.output
-        process_contest_tumor.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
-        if contest_tumor.population_af_vcf:
-            # Only add the contest output processing if contest is to be run
-            # for the tumor sample:
-            self.add(process_contest_tumor)
 
         alascca_cna = AlasccaCNAPlot()
         alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']

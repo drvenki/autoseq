@@ -360,10 +360,11 @@ class ClinseqPipeline(PypedreamPipeline):
         cancer_target_name = self.get_capture_name(cancer_capture_tuple[3])
 
         # Configure somatic variant calling:
+        # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
         somatic_variants = call_somatic_variants(self, tbam=cancer_bam, nbam=normal_bam, tlib=cancer_sample_str,
                                                  nlib=normal_sample_str, target_name=cancer_target_name,
                                                  refdata=self.refdata, outdir=self.outdir,
-                                                 callers=['vardict'], vep=self.get_vep())
+                                                 callers=['vardict'], vep=self.get_vep(), min_alt_frac=0.02)
 
         # Configure VCF add sample:
         vcfaddsample = VcfAddSample()
@@ -402,6 +403,41 @@ class ClinseqPipeline(PypedreamPipeline):
         normal_contest_output = None
         cancer_contest_output = None
         cancer_contam_call = None
+
+        # FIXME: ADAPT THIS CODE TO MAKE IT WORK HERE. NEED TO ADAPT TO INCLUDE GENERATION OF THE INPUT CONTEST VCF TOO.
+        # TODO: Make function that assigns the correct inputs to ContEst() to avoid repetition of code for both T & N? Or keep like this?
+        contest_tumor = ContEst()
+        contest_tumor.reference_genome = self.refdata['reference_genome']
+        contest_tumor.input_eval_bam = tbam
+        contest_tumor.input_genotype_bam = nbam
+        contest_tumor.population_af_vcf = self.get_pop_af_vcf()
+        # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
+        contest_tumor.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['T'])  # TODO: Should the analysis id also be in name of out file?
+        contest_tumor.jobname = "contest_tumor/{}".format(self.sampledata['panel']['T'])  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
+        if contest_tumor.population_af_vcf:
+            self.add(contest_tumor)
+
+        contest_normal = ContEst()
+        contest_normal.reference_genome = self.refdata['reference_genome']
+        contest_normal.input_eval_bam = nbam
+        contest_normal.input_genotype_bam = tbam
+        contest_normal.population_af_vcf = self.get_pop_af_vcf()
+        contest_normal.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['N'])  # Should the analysis id also be in name of out file?
+        contest_normal.jobname = "contest_normal/{}".format(self.sampledata['panel']['N']) #Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
+        if contest_normal.population_af_vcf:
+            self.add(contest_normal)
+
+        # Generate ContEst contamination QC call JSON files from the ContEst
+        # outputs:
+        process_contest_tumor = ContEstToContamCaveat()
+        process_contest_tumor.input_contest_results = contest_tumor.output
+        process_contest_tumor.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
+        if contest_tumor.population_af_vcf:
+            # Only add the contest output processing if contest is to be run
+            # for the tumor sample:
+            self.add(process_contest_tumor)
 
         return CancerPanelResults(somatic_variants, msisensor.output, hzconcordance.output,
                                   normal_contest_output, cancer_contest_output, cancer_contam_call)
