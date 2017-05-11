@@ -283,6 +283,8 @@ class ClinseqPipeline(PypedreamPipeline):
     def configure_panel_analyses(self):
         """
         Configure generic analyses of all panel data for this clinseq pipeline.
+
+        Populates self.capture_to_merged_bam and normal_capture_to_results. 
         """
 
         # Configure alignment and merging for each unique sample library capture:

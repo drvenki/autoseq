@@ -24,20 +24,27 @@ class LiqBioPipeline(ClinseqPipeline):
 
         self.check_sampledata()
 
-        panel_files = self.analyze_panel()
-
+        # Configure the low-pass whole genome analysis:
         wgs_bams = self.analyze_lowpass_wgs()
+
+        # Configure all panel analyses:
+        self.configure_panel_analyses()
+
+        # Configure QC of all panel data:
+        for capture_tup in self.capture_to_merged_bam.keys():
+            self.qc_files += \
+                self.run_panel_bam_qc(self.capture_to_merged_bam[capture_tup])
+
+        # Configure MultiQC:
+        multiqc = MultiQC()
+        multiqc.input_files = self.qc_files
+        multiqc.search_dir = self.outdir
+        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
+        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
+        self.add(multiqc)
 
         ################################################
         # QC
-
-        #
-        # # per-bam qc
-        # # panel
-        all_panel_bams = [panel_files['tbam'], panel_files['nbam']] + panel_files['pbams']
-        all_panel_bams = [bam for bam in all_panel_bams if bam is not None]
-        self.qc_files += self.run_panel_bam_qc(all_panel_bams)
-
         # # wgs
         # all_wgs_bams = [bam for bam in wgs_bams.values() if bam is not None]
         # #qc_files += self.run_wgs_bam_qc(all_wgs_bams)
@@ -47,13 +54,6 @@ class LiqBioPipeline(ClinseqPipeline):
         # logging.debug("fqs = {}".format(fqs))
         # qc_files += self.run_fastq_qc(fqs)
         #
-
-        multiqc = MultiQC()
-        multiqc.input_files = self.qc_files
-        multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
-        multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
-        self.add(multiqc)
 
     def check_sampledata(self):
         def check_lib(lib):
@@ -179,53 +179,48 @@ class LiqBioPipeline(ClinseqPipeline):
 
         return qc_files
 
-    def run_panel_bam_qc(self, bams):
+    def run_panel_bam_qc(self, bam):
         """
         Run QC on panel bams
         :param bams: list of bams
         :return: list of generated files
         """
 
-        qc_files = []
-        for bam in bams:
-            lib = stripsuffix(os.path.basename(bam), ".bam")
-            lib = stripsuffix(lib, '-nodups')
-            targets = get_libdict(lib)['capture_kit_name']
-            logging.debug("Adding QC jobs for {}".format(bam))
-            basefn = stripsuffix(os.path.basename(bam), ".bam")
-            isize = PicardCollectInsertSizeMetrics()
-            isize.input = bam
-            isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
-            isize.jobname = "picard-isize-{}".format(basefn)
-            self.add(isize)
+        lib = stripsuffix(os.path.basename(bam), ".bam")
+        lib = stripsuffix(lib, '-nodups')
+        targets = get_libdict(lib)['capture_kit_name']
+        logging.debug("Adding QC jobs for {}".format(bam))
+        basefn = stripsuffix(os.path.basename(bam), ".bam")
+        isize = PicardCollectInsertSizeMetrics()
+        isize.input = bam
+        isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
+        isize.jobname = "picard-isize-{}".format(basefn)
+        self.add(isize)
 
-            oxog = PicardCollectOxoGMetrics()
-            oxog.input = bam
-            oxog.reference_sequence = self.refdata['reference_genome']
-            oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, basefn)
-            oxog.jobname = "picard-oxog-{}".format(basefn)
-            self.add(oxog)
+        oxog = PicardCollectOxoGMetrics()
+        oxog.input = bam
+        oxog.reference_sequence = self.refdata['reference_genome']
+        oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, basefn)
+        oxog.jobname = "picard-oxog-{}".format(basefn)
+        self.add(oxog)
 
-            hsmetrics = PicardCollectHsMetrics()
-            hsmetrics.input = bam
-            hsmetrics.reference_sequence = self.refdata['reference_genome']
-            hsmetrics.target_regions = self.refdata['targets'][targets][
-                'targets-interval_list-slopped20']
-            hsmetrics.bait_regions = self.refdata['targets'][targets][
-                'targets-interval_list-slopped20']
-            hsmetrics.bait_name = targets
-            hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
-            hsmetrics.jobname = "picard-hsmetrics-{}".format(basefn)
-            self.add(hsmetrics)
+        hsmetrics = PicardCollectHsMetrics()
+        hsmetrics.input = bam
+        hsmetrics.reference_sequence = self.refdata['reference_genome']
+        hsmetrics.target_regions = self.refdata['targets'][targets][
+            'targets-interval_list-slopped20']
+        hsmetrics.bait_regions = self.refdata['targets'][targets][
+            'targets-interval_list-slopped20']
+        hsmetrics.bait_name = targets
+        hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
+        hsmetrics.jobname = "picard-hsmetrics-{}".format(basefn)
+        self.add(hsmetrics)
 
-            sambamba = SambambaDepth()
-            sambamba.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
-            sambamba.input = bam
-            sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
-            sambamba.jobname = "sambamba-depth-{}".format(basefn)
-            self.add(sambamba)
+        sambamba = SambambaDepth()
+        sambamba.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
+        sambamba.input = bam
+        sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
+        sambamba.jobname = "sambamba-depth-{}".format(basefn)
+        self.add(sambamba)
 
-            qc_files += [isize.output_metrics, oxog.output_metrics,
-                         hsmetrics.output_metrics, sambamba.output]
-
-        return qc_files
+        return [isize.output_metrics, oxog.output_metrics, hsmetrics.output_metrics, sambamba.output]
