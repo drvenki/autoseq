@@ -81,11 +81,10 @@ class ClinseqPipeline(PypedreamPipeline):
         all_capture_tuples = self.capture_to_merged_bam.keys()
         return filter(lambda curr_tup: curr_tup[0] != "N", all_capture_tuples)
 
-
     def get_prep_kit_name(self, prep_kit_code):
         """
         Convert a two-letter library kit code to the corresponding library kit name.
-        
+
         :param prep_kit_code: Two-letter library prep code. 
         :return: The library prep kit name.
         """
