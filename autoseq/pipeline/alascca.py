@@ -2,7 +2,7 @@ import logging
 
 from autoseq.pipeline.clinseq import ClinseqPipeline
 from autoseq.tools.alignment import align_library
-from autoseq.tools.cnvcalling import CNVkit, AlasccaCNAPlot
+from autoseq.tools.cnvcalling import AlasccaCNAPlot
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectHsMetrics
@@ -67,22 +67,6 @@ class AlasccaPipeline(ClinseqPipeline):
 
     # FIXME: BREAK OUT THIS REMAINING PANEL ANALYSIS STUFF AND PUT IT IN OTHER ALASCCA-SPECIFIC PIPELINE GENERATION METHOD(S):
     def analyze_panel(self):
-        cnvkit = CNVkit(input_bam=tbam,
-                        output_cnr="{}/cnv/{}.cnr".format(self.outdir,
-                                                          self.sampledata['panel']['T']),
-                        output_cns="{}/cnv/{}.cns".format(self.outdir,
-                                                          self.sampledata['panel']['T']),
-                        scratch=self.scratch
-                        )
-        # If we have a CNVkit reference
-        if self.refdata['targets'][self.targets_name]['cnvkit-ref']:
-            cnvkit.reference = self.refdata['targets'][self.targets_name]['cnvkit-ref']
-        else:
-            cnvkit.targets_bed = self.refdata['targets'][self.targets_name]['targets-bed-slopped20']
-
-        cnvkit.jobname = "cnvkit/{}".format(self.sampledata['panel']['T'])
-        self.add(cnvkit)
-
         alascca_cna = AlasccaCNAPlot()
         alascca_cna.input_somatic_vcf = somatic_vcfs['vardict']
         alascca_cna.input_germline_vcf = vcfaddsample.output

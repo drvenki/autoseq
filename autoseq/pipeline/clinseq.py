@@ -6,6 +6,7 @@ from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOx
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics
 from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
 from autoseq.tools.intervals import MsiSensor
+from autoseq.tools.cnvcalling import CNVkit
 from autoseq.tools.qc import *
 import collections, logging
 
@@ -24,13 +25,6 @@ class CancerPanelResults(object):
         self.normal_contest_output = normal_contest_output
         self.cancer_contest_output = cancer_contest_output
         self.cancer_contam_call = cancer_contam_call
-
-
-def compose_sample_str(sample_library_capture_tup):
-    return "{}-{}-{}-{}".format(sample_library_capture_tup[0],
-                                sample_library_capture_tup[1],
-                                sample_library_capture_tup[2],
-                                sample_library_capture_tup[3])
 
 
 class ClinseqPipeline(PypedreamPipeline):
@@ -78,6 +72,21 @@ class ClinseqPipeline(PypedreamPipeline):
 
                 self.sampledata[datatype][sample_type] = clinseq_barcodes_with_data
 
+    def get_vep(self):
+        vep = False
+        if self.refdata['vep_dir']:
+            vep = True
+
+        return vep
+
+    def get_all_unique_captures(self):
+        """
+        Obtain tuples for all unique sample library captures in this pipeline instance.
+        :return: List of tuples. 
+        """
+        
+        return self.capture_to_merged_bam.keys()
+
     def get_unique_normal_captures(self):
         """
         Obtain tuples for all unique normal sample library captures in this pipeline instance.
@@ -87,13 +96,6 @@ class ClinseqPipeline(PypedreamPipeline):
 
         all_capture_tuples = self.capture_to_merged_bam.keys()
         return filter(lambda curr_tup: curr_tup[0] == "N", all_capture_tuples)
-
-    def get_vep(self):
-        vep = False
-        if self.refdata['vep_dir']:
-            vep = True
-
-        return vep
 
     def get_unique_cancer_captures(self):
         """
@@ -337,6 +339,30 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_capture_to_results = \
             (germline_vcf, cancer_capture_to_results)
 
+    def configure_single_capture_analysis(self, capture_tuple):
+        """
+        Configure all general analyses to perform given a single sample library capture.
+        """
+
+        input_bam = self.capture_to_merged_bam[capture_tuple]
+        sample_str = compose_sample_str(capture_tuple)
+        targets = self.get_capture_name(capture_tuple[3])
+
+        # Configure CNV kit analysis:
+        cnvkit = CNVkit(input_bam=input_bam,
+                        output_cnr="{}/cnv/{}.cnr".format(self.outdir, sample_str),
+                        output_cns="{}/cnv/{}.cns".format(self.outdir, sample_str),
+                        scratch=self.scratch)
+
+        # If we have a CNVkit reference
+        if self.refdata['targets'][targets]['cnvkit-ref']:
+            cnvkit.reference = self.refdata['targets'][targets]['cnvkit-ref']
+        else:
+            cnvkit.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
+
+        cnvkit.jobname = "cnvkit/{}".format(sample_str)
+        self.add(cnvkit)
+
     def configure_panel_analyses(self):
         """
         Configure generic analyses of all panel data for this clinseq pipeline.
@@ -346,6 +372,10 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # Configure alignment and merging for each unique sample library capture:
         self.configure_align_and_merge()
+
+        # Configure analyses to be run on all unique panel captures individually:
+        for unique_capture in self.get_unique_cancer_captures():
+            self.configure_single_capture_analysis(unique_capture)
 
         # Configure a separate group of analyses for each unique normal library capture:
         for normal_capture in self.get_unique_normal_captures():
@@ -515,6 +545,13 @@ def parse_capture_tuple(clinseq_barcode):
             parse_sample_id(clinseq_barcode),
             parse_prep_kit_id(clinseq_barcode),
             parse_capture_kit_id(clinseq_barcode))
+
+
+def compose_sample_str(sample_library_capture_tup):
+    return "{}-{}-{}-{}".format(sample_library_capture_tup[0],
+                                sample_library_capture_tup[1],
+                                sample_library_capture_tup[2],
+                                sample_library_capture_tup[3])
 
 
 def parse_sample_type(clinseq_barcode):
