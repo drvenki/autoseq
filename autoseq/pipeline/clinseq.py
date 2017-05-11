@@ -295,7 +295,6 @@ class ClinseqPipeline(PypedreamPipeline):
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture_tuple, cancer_capture_tuple, normal_vcf):
         normal_bam = self.capture_to_merged_bam[normal_capture_tuple]
         normal_sample_str = compose_sample_str(normal_capture_tuple)
-        normal_target_name = self.get_capture_name(normal_capture_tuple[3])
 
         cancer_bam = self.capture_to_merged_bam[cancer_capture_tuple]
         cancer_sample_str = compose_sample_str(cancer_capture_tuple)
