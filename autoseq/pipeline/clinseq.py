@@ -35,6 +35,55 @@ class ClinseqPipeline(PypedreamPipeline):
         self.capture_to_merged_bam = collections.defaultdict(list)
         self.cancer_capture_to_results = collections.defaultdict(list)
 
+    def get_prep_kit_name(self, prep_kit_code):
+        """
+        Convert a two-letter library kit code to the corresponding library kit name.
+        
+        :param prep_kit_code: Two-letter library prep code. 
+        :return: The library prep kit name.
+        """
+
+        # FIXME: Move this information to a config JSON file.
+        prep_kit_lookup = {"BN": "BIOO_NEXTFLEX",
+                           "KH": "KAPA_HYPERPREP",
+                           "TD": "THRUPLEX_DNASEQ",
+                           "TP": "THRUPLEX_PLASMASEQ",
+                           "TF": "THRUPLEX_FD",
+                           "TS": "TRUSEQ_RNA",
+                           "NN": "NEBNEXT_RNA",
+                           "VI": "VILO_RNA"}
+
+        return prep_kit_lookup[prep_kit_code]
+
+    def get_capture_name(self, capture_kit_code):
+        """
+        Convert a two-letter capture kit code to the corresponding capture kit name.
+
+        :param capture_kit_code: The two-letter capture kit code.
+        :return: The capture-kit name.
+        """
+
+        # FIXME: Move this information to a config JSON file.
+        capture_kit_loopkup = {"CS": "clinseq_v3_targets",
+                               "CZ": "clinseq_v4",
+                               "EX": "EXOMEV3",
+                               "EO": "EXOMEV1",
+                               "RF": "fusion_v1",
+                               "CC": "core_design",
+                               "CD": "discovery_coho",
+                               "CB": "big_design",
+                               "AL": "alascca_targets",
+                               "TT": "test-regions",
+                               "CP": "progression",
+                               "CM": "monitor"
+                               }
+
+        if capture_kit_code == 'WG':
+            return 'lowpass_wgs'
+
+        else:
+            return capture_kit_loopkup[capture_kit_code]
+
     def get_all_clinseq_barcodes(self):
         """
         :return: All clinseq barcodes included in this clinseq analysis pipeline's panel data.
@@ -59,29 +108,6 @@ class ClinseqPipeline(PypedreamPipeline):
             capture_to_barcodes[capture_tuple].append(clinseq_barcode)
 
         return capture_to_barcodes
-
-    def configure_panel_analysis(self):
-        """
-        Configure generic analysis of all panel data for this clinseq pipeline.
-        """
-
-        # Configure alignment and merging for each unique sample library capture:
-        capture_to_barcodes = self.get_unique_capture_to_clinseq_barcodes()
-        for capture_tuple in capture_to_barcodes.keys():
-            curr_bamfiles = []
-            for clinseq_barcode in capture_to_barcodes[capture_tuple]:
-                curr_bamfiles.append(\
-                    align_library(self,
-                                  fq1_files=find_fastqs(clinseq_barcode, self.libdir)[0],
-                                  fq2_files=find_fastqs(clinseq_barcode, self.libdir)[1],
-                                  lib=clinseq_barcode,
-                                  ref=self.refdata['bwaIndex'],
-                                  outdir=self.outdir + "/bams/panel",
-                                  maxcores=self.maxcores))
-
-            self.capture_to_merged_bam = self.merge_and_rm_dup(\
-                capture_tuple[0], capture_tuple[1], capture_tuple[2], capture_tuple[3], curr_bamfiles)
-
 
     def merge_and_rm_dup(self, sample_type, sample_id, prep_kit_id, capture_kit_id, input_bams):
         """
@@ -120,6 +146,78 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(markdups)
         return markdups.output_bam
 
+    def configure_align_and_merge(self):
+        capture_to_barcodes = self.get_unique_capture_to_clinseq_barcodes()
+        for capture_tuple in capture_to_barcodes.keys():
+            curr_bamfiles = []
+            for clinseq_barcode in capture_to_barcodes[capture_tuple]:
+                curr_bamfiles.append(\
+                    align_library(self,
+                                  fq1_files=find_fastqs(clinseq_barcode, self.libdir)[0],
+                                  fq2_files=find_fastqs(clinseq_barcode, self.libdir)[1],
+                                  lib=clinseq_barcode,
+                                  ref=self.refdata['bwaIndex'],
+                                  outdir=self.outdir + "/bams/panel",
+                                  maxcores=self.maxcores))
+
+            self.capture_to_merged_bam = self.merge_and_rm_dup(\
+                capture_tuple[0], capture_tuple[1], capture_tuple[2], capture_tuple[3], curr_bamfiles)
+
+    def call_germline_variants(self, sample_id, prep_kit_id, capture_kit_id, bam):
+        """
+        Call germline variants for a normal sample library capture, and run VEP if configured.
+
+        :param sample_id: Sample ID 
+        :param prep_kit_id: Library prep two-letter code 
+        :param capture_kit_id: Panel capture two-letter code
+        :param bam: Corresponding library capture bam filename
+        :return: Germline VCF filename
+        """
+
+        targets = self.get_capture_name(capture_kit_id)
+
+        freebayes = Freebayes()
+        freebayes.input_bams = [bam]
+        freebayes.somatic_only = False
+        freebayes.params = None
+        freebayes.reference_sequence = self.refdata['reference_genome']
+        freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
+        freebayes.threads = self.maxcores
+        freebayes.scratch = self.scratch
+        freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
+        freebayes.jobname = "freebayes-germline-{}".format(library)
+        self.add(freebayes)
+
+        if self.refdata['vep_dir']:
+            vep_freebayes = VEP()
+            vep_freebayes.input_vcf = freebayes.output
+            vep_freebayes.threads = self.maxcores
+            vep_freebayes.reference_sequence = self.refdata['reference_genome']
+            vep_freebayes.vep_dir = self.refdata['vep_dir']
+            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
+            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
+            self.add(vep_freebayes)
+
+            return vep_freebayes.output_vcf
+        else:
+            return freebayes.output
+
+
+    def configure_panel_analysis(self):
+        """
+        Configure generic analysis of all panel data for this clinseq pipeline.
+        """
+
+        # Configure alignment and merging for each unique sample library capture:
+        self.configure_align_and_merge()
+
+        # Configure germline calling:
+        self.germline_vcf = self.call_germline_variants(
+            clinseq_barcode_to_bamfile[normal_clinseq_barcode], normal_clinseq_barcode)
+        
+
+
+
 
 def analyze_panel(pipeline):
     """
@@ -142,37 +240,11 @@ Configures the following core analyses:
     objects as values.
     """
 
-    all_clinseq_barcodes = get_all_clinseq_barcodes(pipeline)
-
-    # Configure alignment jobs for all library capture items:
-    clinseq_barcode_to_bamfile = {}
-    for clinseq_barcode in filter(lambda clinseq_barcode: clinseq_barcode != None,
-                                  non_normal_clinseq_barcodes + [normal_clinseq_barcode]):
-        clinseq_barcode_to_bamfile[clinseq_barcode] = \
-            align_library(pipeline,
-                          fq1_files=find_fastqs(clinseq_barcode, pipeline.libdir)[0],
-                          fq2_files=find_fastqs(clinseq_barcode, pipeline.libdir)[1],
-                          lib=clinseq_barcode,
-                          ref=pipeline.refdata['bwaIndex'],
-                          outdir=pipeline.outdir + "/bams/panel",
-                          maxcores=pipeline.maxcores)
-
-    # Configure merging and duplicate removal for each unique tumor and cfDNA
-    # (sample type, sample ID, capture kit) pairing:
-    capture_tup_to_clinseq_barcodes = get_capture_tup_to_clinseq_barcodes(non_normal_clinseq_barcodes)
-    capture_tup_to_merged_bam = dict.fromkeys(capture_tup_to_clinseq_barcodes.keys(),[])
-    for capture_tup in capture_tup_to_merged_bam.keys():
-        capture_tup_to_merged_bam[capture_tup] = \
-            merge_and_rm_dup(pipeline,
-                             capture_tup_to_clinseq_barcodes[capture_tup],
-                             clinseq_barcode_to_bamfile)
-
     # If there is a normal library capture, then do additional core panel analyses
     # supported by that item:
     if normal_clinseq_barcode != None:
         # Configure germline calling:
-        germline_vcf = pipeline.call_germline_variants(\
-            clinseq_barcode_to_bamfile[normal_clinseq_barcode], normal_clinseq_barcode)
+        
 
         # For each unique cfDNA and tumor capture:
         for capture_tup in capture_tup_to_merged_bam.keys():

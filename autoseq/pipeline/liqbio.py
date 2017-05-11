@@ -135,39 +135,6 @@ class LiqBioPipeline(ClinseqPipeline):
 
         return {'bam': bam}  # , 'qdnaseq-bed': qdnaseq.output_bed, 'qdnaseq-segments': qdnaseq.output_segments}
 
-    def call_germline_variants(self, bam, library):
-        """
-        Call germline variants from a bam and run VEP on it
-        :param bam:
-        :return:
-        """
-        targets = get_libdict(library)['capture_kit_name']
-        freebayes = Freebayes()
-        freebayes.input_bams = [bam]
-        freebayes.somatic_only = False
-        freebayes.params = None
-        freebayes.reference_sequence = self.refdata['reference_genome']
-        freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
-        freebayes.threads = self.maxcores
-        freebayes.scratch = self.scratch
-        freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
-        freebayes.jobname = "freebayes-germline-{}".format(library)
-        self.add(freebayes)
-
-        if self.refdata['vep_dir']:
-            vep_freebayes = VEP()
-            vep_freebayes.input_vcf = freebayes.output
-            vep_freebayes.threads = self.maxcores
-            vep_freebayes.reference_sequence = self.refdata['reference_genome']
-            vep_freebayes.vep_dir = self.refdata['vep_dir']
-            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
-            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
-            self.add(vep_freebayes)
-
-            return vep_freebayes.output_vcf
-        else:
-            return freebayes.output
-
     def run_fastq_qc(self, fastq_files):
         """
         Run QC on fastq files
