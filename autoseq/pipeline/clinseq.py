@@ -34,13 +34,35 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # Overall dictionary of unique captures (tuples) to corresponding merged bams:
         self.capture_to_merged_bam = collections.defaultdict(list)
-        
+
         # Dictionary of unique normal captures (tuples) to results obtained by
         # analysis based on that normal capture. Results values tuples containing:
         # - The resulting germlineVCF,
         # - A dictionary of with unique cancer captures (tuples) as keys and
         # CancerPanelResults objects as values.
         self.normal_capture_to_results = {}
+
+    def get_unique_normal_captures(self):
+        """
+        Obtain tuples for all unique normal sample library captures in this pipeline instance.
+
+        :return: List of tuples.
+        """
+
+        all_capture_tuples = self.capture_to_merged_bam.keys()
+        return filter(lambda curr_tup: curr_tup[0] == "N", all_capture_tuples)
+
+
+    def get_unique_cancer_captures(self):
+        """
+        Obtain tuples for all unique cancer sample library captures in this pipeline instance.
+
+        :return: List of tuples.
+        """
+
+        all_capture_tuples = self.capture_to_merged_bam.keys()
+        return filter(lambda curr_tup: curr_tup[0] != "N", all_capture_tuples)
+
 
     def get_prep_kit_name(self, prep_kit_code):
         """
@@ -184,6 +206,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         targets = self.get_capture_name(capture_kit_id)
+        capture_str = "{}-{}-{}".format(sample_id, prep_kit_id, capture_kit_id)
 
         freebayes = Freebayes()
         freebayes.input_bams = [bam]
@@ -193,8 +216,8 @@ class ClinseqPipeline(PypedreamPipeline):
         freebayes.target_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         freebayes.threads = self.maxcores
         freebayes.scratch = self.scratch
-        freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, library)
-        freebayes.jobname = "freebayes-germline-{}".format(library)
+        freebayes.output = "{}/variants/{}.freebayes-germline.vcf.gz".format(self.outdir, capture_str)
+        freebayes.jobname = "freebayes-germline-{}".format(capture_str)
         self.add(freebayes)
 
         if self.refdata['vep_dir']:
@@ -203,8 +226,8 @@ class ClinseqPipeline(PypedreamPipeline):
             vep_freebayes.threads = self.maxcores
             vep_freebayes.reference_sequence = self.refdata['reference_genome']
             vep_freebayes.vep_dir = self.refdata['vep_dir']
-            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, library)
-            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(library)
+            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, capture_str)
+            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
             self.add(vep_freebayes)
 
             return vep_freebayes.output_vcf
@@ -232,7 +255,7 @@ class ClinseqPipeline(PypedreamPipeline):
         # For each unique cancer library capture, configure a comparative analysis against
         # this normal capture:
         cancer_capture_to_results = {}
-        for cancer_capture in self.getunique_cancer_captures():
+        for cancer_capture in self.get_unique_cancer_captures():
             cancer_capture_to_results[cancer_capture] = \
                 self.configure_panel_analysis_cancer_vs_normal(\
                     normal_capture_tuple, cancer_capture)
