@@ -496,7 +496,7 @@ class ClinseqPipeline(PypedreamPipeline):
             target_name=self.get_capture_name(cancer_capture.capture_kit_id),
             refdata=self.refdata, outdir=self.outdir,
             callers=['vardict'], vep=self.get_vep(), min_alt_frac=0.02)
-        self.normal_cancer_pair_to_results[(normal, cancer_capture)].somatic_vcf = somatic_variants
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = somatic_variants
 
     def configure_vcf_add_sample(self, normal_capture, cancer_capture):
         # Configure VCF add sample:
