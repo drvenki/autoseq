@@ -1,17 +1,8 @@
 import logging
 
 from autoseq.pipeline.clinseq import ClinseqPipeline
-from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import AlasccaCNAPlot
-from autoseq.tools.intervals import MsiSensor
-from autoseq.tools.picard import PicardCollectHsMetrics
-from autoseq.tools.picard import PicardCollectInsertSizeMetrics
-from autoseq.tools.picard import PicardCollectOxoGMetrics
-from autoseq.tools.qc import *
 from autoseq.tools.reports import CompileMetadata, CompileAlasccaGenomicJson, WriteAlasccaReport
-from autoseq.tools.variantcalling import Freebayes, VcfAddSample, call_somatic_variants
-from autoseq.util.library import get_libdict, find_fastqs
-from autoseq.util.path import normpath, stripsuffix
 from autoseq.pipeline.clinseq import compose_sample_str
 
 __author__ = 'dankle'

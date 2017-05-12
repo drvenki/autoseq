@@ -1,4 +1,3 @@
-import json
 import logging
 
 from autoseq.pipeline.clinseq import ClinseqPipeline
