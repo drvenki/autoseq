@@ -7,7 +7,7 @@ from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOx
 from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.cnvcalling import CNVkit
-from autoseq.tools.contamination import ContEst, ContEstToContamCaveat
+from autoseq.tools.contamination import ContEst, ContEstToContamCaveat, CreateContestVCFs
 from autoseq.tools.qc import *
 import collections, logging
 
@@ -509,9 +509,12 @@ class ClinseqPipeline(PypedreamPipeline):
         msisensor.msi_sites = self.refdata['targets'][cancer_capture.capture_kit_id]['msisites']
         msisensor.input_normal_bam = self.get_capture_bam(normal_capture)
         msisensor.input_tumor_bam = self.get_capture_bam(cancer_capture)
-        msisensor.output = "{}/msisensor.tsv".format(self.outdir)
+        normal_capture_str = compose_sample_str(normal_capture)
+        cancer_capture_str = compose_sample_str(cancer_capture)
+        msisensor.output = "{}/msisensor-{}-{}.tsv".format(
+            self.outdir, normal_capture_str, cancer_capture_str)
         msisensor.threads = self.maxcores
-        msisensor.jobname = "msisensor-{}".format(compose_sample_str(cancer_capture))
+        msisensor.jobname = "msisensor-{}-{}".format(normal_capture_str, cancer_capture_str)
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].msi_output = \
             msisensor.output
         self.add(msisensor)
@@ -537,7 +540,18 @@ class ClinseqPipeline(PypedreamPipeline):
         """Configure generation of a contest VCF for a specified normal, cancer
         library capture pairing."""
 
-        pass
+        contest_vcf_generation = CreateContestVCFs()
+        contest_vcf_generation.input_population_vcf = self.refdata['swegene_common']
+        contest_vcf_generation.input_target_regions_bed_1 = normal_capture
+        contest_vcf_generation.input_target_regions_bed_2 = cancer_capture
+        normal_capture_str = compose_sample_str(normal_capture)
+        cancer_capture_str = compose_sample_str(cancer_capture)
+        contest_vcf_generation.output = "{}/contamination/pop_vcf_{}-{}.vcf".format(
+            normal_capture_str, cancer_capture_str)
+        contest_vcf_generation.jobname = "contest_pop_vcf_{}-{}".format(
+            normal_capture_str, cancer_capture_str)
+        self.add(contest_vcf_generation)
+        return contest_vcf_generation.output
 
     def configure_contest(self, library_capture_1, library_capture_2, contest_vcf):
         # Configure contest for the specified pair of library captures:
@@ -589,7 +603,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         Configures standard paired cancer vs normal panel analyses for the specified unique
         normal and cancer library captures.
-        
+
         Comprises the following analyses:
         - Somatic variant calling
         - Updating of the germline VCF to take into consideration the cancer sample

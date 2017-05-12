@@ -20,7 +20,8 @@ class CreateContestVCFs(Job):
         return "create_contest_vcfs.py " + \
                required(" ", self.input_target_regions_bed_1) + \
                required(" ", self.input_target_regions_bed_2) + \
-               required(" ", self.input_population_vcf)
+               required(" ", self.input_population_vcf) + \
+               required("--output-filename ", self.output)
 
 
 class ContEst(Job):
