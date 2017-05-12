@@ -11,20 +11,14 @@ from autoseq.tools.qc import *
 import collections, logging
 
 
-class CancerPanelResults(object):
-    """"
-    A collection of results produced by comparing a clinseq cancer sample library capture
-    against a corresponding normal sample library capture.
-    """
-
-    def __init__(self, somatic_vcf, msi_output, hzconcordance_output, normal_contest_output,
-                 cancer_contest_output, cancer_contam_call):
-        self.somatic_vcf = somatic_vcf
-        self.msi_output = msi_output
-        self.hzconcordance_output = hzconcordance_output
-        self.normal_contest_output = normal_contest_output
-        self.cancer_contest_output = cancer_contest_output
-        self.cancer_contam_call = cancer_contam_call
+CancerPanelResults = collections.namedtuple(
+    'CancerPanelResults',
+    'somatic_vcf',
+    'msi_output',
+    'hzconcordance_output',
+    'normal_contest_output',
+    'cancer_contest_output',
+    'cancer_contam_call')
 
 
 class ClinseqPipeline(PypedreamPipeline):
@@ -84,7 +78,7 @@ class ClinseqPipeline(PypedreamPipeline):
         Obtain tuples for all unique sample library captures in this pipeline instance.
         :return: List of tuples. 
         """
-        
+
         return self.capture_to_merged_bam.keys()
 
     def get_unique_normal_captures(self):
@@ -231,7 +225,7 @@ class ClinseqPipeline(PypedreamPipeline):
         for clinseq_barcode in self.get_all_clinseq_barcodes():
             curr_fqs = find_fastqs(clinseq_barcode, self.libdir)
             fqs.append(curr_fqs)
-        
+
         return fqs
 
     def configure_fastq_qcs(self):
@@ -344,6 +338,10 @@ class ClinseqPipeline(PypedreamPipeline):
         Configure all general analyses to perform given a single sample library capture.
         """
 
+        # XXX CONTINUE HERE: NEED TO SAVE THE CNV KIT OUTPUT IN SOME KIND OF DATA STRUCTURE
+        # SO THAT IT'S AVAILABLE TO ALASCCA AFTERWARDS. PRESENTLY, I PLAN TO HAVE ANOTHER DICTIONARY,
+        # WITH CAPTURE TUPLES AS KEYS AND PANEL ANALYSIS OBJECTS AS VALUES. NOT SURE ABOUT THIS THOUGH.
+
         input_bam = self.capture_to_merged_bam[capture_tuple]
         sample_str = compose_sample_str(capture_tuple)
         targets = self.get_capture_name(capture_tuple[3])
@@ -381,6 +379,7 @@ class ClinseqPipeline(PypedreamPipeline):
         for normal_capture in self.get_unique_normal_captures():
             self.configure_panel_analysis_with_normal(normal_capture)
 
+    # XXX CONTINUE HERE: REFACTOR THIS. THEN, START LOOKING AT IMPLEMENTING UNIT TESTS AND RUNNING INTEGRATION TESTS.
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture_tuple, cancer_capture_tuple, normal_vcf):
         normal_bam = self.capture_to_merged_bam[normal_capture_tuple]
         normal_sample_str = compose_sample_str(normal_capture_tuple)
