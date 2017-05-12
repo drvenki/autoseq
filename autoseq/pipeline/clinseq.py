@@ -93,8 +93,9 @@ class ClinseqPipeline(PypedreamPipeline):
         self.qc_files = []
         self.scratch = scratch
 
-        # Overall dictionary mapping unique captures to corresponding merged bams:
-        self.capture_to_merged_bam = {}
+        # Dictionary linking unique captures to corresponding generic single panel
+        # analysis results (SinglePanelResults objects as values):
+        self.capture_to_results = {}
 
         # Dictionary linking unique normal library capture items to their corresponding
         # germline VCF filenames:
@@ -103,10 +104,6 @@ class ClinseqPipeline(PypedreamPipeline):
         # Dictionary linking (normal capture, cancer capture) pairings to corresponding
         # cancer library capture analysis results (CancerPanelResults objects as values):
         self.normal_cancer_pair_to_results = {}
-
-        # Dictionary linking unique captures to corresponding generic single panel
-        # analysis results (SinglePanelResults objects as values):
-        self.capture_to_results = {}
 
     def set_germline_vcf(self, normal_capture, vcf_filename):
         """
@@ -132,7 +129,7 @@ class ClinseqPipeline(PypedreamPipeline):
         :param unique_capture: A UniqueCapture item. 
         :param bam: The bam filename.
         """
-        self.capture_to_merged_bam[unique_capture] = bam
+        self.capture_to_results[unique_capture].merged_bamfile = bam
 
     def get_capture_bam(self, unique_capture):
         """
@@ -141,8 +138,8 @@ class ClinseqPipeline(PypedreamPipeline):
         :param unique_capture: A UniqueCapture item. 
         :return: The corresponding bam filename, or None if it has not been configured.
         """
-        if unique_capture in self.capture_to_merged_bam:
-            return self.capture_to_merged_bam[unique_capture]
+        if unique_capture in self.get_all_unique_captures():
+            return self.capture_to_results[unique_capture].merged_bamfile
         else:
             return None
 
@@ -182,7 +179,7 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of tuples. 
         """
 
-        return self.capture_to_merged_bam.keys()
+        return self.capture_to_results.keys()
 
     def get_unique_normal_captures(self):
         """
