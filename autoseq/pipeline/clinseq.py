@@ -478,26 +478,23 @@ class ClinseqPipeline(PypedreamPipeline):
         for normal_capture in self.get_unique_normal_captures():
             self.configure_panel_analysis_with_normal(normal_capture)
 
-    # XXX CONTINUE HERE: REFACTOR THIS. THEN, START LOOKING AT IMPLEMENTING UNIT TESTS AND RUNNING INTEGRATION TESTS.
-    def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture, normal_vcf):
-        normal_bam = self.get_capture_bam(normal_capture)
-        normal_sample_str = compose_sample_str(normal_capture)
-
-        cancer_bam = self.get_capture_bam(normal_capture)
-        cancer_sample_str = compose_sample_str(cancer_capture)
-        cancer_target_name = self.get_capture_name(cancer_capture.capture_kit_id)
-
-        # Configure somatic variant calling:
+    def configure_somatic_calling(self, normal_capture, cancer_capture):
         # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
-        somatic_variants = call_somatic_variants(self, tbam=cancer_bam, nbam=normal_bam, tlib=cancer_sample_str,
-                                                 nlib=normal_sample_str, target_name=cancer_target_name,
-                                                 refdata=self.refdata, outdir=self.outdir,
-                                                 callers=['vardict'], vep=self.get_vep(), min_alt_frac=0.02)
+        somatic_variants = call_somatic_variants(
+            self, tbam=self.get_capture_bam(normal_capture), nbam=self.get_capture_bam(cancer_capture),
+            tlib=compose_sample_str(cancer_capture), nlib=compose_sample_str(normal_capture),
+            target_name=self.get_capture_name(cancer_capture.capture_kit_id),
+            refdata=self.refdata, outdir=self.outdir,
+            callers=['vardict'], vep=self.get_vep(), min_alt_frac=0.02)
+        self.normal_cancer_pair_to_results[(normal, cancer_capture)].somatic_vcf = somatic_variants
 
+    def configure_vcf_add_sample(self, normal_capture, cancer_capture):
         # Configure VCF add sample:
         vcfaddsample = VcfAddSample()
-        vcfaddsample.input_bam = cancer_bam
-        vcfaddsample.input_vcf = normal_vcf
+        vcfaddsample.input_bam = self.get_capture_bam(cancer_capture)
+        vcfaddsample.input_vcf = self.get_germline_vcf(normal_capture)
+        normal_sample_str = compose_sample_str(normal_capture)
+        cancer_sample_str = compose_sample_str(cancer_capture)
         vcfaddsample.samplename = cancer_sample_str
         vcfaddsample.filter_hom = True
         vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format( \
@@ -505,27 +502,43 @@ class ClinseqPipeline(PypedreamPipeline):
         vcfaddsample.jobname = "vcf-add-sample-{}".format(cancer_sample_str)
         self.add(vcfaddsample)
 
+    def configure_msi_sensor(self, normal_capture, cancer_capture):
         # Configure MSI sensor:
         msisensor = MsiSensor()
-        msisensor.msi_sites = self.refdata['targets'][cancer_target_name]['msisites']
-        msisensor.input_normal_bam = normal_bam
-        msisensor.input_tumor_bam = cancer_bam
+        msisensor.msi_sites = self.refdata['targets'][cancer_capture.capture_kit_id]['msisites']
+        msisensor.input_normal_bam = self.get_capture_bam(normal_capture)
+        msisensor.input_tumor_bam = self.get_capture_bam(cancer_capture)
         msisensor.output = "{}/msisensor.tsv".format(self.outdir)
         msisensor.threads = self.maxcores
-        msisensor.jobname = "msisensor-{}".format(cancer_sample_str)
+        msisensor.jobname = "msisensor-{}".format(compose_sample_str(cancer_capture))
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].msi_output = \
+            msisensor.output
         self.add(msisensor)
 
+    def configure_hz_conc(self, normal_capture, cancer_capture):
         hzconcordance = HeterzygoteConcordance()
-        hzconcordance.input_vcf = normal_vcf
-        hzconcordance.input_bam = cancer_bam
+        hzconcordance.input_vcf = self.get_germline_vcf(normal_capture)
+        hzconcordance.input_bam = self.get_capture_bam(cancer_capture)
         hzconcordance.reference_sequence = self.refdata['reference_genome']
-        hzconcordance.target_regions = self.refdata['targets'][cancer_target_name]['targets-interval_list-slopped20']
-        hzconcordance.normalid = normal_sample_str
+        hzconcordance.target_regions = \
+            self.refdata['targets'][cancer_capture.capture_kit_id]['targets-interval_list-slopped20']
+        hzconcordance.normalid = compose_sample_str(normal_capture)
         hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance-{}".format(cancer_sample_str)
-        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(self.outdir, cancer_sample_str,
-                                                                        normal_sample_str)
+        hzconcordance.jobname = "hzconcordance-{}".format(compose_sample_str(cancer_capture))
+        hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(
+            self.outdir, compose_sample_str(cancer_capture), compose_sample_str(normal_capture))
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].hzconcordance_output = \
+            hzconcordance.output
         self.add(hzconcordance)
+
+    def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture):
+        self.configure_somatic_calling(normal_capture, cancer_capture)
+        self.configure_vcf_add_sample(normal_capture, cancer_capture)
+        self.configure_msi_sensor(normal_capture, cancer_capture)
+        self.configure_het_conc(normal_capture, cancer_capture)
+
+        # XXX CONTINUE HERE: CALL THE CONFIGURATION OF CONTAMINATION DETECTION USING CONTEST ETC.,
+        # WHICH WILL ENTAIL GENERATION OF THE CONTEST INPUT VCF.
 
         # FIXME: ADD IN CONTAMINATION CALL CALCULATION USING CONTEST AND SUBSEQUENT
         normal_contest_output = None
@@ -566,9 +579,6 @@ class ClinseqPipeline(PypedreamPipeline):
             # Only add the contest output processing if contest is to be run
             # for the tumor sample:
             self.add(process_contest_tumor)
-
-        return CancerPanelResults(somatic_variants, msisensor.output, hzconcordance.output,
-                                  normal_contest_output, cancer_contest_output, cancer_contam_call)
 
     def configure_all_panel_qcs(self):
         for unique_capture in self.get_all_unique_captures():
