@@ -95,7 +95,8 @@ class AlasccaPipeline(ClinseqPipeline):
             self.outdir, tumor_str)
         alascca_cna.jobname = "alascca-cna/{}".format(tumor_str)
         self.add(alascca_cna)
-        return alascca_cna.output_cna
+
+        return alascca_cna.output_cna, alascca_cna.output_purity
 
     def configure_compile_metadata(self, normal_capture, tumor_capture):
         blood_barcode = normal_capture.sample_id
@@ -106,11 +107,20 @@ class AlasccaPipeline(ClinseqPipeline):
                                                 addresses = self.addresses)
         compile_metadata_json.jobname = "compile-metadata/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_metadata_json)
+        
         return compile_metadata_json.output_json
 
     def configure_compile_genomic_json(self, normal_capture, tumor_capture,
                                        alascca_cna_output, alascca_cna_purity_call):
         tumor_vs_normal_results = self.normal_cancer_pair_to_results[(normal_capture, tumor_capture)]
+        tumor_results = self.capture_to_results[tumor_capture]
+        normal_results = self.capture_to_results[normal_capture]
+
+        blood_barcode = normal_capture.sample_id
+        tumor_barcode = tumor_capture.sample_id
+
+        genomic_json = "{}/report/{}-{}.genomic.json".format(
+            self.outdir, blood_barcode, tumor_barcode)
 
         compile_genomic_json = CompileAlasccaGenomicJson(
             input_somatic_vcf=tumor_vs_normal_results.somatic_vcf,
@@ -118,30 +128,38 @@ class AlasccaPipeline(ClinseqPipeline):
             input_msisensor=tumor_vs_normal_results.msi_output,
             input_purity_qc=alascca_cna_purity_call,
             input_contam_qc=tumor_vs_normal_results.cancer_contam_call,
-            input_tcov_qc=tcov_qc,
-            input_ncov_qc=ncov_qc,
+            input_tcov_qc=tumor_results.cov_qc_call,
+            input_ncov_qc=normal_results.cov_qc_call,
             output_json=genomic_json)
 
         compile_genomic_json.jobname = "compile-genomic/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_genomic_json)
 
-    def configure_write_alascca_report(self, metadata_json, genomic_json):
+        return compile_genomic_json.output_json
+
+    def configure_write_alascca_report(self, normal_capture, tumor_capture,
+                                       metadata_json, genomic_json):
+        blood_barcode = normal_capture.sample_id
+        tumor_barcode = tumor_capture.sample_id
+
         pdf = "{}/report/AlasccaReport-{}-{}.pdf".format(self.outdir, blood_barcode, tumor_barcode)
-        writeAlasccaPdf = WriteAlasccaReport(input_genomic_json=compile_genomic_json.output_json,
-                                             input_metadata_json=compile_metadata_json.output_json,
+        writeAlasccaPdf = WriteAlasccaReport(input_genomic_json=genomic_json,
+                                             input_metadata_json=metadata_json,
                                              output_pdf=pdf)
         writeAlasccaPdf.jobname = "writeAlasccaPdf/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(writeAlasccaPdf)
 
-    def configure_alascca_report_generation(self, normal_capture, tumor_capture, alascca_cna_output):
+    def configure_alascca_report_generation(self, normal_capture, tumor_capture,
+                                            alascca_cna_output, alascca_cna_purity_call):
         """
         Configure the generation of the ALASCCA report for this pipeline instance.
         """
 
         metadata_json = self.configure_compile_metadata(normal_capture, tumor_capture)
         genomic_json = self.configure_compile_genomic_json(
-            normal_capture, tumor_capture, alascca_cna_output)
-        self.configure_write_alascca_report(metadata_json, genomic_json)
+            normal_capture, tumor_capture, alascca_cna_output, alascca_cna_purity_call)
+        self.configure_write_alascca_report(normal_capture, tumor_capture,
+                                            metadata_json, genomic_json)
 
     def configure_alascca_specific_analysis(self):
         """
@@ -149,71 +167,7 @@ class AlasccaPipeline(ClinseqPipeline):
         """
 
         normal_capture, tumor_capture = self.get_normal_and_tumor_captures()
-        alascca_cna_ouput = self.configure_alascca_cna(normal_capture, tumor_capture)
-        self.configure_alascca_report_generation(normal_capture, tumor_capture, alascca_cna_ouput)
-
-    def run_panel_bam_qc(self, bams):
-        """
-        Run QC on panel bams
-        :param bams: list of bams
-        :return: list of generated files
-        """
-
-        qc_files = []
-        for bam in bams:
-            logging.debug("Adding QC jobs for {}".format(bam))
-            basefn = stripsuffix(os.path.basename(bam), ".bam")
-            isize = PicardCollectInsertSizeMetrics()
-            isize.input = bam
-            isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
-            isize.jobname = "picard-isize/{}".format(basefn)
-            self.add(isize)
-
-            oxog = PicardCollectOxoGMetrics()
-            oxog.input = bam
-            oxog.reference_sequence = self.refdata['reference_genome']
-            oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, basefn)
-            oxog.jobname = "picard-oxog/{}".format(basefn)
-            self.add(oxog)
-
-            hsmetrics = PicardCollectHsMetrics()
-            hsmetrics.input = bam
-            hsmetrics.reference_sequence = self.refdata['reference_genome']
-            hsmetrics.target_regions = self.refdata['targets'][self.targets_name][
-                'targets-interval_list-slopped20']
-            hsmetrics.bait_regions = self.refdata['targets'][self.targets_name][
-                'targets-interval_list-slopped20']
-            hsmetrics.bait_name = self.targets_name
-            hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
-            hsmetrics.jobname = "picard-hsmetrics/{}".format(basefn)
-            self.add(hsmetrics)
-
-            sambamba = SambambaDepth()
-            sambamba.targets_bed = self.refdata['targets'][self.targets_name]['targets-bed-slopped20']
-            sambamba.input = bam
-            sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
-            sambamba.jobname = "sambamba-depth/{}".format(basefn)
-            self.add(sambamba)
-
-            alascca_coverage_hist = CoverageHistogram()
-            if 'alascca_targets' in self.refdata['targets']:
-                alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
-            else:
-                alascca_coverage_hist.input_bed = self.refdata['targets'][self.targets_name][
-                    'targets-bed-slopped20']
-            alascca_coverage_hist.input_bam = bam
-            alascca_coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, basefn)
-            alascca_coverage_hist.jobname = "alascca-coverage-hist/{}".format(basefn)
-            self.add(alascca_coverage_hist)
-
-            coverage_qc_call = CoverageCaveat()
-            coverage_qc_call.input_histogram = alascca_coverage_hist.output
-            coverage_qc_call.output = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, basefn)
-            coverage_qc_call.jobname = "coverage-qc-call/{}".format(basefn)
-            self.add(coverage_qc_call)
-
-            qc_files += [isize.output_metrics, oxog.output_metrics,
-                         hsmetrics.output_metrics, sambamba.output, alascca_coverage_hist.output,
-                         coverage_qc_call.output]
-
-        return qc_files
+        alascca_cna_ouput, alascca_cna_purity = \
+            self.configure_alascca_cna(normal_capture, tumor_capture)
+        self.configure_alascca_report_generation(
+            normal_capture, tumor_capture, alascca_cna_ouput, , alascca_cna_purity)

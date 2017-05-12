@@ -19,9 +19,13 @@ class SinglePanelResults(object):
     """
     def __init__(self):
         self.merged_bamfile = None
+
         # CNV kit outputs:
         self.cnr = None
         self.cns = None
+        
+        # Coverage QC call:
+        self.cov_qc_call = None
 
 
 class CancerVsNormalPanelResults(object):
@@ -631,8 +635,7 @@ class ClinseqPipeline(PypedreamPipeline):
     def configure_all_panel_qcs(self):
         for unique_capture in self.get_all_unique_captures():
             self.qc_files += \
-                self.configure_panel_bam_qc(self.get_capture_bam(unique_capture),
-                                            unique_capture.capture_kit_id)
+                self.configure_panel_qc(unique_capture)
 
     def configure_multi_qc(self):
         multiqc = MultiQC()
@@ -642,27 +645,31 @@ class ClinseqPipeline(PypedreamPipeline):
         multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
 
-    def configure_panel_bam_qc(self, bam, capture_kit_code):
+    def configure_panel_qc(self, unique_capture):
         """
-        Run QC on panel bams
+        Configure QC analyses for a given library capture.
         :param bams: list of bams
         :return: list of generated files
         """
 
-        targets = self.get_capture_name(capture_kit_code)
+        bam = self.get_capture_bam(unique_capture)
+
+        targets = self.get_capture_name(unique_capture.capture_kit_id)
         logging.debug("Adding QC jobs for {}".format(bam))
-        basefn = stripsuffix(os.path.basename(bam), ".bam")
+
+        capture_str = compose_sample_str(unique_capture)
+
         isize = PicardCollectInsertSizeMetrics()
         isize.input = bam
-        isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, basefn)
-        isize.jobname = "picard-isize-{}".format(basefn)
+        isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, capture_str)
+        isize.jobname = "picard-isize-{}".format(capture_str)
         self.add(isize)
 
         oxog = PicardCollectOxoGMetrics()
         oxog.input = bam
         oxog.reference_sequence = self.refdata['reference_genome']
-        oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, basefn)
-        oxog.jobname = "picard-oxog-{}".format(basefn)
+        oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, capture_str)
+        oxog.jobname = "picard-oxog-{}".format(capture_str)
         self.add(oxog)
 
         hsmetrics = PicardCollectHsMetrics()
@@ -673,15 +680,33 @@ class ClinseqPipeline(PypedreamPipeline):
         hsmetrics.bait_regions = self.refdata['targets'][targets][
             'targets-interval_list-slopped20']
         hsmetrics.bait_name = targets
-        hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, basefn)
-        hsmetrics.jobname = "picard-hsmetrics-{}".format(basefn)
+        hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, capture_str)
+        hsmetrics.jobname = "picard-hsmetrics-{}".format(capture_str)
         self.add(hsmetrics)
 
         sambamba = SambambaDepth()
         sambamba.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         sambamba.input = bam
-        sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, basefn)
-        sambamba.jobname = "sambamba-depth-{}".format(basefn)
+        sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, capture_str)
+        sambamba.jobname = "sambamba-depth-{}".format(capture_str)
         self.add(sambamba)
 
-        return [isize.output_metrics, oxog.output_metrics, hsmetrics.output_metrics, sambamba.output]
+        coverage_hist = CoverageHistogram()
+#        if 'alascca_targets' in self.refdata['targets']:
+#            alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
+#        else:
+        coverage_hist.input_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
+        coverage_hist.input_bam = bam
+        coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, capture_str)
+        coverage_hist.jobname = "alascca-coverage-hist/{}".format(capture_str)
+        self.add(coverage_hist)
+
+        coverage_qc_call = CoverageCaveat()
+        coverage_qc_call.input_histogram = coverage_hist.output
+        coverage_qc_call.output = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, capture_str)
+        coverage_qc_call.jobname = "coverage-qc-call/{}".format(capture_str)
+        self.add(coverage_qc_call)
+        self.capture_to_results[unique_capture].cov_qc_call = coverage_qc_call.output
+
+        return [isize.output_metrics, oxog.output_metrics, hsmetrics.output_metrics,
+                sambamba.output, coverage_hist.output, coverage_qc_call.output]
