@@ -21,9 +21,57 @@ CancerPanelResults = collections.namedtuple(
     'cancer_contam_call')
 
 
+# Fields defining a unique library capture item:
+UniqueCapture = collections.namedtuple(
+    'sample_type',
+    'sample_id',
+    'library_kit_id',
+    'capture_kit_id'
+)
+
+
+def parse_capture_tuple(clinseq_barcode):
+    """
+    Convenience function for use in the context of joint panel analysis.
+
+    Extracts the sample type, sample ID, library prep ID, and capture kit ID,
+    from the specified clinseq barcode.
+
+    :param clinseq_barcode: List of one or more clinseq barcodes 
+    :return: (sample type, sample ID, capture kit ID) named tuple
+    """
+    return UniqueCapture(parse_sample_type(clinseq_barcode),
+                         parse_sample_id(clinseq_barcode),
+                         parse_prep_kit_id(clinseq_barcode),
+                         parse_capture_kit_id(clinseq_barcode))
+
+
+def compose_sample_str(capture):
+    return "{}-{}-{}-{}".format(capture.sample_type,
+                                capture.sample_id,
+                                capture.library_kit_id,
+                                capture.capture_kit_id)
+
+
+def parse_sample_type(clinseq_barcode):
+    return clinseq_barcode.split("-")[3]
+
+
+def parse_sample_id(clinseq_barcode):
+    return clinseq_barcode.split("-")[4]
+
+
+def parse_prep_kit_id(clinseq_barcode):
+    return clinseq_barcode.split("-")[5][:2]
+
+
+def parse_capture_kit_id(clinseq_barcode):
+    return clinseq_barcode.split("-")[6][:2]
+
+
 class ClinseqPipeline(PypedreamPipeline):
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp",
-                 **kwargs):
+    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1,
+                 scratch="/scratch/tmp/tmp", **kwargs):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         self.sampledata = sampledata
         self.refdata = refdata
@@ -88,8 +136,8 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of tuples.
         """
 
-        all_capture_tuples = self.capture_to_merged_bam.keys()
-        return filter(lambda curr_tup: curr_tup[0] == "N", all_capture_tuples)
+        all_unique_captures = self.capture_to_merged_bam.keys()
+        return filter(lambda curr_tup: curr_tup[0] == "N", all_unique_captures)
 
     def get_unique_cancer_captures(self):
         """
@@ -98,8 +146,8 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of tuples.
         """
 
-        all_capture_tuples = self.capture_to_merged_bam.keys()
-        return filter(lambda curr_tup: curr_tup[0] != "N", all_capture_tuples)
+        all_unique_captures = self.capture_to_merged_bam.keys()
+        return filter(lambda curr_tup: curr_tup[0] != "N", all_unique_captures)
 
     def get_prep_kit_name(self, prep_kit_code):
         """
@@ -170,8 +218,8 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         capture_to_barcodes = collections.defaultdict(list)
         for clinseq_barcode in self.get_all_clinseq_barcodes():
-            capture_tuple = parse_capture_tuple(clinseq_barcode)
-            capture_to_barcodes[capture_tuple].append(clinseq_barcode)
+            unique_capture = parse_capture_tuple(clinseq_barcode)
+            capture_to_barcodes[unique_capture].append(clinseq_barcode)
 
         return capture_to_barcodes
 
@@ -333,7 +381,7 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_capture_to_results = \
             (germline_vcf, cancer_capture_to_results)
 
-    def configure_single_capture_analysis(self, capture_tuple):
+    def configure_single_capture_analysis(self, unique_capture):
         """
         Configure all general analyses to perform given a single sample library capture.
         """
@@ -342,9 +390,9 @@ class ClinseqPipeline(PypedreamPipeline):
         # SO THAT IT'S AVAILABLE TO ALASCCA AFTERWARDS. PRESENTLY, I PLAN TO HAVE ANOTHER DICTIONARY,
         # WITH CAPTURE TUPLES AS KEYS AND PANEL ANALYSIS OBJECTS AS VALUES. NOT SURE ABOUT THIS THOUGH.
 
-        input_bam = self.capture_to_merged_bam[capture_tuple]
-        sample_str = compose_sample_str(capture_tuple)
-        targets = self.get_capture_name(capture_tuple[3])
+        input_bam = self.capture_to_merged_bam[unique_capture]
+        sample_str = compose_sample_str(unique_capture)
+        targets = self.get_capture_name(unique_capture[3])
 
         # Configure CNV kit analysis:
         cnvkit = CNVkit(input_bam=input_bam,
@@ -380,13 +428,13 @@ class ClinseqPipeline(PypedreamPipeline):
             self.configure_panel_analysis_with_normal(normal_capture)
 
     # XXX CONTINUE HERE: REFACTOR THIS. THEN, START LOOKING AT IMPLEMENTING UNIT TESTS AND RUNNING INTEGRATION TESTS.
-    def configure_panel_analysis_cancer_vs_normal(self, normal_capture_tuple, cancer_capture_tuple, normal_vcf):
-        normal_bam = self.capture_to_merged_bam[normal_capture_tuple]
-        normal_sample_str = compose_sample_str(normal_capture_tuple)
+    def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture, normal_vcf):
+        normal_bam = self.capture_to_merged_bam[normal_capture]
+        normal_sample_str = compose_sample_str(normal_capture)
 
-        cancer_bam = self.capture_to_merged_bam[cancer_capture_tuple]
-        cancer_sample_str = compose_sample_str(cancer_capture_tuple)
-        cancer_target_name = self.get_capture_name(cancer_capture_tuple[3])
+        cancer_bam = self.capture_to_merged_bam[cancer_capture]
+        cancer_sample_str = compose_sample_str(cancer_capture)
+        cancer_target_name = self.get_capture_name(cancer_capture[3])
 
         # Configure somatic variant calling:
         # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
@@ -472,10 +520,10 @@ class ClinseqPipeline(PypedreamPipeline):
                                   normal_contest_output, cancer_contest_output, cancer_contam_call)
 
     def configure_all_panel_qcs(self):
-        for capture_tup in self.capture_to_merged_bam.keys():
+        for unique_capture in self.capture_to_merged_bam.keys():
             self.qc_files += \
-                self.configure_panel_bam_qc(self.capture_to_merged_bam[capture_tup],
-                                      capture_tup[3])
+                self.configure_panel_bam_qc(self.capture_to_merged_bam[unique_capture],
+                                            unique_capture[3])
 
     def configure_multi_qc(self):
         multiqc = MultiQC()
@@ -528,42 +576,3 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(sambamba)
 
         return [isize.output_metrics, oxog.output_metrics, hsmetrics.output_metrics, sambamba.output]
-
-
-def parse_capture_tuple(clinseq_barcode):
-    """
-    Convenience function for use in the context of joint panel analysis.
-
-    Extracts the sample type, sample ID, library prep ID, and capture kit ID,
-    from the specified clinseq barcode.
-
-    :param clinseq_barcode: List of one or more clinseq barcodes 
-    :return: (sample type, sample ID, capture kit ID) tuple
-    """
-    return (parse_sample_type(clinseq_barcode),
-            parse_sample_id(clinseq_barcode),
-            parse_prep_kit_id(clinseq_barcode),
-            parse_capture_kit_id(clinseq_barcode))
-
-
-def compose_sample_str(sample_library_capture_tup):
-    return "{}-{}-{}-{}".format(sample_library_capture_tup[0],
-                                sample_library_capture_tup[1],
-                                sample_library_capture_tup[2],
-                                sample_library_capture_tup[3])
-
-
-def parse_sample_type(clinseq_barcode):
-    return clinseq_barcode.split("-")[3]
-
-
-def parse_sample_id(clinseq_barcode):
-    return clinseq_barcode.split("-")[4]
-
-
-def parse_prep_kit_id(clinseq_barcode):
-    return clinseq_barcode.split("-")[5][:2]
-
-
-def parse_capture_kit_id(clinseq_barcode):
-    return clinseq_barcode.split("-")[6][:2]
