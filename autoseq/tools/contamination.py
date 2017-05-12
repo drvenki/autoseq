@@ -2,6 +2,27 @@ from pypedream.job import required, Job, conditional, optional
 
 __author__ = 'rebber'
 
+
+class CreateContestVCFs(Job):
+    """Runs create_contest_vcfs.py to generate a ContEst population allele frequency
+    VCF input file, given an overall population VCF file and a pair of target region
+    bed files."""
+    
+    def __init__(self):
+        Job.__init__(self)
+        self.input_target_regions_bed_1 = None
+        self.input_target_regions_bed_2 = None
+        self.input_population_vcf = None
+        self.output = None
+        self.jobname = "create_contest_vcfs"
+
+    def command(self):
+        return "create_contest_vcfs.py " + \
+               required(" ", self.input_target_regions_bed_1) + \
+               required(" ", self.input_target_regions_bed_2) + \
+               required(" ", self.input_population_vcf)
+
+
 class ContEst(Job):
     """Runs ContEst to estimate contamination level in bam file "input_eval_bam"."""
 
