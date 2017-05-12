@@ -320,9 +320,9 @@ class ClinseqPipeline(PypedreamPipeline):
         markdups.is_intermediate = False
         self.add(markdups)
 
-        self.qc_files.append(markdups.output_metrics)
-
         self.set_capture_bam(unique_capture, markdups.output_bam)
+
+        self.qc_files.append(markdups.output_metrics)
 
     def get_all_fastq_files(self):
         """
@@ -373,19 +373,19 @@ class ClinseqPipeline(PypedreamPipeline):
 
             self.merge_and_rm_dup(unique_capture, curr_bamfiles)
 
-    def call_germline_variants(self, sample_id, prep_kit_id, capture_kit_id, bam):
+    def call_germline_variants(self, normal_capture, bam):
         """
-        Call germline variants for a normal sample library capture, and run VEP if configured.
+        Configure calling of germline variants for a normal sample library capture,
+        and configure VEP if specified in the analysis.
 
-        :param sample_id: Sample ID 
-        :param prep_kit_id: Library prep two-letter code 
-        :param capture_kit_id: Panel capture two-letter code
-        :param bam: Corresponding library capture bam filename
-        :return: Germline VCF filename
+        :param normal_capture: The normal sample library capture identifier.
+        :param bam: Bam filename input to variant calling.
         """
 
-        targets = self.get_capture_name(capture_kit_id)
-        capture_str = "{}-{}-{}".format(sample_id, prep_kit_id, capture_kit_id)
+        targets = self.get_capture_name(normal_capture.capture_kit_id)
+        capture_str = "{}-{}-{}".format(normal_capture.sample_id,
+                                        normal_capture.prep_kit_id,
+                                        normal_capture.capture_kit_id)
 
         freebayes = Freebayes()
         freebayes.input_bams = [bam]
@@ -409,9 +409,9 @@ class ClinseqPipeline(PypedreamPipeline):
             vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
             self.add(vep_freebayes)
 
-            return vep_freebayes.output_vcf
+            self.set_germline_vcf(normal_capture, vep_freebayes.output_vcf)
         else:
-            return freebayes.output
+            self.set_germline_vcf(normal_capture, freebayes.output)
 
     def configure_panel_analysis_with_normal(self, normal_capture):
         """
