@@ -10,7 +10,7 @@ class ContEst(Job):
         self.reference_genome = None
         self.input_eval_bam = None
         self.input_genotype_bam = None
-        self.population_af_vcf = None
+        self.input_population_af_vcf = None
         self.output = None
         self.jobname = "contest"
 

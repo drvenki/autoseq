@@ -7,6 +7,7 @@ from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOx
 from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.cnvcalling import CNVkit
+from autoseq.tools.contamination import ContEst, ContEstToContamCaveat
 from autoseq.tools.qc import *
 import collections, logging
 
@@ -516,6 +517,7 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(msisensor)
 
     def configure_hz_conc(self, normal_capture, cancer_capture):
+        # Configure heterozygote concordance:
         hzconcordance = HeterzygoteConcordance()
         hzconcordance.input_vcf = self.get_germline_vcf(normal_capture)
         hzconcordance.input_bam = self.get_capture_bam(cancer_capture)
@@ -531,54 +533,79 @@ class ClinseqPipeline(PypedreamPipeline):
             hzconcordance.output
         self.add(hzconcordance)
 
+    def configure_contest_vcf_generation(self, normal_capture, cancer_capture):
+        """Configure generation of a contest VCF for a specified normal, cancer
+        library capture pairing."""
+
+        pass
+
+    def configure_contest(self, library_capture_1, library_capture_2, contest_vcf):
+        # Configure contest for the specified pair of library captures:
+        contest = ContEst()
+        contest.reference_genome = self.refdata['reference_genome']
+        contest.input_eval_bam = self.get_capture_bam(library_capture_1)
+        contest.input_genotype_bam = self.get_capture_bam(library_capture_2)
+        contest.input_population_af_vcf = contest_vcf
+        # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
+        contest.output = "{}/contamination/{}.contest.txt".format(self.outdir, compose_sample_str(library_capture_1)) # TODO: Should the analysis id also be in name of out file?
+        contest.jobname = "contest_tumor/{}".format(compose_sample_str(library_capture_1))  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        self.add(contest)
+        return contest.output
+
+    def configure_contam_qc_call(self, contest_output):
+        # Generate ContEst contamination QC call JSON files from the ContEst
+        # outputs:
+        process_contest = ContEstToContamCaveat()
+        process_contest.input_contest_results = contest_output
+        process_contest.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
+        self.add(process_contest)
+        return process_contest.output
+
+    def configure_contamination_estimate(self, normal_capture, cancer_capture):
+        # Configure generation of the contest VCF input file:
+        intersection_contest_vcf = \
+            self.configure_contest_vcf_generation(normal_capture, cancer_capture)
+
+        # Configure contest for calculating contamination in the cancer sample:
+        cancer_vs_normal_contest_output = \
+            self.configure_contest(cancer_capture, normal_capture, intersection_contest_vcf)
+
+        # Configure contest for calculating contamination in the normal sample:
+        normal_vs_cancer_contest_output = \
+            self.configure_contest(normal_capture, cancer_capture, intersection_contest_vcf)
+
+        # Configure cancer sample contamination QC call:
+        cancer_contam_call = self.configure_contam_qc_call(self, cancer_vs_normal_contest_output)
+
+        # Register the outputs of running contest:
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].normal_contest_output = \
+            normal_vs_cancer_contest_output
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].cancer_contest_output = \
+            cancer_vs_normal_contest_output
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].cancer_contam_call = \
+            cancer_contam_call
+
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture):
+        """
+        Configures standard paired cancer vs normal panel analyses for the specified unique
+        normal and cancer library captures.
+        
+        Comprises the following analyses:
+        - Somatic variant calling
+        - Updating of the germline VCF to take into consideration the cancer sample
+        - MSI sensor
+        - Heterozygote concordance of the sample pair
+        - Contamination estimate of cancer compared with normal and vice versa
+
+        :param normal_capture: A unique normal sample library capture
+        :param cancer_capture: A unique cancer sample library capture
+        """
+
         self.configure_somatic_calling(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
         self.configure_msi_sensor(normal_capture, cancer_capture)
-        self.configure_het_conc(normal_capture, cancer_capture)
-
-        # XXX CONTINUE HERE: CALL THE CONFIGURATION OF CONTAMINATION DETECTION USING CONTEST ETC.,
-        # WHICH WILL ENTAIL GENERATION OF THE CONTEST INPUT VCF.
-
-        # FIXME: ADD IN CONTAMINATION CALL CALCULATION USING CONTEST AND SUBSEQUENT
-        normal_contest_output = None
-        cancer_contest_output = None
-        cancer_contam_call = None
-
-        # FIXME: ADAPT THIS CODE TO MAKE IT WORK HERE. NEED TO ADAPT TO INCLUDE GENERATION OF THE INPUT CONTEST VCF TOO.
-        # TODO: Make function that assigns the correct inputs to ContEst() to avoid repetition of code for both T & N? Or keep like this?
-        contest_tumor = ContEst()
-        contest_tumor.reference_genome = self.refdata['reference_genome']
-        contest_tumor.input_eval_bam = tbam
-        contest_tumor.input_genotype_bam = nbam
-        contest_tumor.population_af_vcf = self.get_pop_af_vcf()
-        # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
-        contest_tumor.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['T'])  # TODO: Should the analysis id also be in name of out file?
-        contest_tumor.jobname = "contest_tumor/{}".format(self.sampledata['panel']['T'])  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
-        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
-        if contest_tumor.population_af_vcf:
-            self.add(contest_tumor)
-
-        contest_normal = ContEst()
-        contest_normal.reference_genome = self.refdata['reference_genome']
-        contest_normal.input_eval_bam = nbam
-        contest_normal.input_genotype_bam = tbam
-        contest_normal.population_af_vcf = self.get_pop_af_vcf()
-        contest_normal.output = "{}/contamination/{}.contest.txt".format(self.outdir, self.sampledata['panel']['N'])  # Should the analysis id also be in name of out file?
-        contest_normal.jobname = "contest_normal/{}".format(self.sampledata['panel']['N']) #Is it ok that the job name does not contain analysis id, i.e. may not be unique?
-        # only run the job if a population allele frequency vcf is implemented for the capture kits used for T & N:
-        if contest_normal.population_af_vcf:
-            self.add(contest_normal)
-
-        # Generate ContEst contamination QC call JSON files from the ContEst
-        # outputs:
-        process_contest_tumor = ContEstToContamCaveat()
-        process_contest_tumor.input_contest_results = contest_tumor.output
-        process_contest_tumor.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
-        if contest_tumor.population_af_vcf:
-            # Only add the contest output processing if contest is to be run
-            # for the tumor sample:
-            self.add(process_contest_tumor)
+        self.configure_hz_conc(normal_capture, cancer_capture)
+        self.configure_contamination_estimate(normal_capture, cancer_capture)
 
     def configure_all_panel_qcs(self):
         for unique_capture in self.get_all_unique_captures():

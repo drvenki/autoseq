@@ -3,7 +3,6 @@ import logging
 from autoseq.pipeline.clinseq import ClinseqPipeline
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import AlasccaCNAPlot
-from autoseq.tools.contamination import ContEst, ContEstToContamCaveat
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.picard import PicardCollectHsMetrics
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics
