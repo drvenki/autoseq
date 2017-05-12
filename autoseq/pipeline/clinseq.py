@@ -32,6 +32,7 @@ class CancerVsNormalPanelResults(object):
         self.somatic_vcf = None,
         self.msi_output = None,
         self.hzconcordance_output = None,
+        self.vcf_addsample_output = None,
         self.normal_contest_output = None,
         self.cancer_contest_output = None,
         self.cancer_contam_call = None
@@ -210,6 +211,10 @@ class ClinseqPipeline(PypedreamPipeline):
 
         all_unique_captures = self.get_all_unique_captures()
         return filter(lambda curr_tup: curr_tup[0] != "N", all_unique_captures)
+
+    def get_unique_tumor_captures(self):
+        all_unique_captures = self.get_all_unique_captures()
+        return filter(lambda curr_tup: curr_tup[0] == "T", all_unique_captures)
 
     def get_prep_kit_name(self, prep_kit_code):
         """
@@ -498,10 +503,12 @@ class ClinseqPipeline(PypedreamPipeline):
         cancer_sample_str = compose_sample_str(cancer_capture)
         vcfaddsample.samplename = cancer_sample_str
         vcfaddsample.filter_hom = True
-        vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format( \
+        vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format(
             self.outdir, normal_sample_str, cancer_sample_str)
         vcfaddsample.jobname = "vcf-add-sample-{}".format(cancer_sample_str)
         self.add(vcfaddsample)
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vcf_addsample_output = \
+            vcfaddsample.output
 
     def configure_msi_sensor(self, normal_capture, cancer_capture):
         # Configure MSI sensor:
