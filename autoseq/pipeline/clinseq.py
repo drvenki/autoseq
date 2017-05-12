@@ -421,23 +421,15 @@ class ClinseqPipeline(PypedreamPipeline):
         if normal_capture[0] is not "N":
             raise ValueError("Invalid input tuple: " + normal_capture)
 
-        normal_sample_id = normal_capture.sample_id
-        normal_library_prep_id = normal_capture.library_kit_id
-        normal_capture_kit_id = normal_capture.capture_kit_id
-
         normal_bam = self.get_capture_bam(normal_capture)
-
         # Configure germline variant calling:
-        germline_vcf = self.call_germline_variants(\
-            normal_sample_id, normal_library_prep_id, normal_capture_kit_id, normal_bam)
-
-        self.set_germline_vcf(normal_capture, germline_vcf)
+        self.call_germline_variants(normal_capture, normal_bam)
 
         # For each unique cancer library capture, configure a comparative analysis against
         # this normal capture:
         for cancer_capture in self.get_unique_cancer_captures():
             self.configure_panel_analysis_cancer_vs_normal(\
-                    normal_capture, cancer_capture, germline_vcf)
+                    normal_capture, cancer_capture)
 
     def configure_single_capture_analysis(self, unique_capture):
         """
