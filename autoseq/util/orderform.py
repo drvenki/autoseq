@@ -4,8 +4,15 @@ from openpyxl import load_workbook
 from clinseq_barcode import *
 
 
-def parse_orderform_block(block_of_values)
-    # Look in the entries between <SAMPLE ENTRIES> and </SAMPLE ENTRIES> for clinseq barcodes: 
+def parse_orderform_block(block_of_values):
+    """
+    Extract clinseq barcodes from the given list of order form fields. Looks
+    in the entries between <SAMPLE ENTRIES> and </SAMPLE ENTRIES> for clinseq barcodes.
+
+    :param block_of_values: List of fields from which to extract clinseq barcodes
+    :return: List of validated clinseq barcodes
+    """
+
     validated_clinseq_barcodes = []
     clinseq_barcodes_section = False
     for cell_value in block_of_values:

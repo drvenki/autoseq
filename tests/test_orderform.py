@@ -1,65 +1,31 @@
 import unittest
 
-from autoseq.cli.liqbio import make_sample_dicts
-from autoseq.util.orderform import parse_orderform
+from autoseq.util.orderform import *
 
 
 class TestOrderform(unittest.TestCase):
-    orderform = 'tests/liqbio_test_orderform.xlsx'
+    def test_parse_orderform_block_valid(self):
+        fields_to_parse = ["<SAMPLE_ENTRIES>",
+                           "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000",
+                           "</SAMPLE_ENTRIES>"]
+        parsed_clinseq_barcodes = parse_orderform_block(fields_to_parse)
+        self.assertEquals(parsed_clinseq_barcodes,
+                          ["LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000"])
 
-    def test_parse_libraries(self):
-        """
-        test that an orderform is parsed correctly
-        """
+    def test_parse_orderform_block_empty(self):
+        fields_to_parse = ["<SAMPLE_ENTRIES>",
+                           "</SAMPLE_ENTRIES>"]
+        parsed_clinseq_barcodes = parse_orderform_block(fields_to_parse)
+        self.assertEquals(parsed_clinseq_barcodes, [])
 
-        libs = parse_orderform(self.orderform)
-        # first item in orderform
-        first_item = {'library_id': 'NA12877-T-03098849-TD1-TT1',
-                      'capture_kit_name': 'test-regions',
-                      'capture_id': 'TT1',
-                      'type': 'T',
-                      'sample_id': '03098849',
-                      'prep_kit_name': 'THRUPLEX_DNASEQ',
-                      'sdid': 'NA12877',
-                      'prep_id': 'TD1',
-                      'project_id': None,
-                      'project_name': None}
-        self.assertIn(first_item, libs,
-                      "NA12877-T-03098849-TD1-TT1 could not be parsed from orderform")
+    def test_parse_orderform_block_no_start(self):
+        fields_to_parse = ["LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000",
+                           "</SAMPLE_ENTRIES>"]
+        parsed_clinseq_barcodes = parse_orderform_block(fields_to_parse)
+        self.assertEquals(parsed_clinseq_barcodes, [])
 
-        last_item = {'library_id': 'NA12877-CFDNA-03098850-TD1-WGS',
-                     'capture_kit_name': 'lowpass_wgs',
-                     'capture_id': 'WGS',
-                     'type': 'CFDNA',
-                     'sample_id': '03098850',
-                     'prep_kit_name': 'THRUPLEX_DNASEQ',
-                     'sdid': 'NA12877',
-                     'prep_id': 'TD1',
-                     'project_id': None,
-                     'project_name': None
-                     }
-        # last item in orderform
-        self.assertIn(last_item, libs,
-                      "NA12877-CFDNA-03098850-TD1-WGS could not be parsed from orderform")
-
-    def test_make_sample_dict(self):
-        libs = parse_orderform(self.orderform)
-        sample_dicts = make_sample_dicts(libs)
-
-        self.assertIn('NA12877', sample_dicts)
-
-        sample_dict_NA12877 = {
-            "sdid": "NA12877",
-            "panel": {
-                "T": "NA12877-T-03098849-TD1-TT1",
-                "N": "NA12877-N-03098121-TD1-TT1",
-                "CFDNA": ["NA12877-CFDNA-03098850-TD1-TT1", "NA12877-CFDNA-03098850-TD1-TT2"]
-            },
-            "wgs": {
-                "T": "NA12877-T-03098849-TD1-WGS",
-                "N": "NA12877-N-03098121-TD1-WGS",
-                "CFDNA": ["NA12877-CFDNA-03098850-TD1-WGS"]
-            }
-        }
-
-        self.assertEqual(sample_dict_NA12877, sample_dicts['NA12877'])
+    def test_parse_orderform_block_no_end(self):
+        fields_to_parse = ["<SAMPLE_ENTRIES>",
+                           "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000"]
+        parsed_clinseq_barcodes = parse_orderform_block(fields_to_parse)
+        self.assertEquals(parsed_clinseq_barcodes, [])
