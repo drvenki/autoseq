@@ -93,12 +93,11 @@ class AlasccaPipeline(ClinseqPipeline):
         blood_barcode = normal_capture.sample_id
         tumor_barcode = tumor_capture.sample_id
         metadata_json = "{}/report/{}-{}.metadata.json".format(self.outdir, blood_barcode, tumor_barcode)
-        compile_metadata_json = CompileMetadata(self.referral_db_conf, blood_barcode, tumor_barcode,
-                                                output_json = metadata_json,
-                                                addresses = self.addresses)
+        compile_metadata_json = CompileMetadata(
+            self.referral_db_conf, blood_barcode, tumor_barcode, metadata_json, self.addresses)
         compile_metadata_json.jobname = "compile-metadata/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(compile_metadata_json)
-        
+
         return compile_metadata_json.output_json
 
     def configure_compile_genomic_json(self, normal_capture, tumor_capture,
@@ -128,17 +127,16 @@ class AlasccaPipeline(ClinseqPipeline):
 
         return compile_genomic_json.output_json
 
-    def configure_write_alascca_report(self, normal_capture, tumor_capture,
-                                       metadata_json, genomic_json):
+    def configure_write_alascca_report(
+             self, normal_capture, tumor_capture, metadata_json, genomic_json):
         blood_barcode = normal_capture.sample_id
         tumor_barcode = tumor_capture.sample_id
 
         pdf = "{}/report/AlasccaReport-{}-{}.pdf".format(self.outdir, blood_barcode, tumor_barcode)
-        writeAlasccaPdf = WriteAlasccaReport(input_genomic_json=genomic_json,
-                                             input_metadata_json=metadata_json,
-                                             output_pdf=pdf)
-        writeAlasccaPdf.jobname = "writeAlasccaPdf/{}-{}".format(tumor_barcode, blood_barcode)
-        self.add(writeAlasccaPdf)
+        write_alascca_pdf = WriteAlasccaReport(
+            genomic_json, metadata_json, pdf)
+        write_alascca_pdf.jobname = "writeAlasccaPdf/{}-{}".format(tumor_barcode, blood_barcode)
+        self.add(write_alascca_pdf)
 
     def configure_alascca_report_generation(self, normal_capture, tumor_capture,
                                             alascca_cna_output, alascca_cna_purity_call):
@@ -161,4 +159,4 @@ class AlasccaPipeline(ClinseqPipeline):
         alascca_cna_ouput, alascca_cna_purity = \
             self.configure_alascca_cna(normal_capture, tumor_capture)
         self.configure_alascca_report_generation(
-            normal_capture, tumor_capture, alascca_cna_ouput, , alascca_cna_purity)
+            normal_capture, tumor_capture, alascca_cna_ouput, alascca_cna_purity)
