@@ -13,9 +13,9 @@ __author__ = 'dankle'
 
 
 class LiqBioPipeline(ClinseqPipeline):
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp",
+    def __init__(self, sampledata, refdata, outdir, libdir, maxcores=1, scratch="/scratch/tmp/tmp",
                  **kwargs):
-        ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir, analysis_id,
+        ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir,
                                  maxcores, scratch, **kwargs)
 
         # Remove sample capture items for which data is not available:

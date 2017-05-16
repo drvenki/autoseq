@@ -9,11 +9,11 @@ __author__ = 'dankle'
 
 
 class AlasccaPipeline(ClinseqPipeline):
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1, scratch="/scratch/tmp/tmp/",
+    def __init__(self, sampledata, refdata, outdir, libdir, maxcores=1, scratch="/scratch/tmp/tmp/",
                  referral_db_conf="tests/referrals/referral-db-config.json",
                  addresses="tests/referrals/addresses.csv",
                  **kwargs):
-        ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir, analysis_id,
+        ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir,
                                  maxcores, scratch, **kwargs)
 
         self.referral_db_conf = referral_db_conf

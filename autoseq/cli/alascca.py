@@ -29,7 +29,6 @@ def alascca(ctx, sample):
                                           outdir=ctx.obj['outdir'],
                                           libdir=ctx.obj['libdir'],
                                           maxcores=ctx.obj['cores'],
-                                          analysis_id=sampledata['analysis_id'],
                                           runner=ctx.obj['runner'],
                                           jobdb=ctx.obj['jobdb'],
                                           dot_file=ctx.obj['dot_file'],

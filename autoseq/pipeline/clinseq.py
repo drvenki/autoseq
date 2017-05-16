@@ -68,6 +68,12 @@ def parse_capture_tuple(clinseq_barcode):
 
 
 def compose_sample_str(capture):
+    """
+    Produce a string for a unique library capture item.
+
+    :param capture: A named tuple identifying a unique sample library capture.
+    :return: A dash-delimted string of the fields uniquely identifying the capture.
+    """
     return "{}-{}-{}-{}".format(capture.sample_type,
                                 capture.sample_id,
                                 capture.library_kit_id,
@@ -75,29 +81,66 @@ def compose_sample_str(capture):
 
 
 def parse_sample_type(clinseq_barcode):
+    """
+    Extract the sample type from the clinseq barcode.
+
+    :param clinseq_barcode: Dash-delimited clinseq barcode string.
+    :return: The sample type field from the input string.
+    """
     return clinseq_barcode.split("-")[3]
 
 
 def parse_sample_id(clinseq_barcode):
+    """
+    Extract the sample ID from the clinseq barcode.
+
+    :param clinseq_barcode: Dash-delimited clinseq barcode string.
+    :return: The sample ID field from the input string.
+    """
     return clinseq_barcode.split("-")[4]
 
 
 def parse_prep_kit_id(clinseq_barcode):
+    """
+    Extract the library prep kit code from the clinseq barcode.
+
+    :param clinseq_barcode: Dash-delimited clinseq barcode string.
+    :return: The library prep. kit code extracted from the library prep
+    field of the input string.
+    """
     return clinseq_barcode.split("-")[5][:2]
 
 
 def parse_capture_kit_id(clinseq_barcode):
+    """
+    Extract the capture kit code from the clinseq barcode.
+
+    :param clinseq_barcode: Dash-delimited clinseq barcode string.
+    :return: The capture kit code extracted from the panel capture
+    field of the input string.
+    """
     return clinseq_barcode.split("-")[6][:2]
 
 
 class ClinseqPipeline(PypedreamPipeline):
-    def __init__(self, sampledata, refdata, outdir, libdir, analysis_id=None, maxcores=1,
+    """
+    A pipeline for processing clinseq cancer genomics.
+    """
+    def __init__(self, sampledata, refdata, outdir, libdir, maxcores=1,
                  scratch="/scratch/tmp/tmp", **kwargs):
+        """
+        :param sampledata: A dictionary specifying the clinseq barcodes of samples of different types.
+        :param refdata: A dictionary specifying the reference data used for configuring the pipeline jobs.
+        :param outdir: Output folder location string.
+        :param libdir: String specifying location of the library fastq files.
+        :param maxcores: Maximum number of cores to use concurrently in this analysis.
+        :param scratch: String indicating folder in which jobs should output all temporary files.
+        :param kwargs: Additional key-word arguments.
+        """
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         self.sampledata = sampledata
         self.refdata = refdata
         self.maxcores = maxcores
-        self.analysis_id = analysis_id
         self.libdir = libdir
         self.qc_files = []
         self.scratch = scratch
@@ -126,6 +169,13 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_capture_to_vcf[normal_capture] = vcf_filename
 
     def get_germline_vcf(self, normal_capture):
+        """
+        Obtain the germline VCF for the given normal sample capture item.
+
+        :param normal_capture: Named tuple indicating a unique library capture.
+        :return: The germline VCF filename for the specified normal capture item, or None
+        if this has not been configured.
+        """
         if normal_capture in self.normal_capture_to_vcf:
             return self.normal_capture_to_vcf[normal_capture]
         else:
@@ -141,16 +191,28 @@ class ClinseqPipeline(PypedreamPipeline):
         self.capture_to_results[unique_capture].merged_bamfile = bam
 
     def set_capture_cnr(self, unique_capture, cnr):
+        """
+        Record the CNR copy number information (CNV kit output) for the given library capture.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param cnr: CNR output filename.
+        """
         self.capture_to_results[unique_capture].cnr = cnr 
 
     def set_capture_cns(self, unique_capture, cns):
+        """
+        Record the CNS copy number information (CNV kit output) for the given library capture.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param cnr: CNS output filename.
+        """
         self.capture_to_results[unique_capture].cns = cns
-        
+
     def get_capture_bam(self, unique_capture):
         """
         Retrieve the bam file corresponding to the specified unique_capture in this analysis.
 
-        :param unique_capture: A UniqueCapture item. 
+        :param unique_capture: Named tuple indicating unique library capture.
         :return: The corresponding bam filename, or None if it has not been configured.
         """
         if unique_capture in self.get_all_unique_captures():
@@ -159,6 +221,11 @@ class ClinseqPipeline(PypedreamPipeline):
             return None
 
     def check_sampledata(self):
+        """
+        Check this pipeline for validity of the sample data. In particular, check that
+        each clinseq barcode has a corresponding fastq file, and if not, then modify
+        the pipeline's sampledata by removing that clinseq barcode from the analysis.
+        """
         def check_clinseq_barcode_for_data(lib):
             if lib:
                 filedir = os.path.join(self.libdir, lib)
@@ -182,6 +249,11 @@ class ClinseqPipeline(PypedreamPipeline):
                 self.sampledata[datatype][sample_type] = clinseq_barcodes_with_data
 
     def get_vep(self):
+        """
+        Indicates whether the VEP folder has been set for this analysis.
+
+        :return: Boolean.
+        """
         vep = False
         if self.refdata['vep_dir']:
             vep = True
@@ -191,6 +263,7 @@ class ClinseqPipeline(PypedreamPipeline):
     def get_all_unique_captures(self):
         """
         Obtain tuples for all unique sample library captures in this pipeline instance.
+        
         :return: List of tuples. 
         """
 
@@ -368,11 +441,17 @@ class ClinseqPipeline(PypedreamPipeline):
         return qc_files
 
     def configure_align_and_merge(self):
+        """
+        Configure the aligning of the fastq files for all clinseq barcodes for
+        this analysis, and configure merging of the resulting bam files according
+        to unique library captures, storing the resulting information in this
+        pipeline instance.
+        """
         capture_to_barcodes = self.get_unique_capture_to_clinseq_barcodes()
         for unique_capture in capture_to_barcodes.keys():
             curr_bamfiles = []
             for clinseq_barcode in capture_to_barcodes[unique_capture]:
-                curr_bamfiles.append(\
+                curr_bamfiles.append(
                     align_library(self,
                                   fq1_files=find_fastqs(clinseq_barcode, self.libdir)[0],
                                   fq2_files=find_fastqs(clinseq_barcode, self.libdir)[1],
@@ -489,6 +568,13 @@ class ClinseqPipeline(PypedreamPipeline):
             self.configure_panel_analysis_with_normal(normal_capture)
 
     def configure_somatic_calling(self, normal_capture, cancer_capture):
+        """
+        Configure somatic variant calling in this pipeline, for a specified pairing
+        of normal and cancer library capture events. 
+
+        :param normal_capture: Named tuple indicating normal library capture.
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
         # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
         somatic_variants = call_somatic_variants(
             self, tbam=self.get_capture_bam(normal_capture), nbam=self.get_capture_bam(cancer_capture),
@@ -499,6 +585,14 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = somatic_variants
 
     def configure_vcf_add_sample(self, normal_capture, cancer_capture):
+        """
+        Configure VCF updating in this pipeline, for a specified pairing
+        of normal and cancer library capture events. 
+
+        :param normal_capture: Named tuple indicating normal library capture.
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
+
         # Configure VCF add sample:
         vcfaddsample = VcfAddSample()
         vcfaddsample.input_bam = self.get_capture_bam(cancer_capture)
@@ -515,6 +609,14 @@ class ClinseqPipeline(PypedreamPipeline):
             vcfaddsample.output
 
     def configure_msi_sensor(self, normal_capture, cancer_capture):
+        """
+        Configure MSI sensor in this pipeline, for a specified pairing
+        of normal and cancer library capture events. 
+
+        :param normal_capture: Named tuple indicating normal library capture.
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
+
         # Configure MSI sensor:
         msisensor = MsiSensor()
         msisensor.msi_sites = self.refdata['targets'][cancer_capture.capture_kit_id]['msisites']
@@ -531,6 +633,14 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(msisensor)
 
     def configure_hz_conc(self, normal_capture, cancer_capture):
+        """
+        Configure heterozygote concordance calculation in this pipeline, for a
+        specified pairing of normal and cancer library capture events. 
+
+        :param normal_capture: Named tuple indicating normal library capture.
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
+
         # Configure heterozygote concordance:
         hzconcordance = HeterzygoteConcordance()
         hzconcordance.input_vcf = self.get_germline_vcf(normal_capture)
@@ -548,8 +658,13 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(hzconcordance)
 
     def configure_contest_vcf_generation(self, normal_capture, cancer_capture):
-        """Configure generation of a contest VCF for a specified normal, cancer
-        library capture pairing."""
+        """
+        Configure generation of a contest VCF input file in this pipeline, for a
+        specified pairing of normal and cancer library capture events. 
+
+        :param normal_capture: Named tuple indicating normal library capture.
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
 
         contest_vcf_generation = CreateContestVCFs()
         contest_vcf_generation.input_population_vcf = self.refdata['swegene_common']
@@ -565,7 +680,17 @@ class ClinseqPipeline(PypedreamPipeline):
         return contest_vcf_generation.output
 
     def configure_contest(self, library_capture_1, library_capture_2, contest_vcf):
-        # Configure contest for the specified pair of library captures:
+        """
+        Configure running of ContEst in this pipeline, for a specified pairing
+        of library capture events. Estimates contamination in the bam file for the
+        first library capture, using the bam file for the second library capture as
+        a reference comparison.
+
+        :param library_capture_1: Named tuple indicating first library capture.
+        :param library_capture_2: Named tuple indicating second library capture.
+        :param contest_vcf: Contest population allele frequency VCF input file.
+        """
+
         contest = ContEst()
         contest.reference_genome = self.refdata['reference_genome']
         contest.input_eval_bam = self.get_capture_bam(library_capture_1)
@@ -578,8 +703,14 @@ class ClinseqPipeline(PypedreamPipeline):
         return contest.output
 
     def configure_contam_qc_call(self, contest_output):
-        # Generate ContEst contamination QC call JSON files from the ContEst
-        # outputs:
+        """
+        Configure generation of a contamination QC call in this pipeline,
+        based on the specified contest output. Returns the resulting QC output
+        filename.
+
+        :param contest_output: ContEst output filename.
+        """
+
         process_contest = ContEstToContamCaveat()
         process_contest.input_contest_results = contest_output
         process_contest.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
@@ -587,6 +718,13 @@ class ClinseqPipeline(PypedreamPipeline):
         return process_contest.output
 
     def configure_contamination_estimate(self, normal_capture, cancer_capture):
+        """
+        Configure contamination estimatates for a given normal, cancer library capture
+        pairing.
+        
+        :param normal_capture: Namedtuple indicating a normal library capture.
+        :param cancer_capture: Namedtuple indicating a cancer library capture. 
+        """
         # Configure generation of the contest VCF input file:
         intersection_contest_vcf = \
             self.configure_contest_vcf_generation(normal_capture, cancer_capture)
@@ -633,11 +771,20 @@ class ClinseqPipeline(PypedreamPipeline):
         self.configure_contamination_estimate(normal_capture, cancer_capture)
 
     def configure_all_panel_qcs(self):
+        """
+        Configures QC checks for all panel data in this pipeline.
+        """
+
         for unique_capture in self.get_all_unique_captures():
             self.qc_files += \
                 self.configure_panel_qc(unique_capture)
 
     def configure_multi_qc(self):
+        """
+        Configures MultiQC for this pipeline. self.qc_files must be fully populated
+        in order for MultiQC to use all relevant input files.
+        """
+
         multiqc = MultiQC()
         multiqc.input_files = self.qc_files
         multiqc.search_dir = self.outdir
@@ -648,8 +795,9 @@ class ClinseqPipeline(PypedreamPipeline):
     def configure_panel_qc(self, unique_capture):
         """
         Configure QC analyses for a given library capture.
-        :param bams: list of bams
-        :return: list of generated files
+
+        :param unique_capture: Named tuple identifying a sample library capture.
+        :return: list of QC output files for this capture.
         """
 
         bam = self.get_capture_bam(unique_capture)
