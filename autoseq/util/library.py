@@ -7,53 +7,6 @@ from autoseq.util.path import normpath
 logger = logging.getLogger(__name__)
 
 
-def get_libdict(library_id):
-    """Create a dictionary from a library_id with the individual fields.
-
-    :rtype: dict[str,str]
-    """
-    projects_lookup = {'AL': 'ALASCCA',
-                       'LB': 'LIQUID_BIOPSY',
-                       'OT': 'OTHER'}
-
-    project_long = None
-    project_short = None
-    elems = library_id.split("-")
-
-    if elems[0] in projects_lookup:
-        project_short = elems.pop(0)
-        project_long = projects_lookup[project_short]
-
-    if len(elems) == 6:
-        if elems[0] == 'P':
-            elems = elems[1:6]
-            elems[0] = "P-{}".format(elems[0])
-        else:
-            raise ValueError(
-                "A library ID has to begin with either the SDID, the project short name ({}) or 'P-'. Got {}".format(
-                    projects_lookup, library_id))
-
-    elem_nms = ['sdid', 'type', 'sample_id', 'prep_id', 'capture_id']
-
-    d = dict(zip(elem_nms, elems))
-    d['prep_kit_name'] = get_prep_kit_name_from_id(d['prep_id'])
-    d['capture_kit_name'] = get_capture_kit_name_from_id(d['capture_id'])
-    d['library_id'] = library_id
-
-    d['project_name'] = project_long
-    d['project_id'] = project_short
-
-    return d
-
-
-def parse_capture_kit_id(library_id):
-    """Parse the two-letter capture kit ID from the specified library ID."""
-
-    elems = library_id.split("-")
-    capture_kit_string = elems[-1]
-    return capture_kit_string[:2]
-
-
 def find_fastqs(library, libdir):
     """Find fastq files for a given library id in a given direcory.
 

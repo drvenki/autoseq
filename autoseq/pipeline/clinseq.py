@@ -1,14 +1,16 @@
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
+from autoseq.tools.cnvcalling import QDNASeq
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
-    PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics
+    PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
 from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
 from autoseq.tools.intervals import MsiSensor
 from autoseq.tools.cnvcalling import CNVkit
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat, CreateContestVCFs
 from autoseq.tools.qc import *
+from autoseq.util.clinseq_barcode import *
 import collections, logging
 
 
@@ -40,86 +42,6 @@ class CancerVsNormalPanelResults(object):
         self.normal_contest_output = None,
         self.cancer_contest_output = None,
         self.cancer_contam_call = None
-
-
-# Fields defining a unique library capture item:
-UniqueCapture = collections.namedtuple(
-    'sample_type',
-    'sample_id',
-    'library_kit_id',
-    'capture_kit_id'
-)
-
-
-def parse_capture_tuple(clinseq_barcode):
-    """
-    Convenience function for use in the context of joint panel analysis.
-
-    Extracts the sample type, sample ID, library prep ID, and capture kit ID,
-    from the specified clinseq barcode.
-
-    :param clinseq_barcode: List of one or more clinseq barcodes 
-    :return: (sample type, sample ID, capture kit ID) named tuple
-    """
-    return UniqueCapture(parse_sample_type(clinseq_barcode),
-                         parse_sample_id(clinseq_barcode),
-                         parse_prep_kit_id(clinseq_barcode),
-                         parse_capture_kit_id(clinseq_barcode))
-
-
-def compose_sample_str(capture):
-    """
-    Produce a string for a unique library capture item.
-
-    :param capture: A named tuple identifying a unique sample library capture.
-    :return: A dash-delimted string of the fields uniquely identifying the capture.
-    """
-    return "{}-{}-{}-{}".format(capture.sample_type,
-                                capture.sample_id,
-                                capture.library_kit_id,
-                                capture.capture_kit_id)
-
-
-def parse_sample_type(clinseq_barcode):
-    """
-    Extract the sample type from the clinseq barcode.
-
-    :param clinseq_barcode: Dash-delimited clinseq barcode string.
-    :return: The sample type field from the input string.
-    """
-    return clinseq_barcode.split("-")[3]
-
-
-def parse_sample_id(clinseq_barcode):
-    """
-    Extract the sample ID from the clinseq barcode.
-
-    :param clinseq_barcode: Dash-delimited clinseq barcode string.
-    :return: The sample ID field from the input string.
-    """
-    return clinseq_barcode.split("-")[4]
-
-
-def parse_prep_kit_id(clinseq_barcode):
-    """
-    Extract the library prep kit code from the clinseq barcode.
-
-    :param clinseq_barcode: Dash-delimited clinseq barcode string.
-    :return: The library prep. kit code extracted from the library prep
-    field of the input string.
-    """
-    return clinseq_barcode.split("-")[5][:2]
-
-
-def parse_capture_kit_id(clinseq_barcode):
-    """
-    Extract the capture kit code from the clinseq barcode.
-
-    :param clinseq_barcode: Dash-delimited clinseq barcode string.
-    :return: The capture kit code extracted from the panel capture
-    field of the input string.
-    """
-    return clinseq_barcode.split("-")[6][:2]
 
 
 class ClinseqPipeline(PypedreamPipeline):
@@ -416,7 +338,7 @@ class ClinseqPipeline(PypedreamPipeline):
         mark_dups_metrics_filename = \
             "{}/qc/picard/{}/{}-markdups-metrics.txt".format(
                 self.outdir, unique_capture.capture_kit_id, capture_str)
-        markdups = PicardMarkDuplicates(\
+        markdups = PicardMarkDuplicates(
             merge_bams.output_bam, mark_dups_bam_filename, mark_dups_metrics_filename)
         markdups.is_intermediate = False
         self.add(markdups)
@@ -425,36 +347,25 @@ class ClinseqPipeline(PypedreamPipeline):
 
         self.qc_files.append(markdups.output_metrics)
 
-    def get_all_fastq_files(self):
-        """
-        Get all fastq files that exist for this pipeline instance.
-
-        :return: A list of fastq filenames. 
-        """
-
-        fqs = []
-        for clinseq_barcode in self.get_all_clinseq_barcodes():
-            curr_fqs = find_fastqs(clinseq_barcode, self.libdir)
-            fqs.append(curr_fqs)
-
-        return fqs
-
     def configure_fastq_qcs(self):
         """
         Configure QC on all fastq files that exist for this pipeline instance.
+
         :return: List of qc output filenames.
         """
 
         qc_files = []
-        for fq in self.get_all_fastq_files():
-            basefn = stripsuffix(os.path.basename(fq), ".fastq.gz")
-            fastqc = FastQC()
-            fastqc.input = fq
-            fastqc.outdir = "{}/qc/fastqc/".format(self.outdir)
-            fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(self.outdir, basefn)
-            fastqc.jobname = "fastqc-{}".format(basefn)
-            qc_files.append(fastqc.output)
-            self.add(fastqc)
+        for clinseq_barcode in self.get_all_clinseq_barcodes():
+            curr_fqs = find_fastqs(clinseq_barcode, self.libdir)
+            for fq in curr_fqs:
+                fastqc = FastQC()
+                fastqc.input = fq
+                fastqc.outdir = "{}/qc/fastqc/".format(self.outdir)
+                fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(
+                    self.outdir, clinseq_barcode)
+                fastqc.jobname = "fastqc-{}".format(clinseq_barcode)
+                qc_files.append(fastqc.output)
+                self.add(fastqc)
 
         return qc_files
 
@@ -474,7 +385,7 @@ class ClinseqPipeline(PypedreamPipeline):
                     align_library(self,
                                   fq1_files=find_fastqs(clinseq_barcode, self.libdir)[0],
                                   fq2_files=find_fastqs(clinseq_barcode, self.libdir)[1],
-                                  lib=clinseq_barcode,
+                                  clinseq_barcode=clinseq_barcode,
                                   ref=self.refdata['bwaIndex'],
                                   outdir= "{}/bams/{}".format(self.outdir, capture_kit),
                                   maxcores=self.maxcores))
@@ -569,12 +480,57 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(cnvkit)
 
     def configure_lowpass_analyses(self):
-        """Configure generic analyses of all low-pass whole-genome sequencing
+        """
+        Configure generic analyses of all low-pass whole-genome sequencing
         data for this clinseq pipeline, under the assumption that alignment and
         bam file merging has already been performed."""
 
         for unique_wgs in self.get_unique_wgs():
             self.configure_single_wgs_analyses(unique_wgs)
+
+    def configure_single_wgs_analyses(self, unique_wgs):
+        """
+        Configure generic analyses of a single WGS item in the pipeline.
+
+        :param unique_wgs: An identifier for a single unique library WGS.
+        """
+
+        input_bam = self.get_capture_bam(unique_wgs)
+        sample_str = compose_sample_str(unique_wgs)
+
+        qdnaseq = QDNASeq(input_bam,
+                          output_segments="{}/cnv/{}-qdnaseq.segments.txt".format(
+                              self.outdir, sample_str),
+                          background=None
+                          )
+        self.add(qdnaseq)
+
+    def run_wgs_bam_qc(self, bams):
+        """
+        Run QC on wgs bams
+        :param bams: list of bams
+        :return: list of generated files
+        """
+        qc_files = []
+        logging.debug("bams are {}".format(bams))
+        for bam in bams:
+            basefn = stripsuffix(os.path.basename(bam), ".bam")
+            isize = PicardCollectInsertSizeMetrics()
+            isize.input = bam
+            isize.jobname = "picard-isize-{}".format(basefn)
+            isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
+            self.add(isize)
+
+            wgsmetrics = PicardCollectWgsMetrics()
+            wgsmetrics.input = bam
+            wgsmetrics.reference_sequence = self.refdata['reference_genome']
+            wgsmetrics.output_metrics = "{}/qc/picard/wgs/{}.picard-wgsmetrics.txt".format(self.outdir, basefn)
+            wgsmetrics.jobname = "picard-wgsmetrics-{}".format(basefn)
+            self.add(wgsmetrics)
+
+            qc_files += [isize.output_metrics, wgsmetrics.output_metrics]
+
+        return qc_files
 
     def configure_panel_analyses(self):
         """
@@ -792,6 +748,45 @@ class ClinseqPipeline(PypedreamPipeline):
         self.configure_msi_sensor(normal_capture, cancer_capture)
         self.configure_hz_conc(normal_capture, cancer_capture)
         self.configure_contamination_estimate(normal_capture, cancer_capture)
+
+    def configure_all_lowpass_qcs(self):
+        """
+        Configure QC checks for all low-pass whole genome data in this pipeline.
+        """
+
+        for unique_wgs in self.get_unique_wgs():
+            self.qc_files += \
+                self.configure_wgs_qc(unique_wgs)
+
+    def configure_wgs_qc(self, unique_wgs):
+        """
+        Configure QC checks for the specified unique WGS item in this pipeline.
+
+        :param unique_wgs: A named tuple identifying a single unique WGS item.
+        :return: QC files output files resulting from the QC analysis configuration.
+        """
+
+        bam = self.get_capture_bam(unique_wgs)
+
+        qc_files = []
+
+        basefn = stripsuffix(os.path.basename(bam), ".bam")
+        isize = PicardCollectInsertSizeMetrics()
+        isize.input = bam
+        isize.jobname = "picard-isize-{}".format(basefn)
+        isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
+        self.add(isize)
+
+        wgsmetrics = PicardCollectWgsMetrics()
+        wgsmetrics.input = bam
+        wgsmetrics.reference_sequence = self.refdata['reference_genome']
+        wgsmetrics.output_metrics = "{}/qc/picard/wgs/{}.picard-wgsmetrics.txt".format(self.outdir, basefn)
+        wgsmetrics.jobname = "picard-wgsmetrics-{}".format(basefn)
+        self.add(wgsmetrics)
+
+        qc_files += [isize.output_metrics, wgsmetrics.output_metrics]
+
+        return qc_files
 
     def configure_all_panel_qcs(self):
         """

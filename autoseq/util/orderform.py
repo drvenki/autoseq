@@ -1,11 +1,7 @@
 import logging
-import os
 
 from openpyxl import load_workbook
-
-from autoseq.util.library import get_libdict
-from autoseq.util.path import stripsuffix
-
+from clinseq_barcode import *
 
 def parse_orderform(xlsx):
     # orderform_name = stripsuffix(os.path.basename(xlsx), ".xlsx")
@@ -28,13 +24,15 @@ def parse_orderform(xlsx):
             continue
 
         if first_idx is not None and idx > first_idx:
-            library_name = str(worksheet.cell(column=1, row=idx).value)
+            clinseq_barcode = str(worksheet.cell(column=1, row=idx).value)
 
-            lib = get_libdict(library_name)
-            logging.debug("Parsed library {}".format(lib))
-            if lib['type'] not in ['T', 'N', 'CFDNA']:
+            # FIXME: Validate the clinseq barcodes here.
+
+            logging.debug("Parsed library {}".format(clinseq_barcode))
+            sample_type = parse_sample_type(clinseq_barcode)
+            if sample_type not in ['T', 'N', 'CFDNA']:
                 logging.warning(
-                    "Unexpected library type detected: {} for library {}".format(lib['type'], lib['library_id']))
-            libraries.append(lib)
+                    "Unexpected library type detected: {} for library {}".format(sample_type, clinseq_barcode))
+            libraries.append(clinseq_barcode)
 
     return libraries

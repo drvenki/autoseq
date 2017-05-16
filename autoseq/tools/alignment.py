@@ -1,8 +1,8 @@
 from pypedream.job import *
 from pypedream.tools.unix import Cat
 
-from autoseq.util.library import get_libdict
 from autoseq.util.path import normpath
+from autoseq.util.clinseq_barcode import *
 
 __author__ = 'dankle'
 
@@ -88,7 +88,7 @@ class Skewer(Job):
         return " && ".join([mkdir_cmd, skewer_cmd, copy_output_cmd, copy_stats_cmd, rm_cmd])
 
 
-def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1,
+def align_library(pipeline, fq1_files, fq2_files, clinseq_barcode, ref, outdir, maxcores=1,
                   remove_duplicates=True):
     """
     Align fastq files for a PE library
@@ -103,14 +103,14 @@ def align_library(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1,
     :return:
     """
     if not fq2_files:
-        logging.debug("lib {} is SE".format(lib))
-        return align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates)
+        logging.debug("lib {} is SE".format(clinseq_barcode))
+        return align_se(pipeline, fq1_files, clinseq_barcode, ref, outdir, maxcores, remove_duplicates)
     else:
-        logging.debug("lib {} is PE".format(lib))
-        return align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores, remove_duplicates)
+        logging.debug("lib {} is PE".format(clinseq_barcode))
+        return align_pe(pipeline, fq1_files, fq2_files, clinseq_barcode, ref, outdir, maxcores, remove_duplicates)
 
 
-def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=True):
+def align_se(pipeline, fq1_files, clinseq_barcode, ref, outdir, maxcores, remove_duplicates=True):
     """
     Align single end data
     :param pipeline:
@@ -141,8 +141,8 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
 
     cat1 = Cat()
     cat1.input = fq1_trimmed
-    cat1.output = outdir + "/skewer/{}_1.fastq.gz".format(lib)
-    cat1.jobname = "cat/{}".format(lib)
+    cat1.output = outdir + "/skewer/{}_1.fastq.gz".format(clinseq_barcode)
+    cat1.jobname = "cat/{}".format(clinseq_barcode)
     cat1.is_intermediate = False
     pipeline.add(cat1)
 
@@ -150,10 +150,15 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
     bwa.input_fastq1 = cat1.output
     bwa.input_reference_sequence = ref
     bwa.remove_duplicates = remove_duplicates
-    libdict = get_libdict(lib)
-    rg_lb = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'], libdict['prep_id'])
-    rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
-    rg_id = lib
+
+    sdid = parse_sdid(clinseq_barcode)
+    sample_type = parse_sample_type(clinseq_barcode)
+    sample_id = parse_sample_id(clinseq_barcode)
+    prep_id = parse_prep_kit_id(clinseq_barcode)
+    rg_lb = "{}-{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
+    rg_sm = "{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
+    rg_id = clinseq_barcode
+
     bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
                                                                                           rg_lb=rg_lb)
     bwa.threads = maxcores
@@ -166,7 +171,7 @@ def align_se(pipeline, fq1_files, lib, ref, outdir, maxcores, remove_duplicates=
     return bwa.output
 
 
-def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remove_duplicates=True):
+def align_pe(pipeline, fq1_files, fq2_files, clinseq_barcode, ref, outdir, maxcores=1, remove_duplicates=True):
     """
     align paired end data
     :param pipeline:
@@ -204,15 +209,15 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remov
 
     cat1 = Cat()
     cat1.input = fq1_trimmed
-    cat1.output = outdir + "/skewer/{}-concatenated_1.fastq.gz".format(lib)
-    cat1.jobname = "cat1/{}".format(lib)
+    cat1.output = outdir + "/skewer/{}-concatenated_1.fastq.gz".format(clinseq_barcode)
+    cat1.jobname = "cat1/{}".format(clinseq_barcode)
     cat1.is_intermediate = True
     pipeline.add(cat1)
 
     cat2 = Cat()
     cat2.input = fq2_trimmed
-    cat2.jobname = "cat2/{}".format(lib)
-    cat2.output = outdir + "/skewer/{}-concatenated_2.fastq.gz".format(lib)
+    cat2.jobname = "cat2/{}".format(clinseq_barcode)
+    cat2.output = outdir + "/skewer/{}-concatenated_2.fastq.gz".format(clinseq_barcode)
     cat2.is_intermediate = True
     pipeline.add(cat2)
 
@@ -221,15 +226,20 @@ def align_pe(pipeline, fq1_files, fq2_files, lib, ref, outdir, maxcores=1, remov
     bwa.input_fastq2 = cat2.output
     bwa.input_reference_sequence = ref
     bwa.remove_duplicates = remove_duplicates
-    libdict = get_libdict(lib)
-    rg_lb = "{}-{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'], libdict['prep_id'])
-    rg_sm = "{}-{}-{}".format(libdict['sdid'], libdict['type'], libdict['sample_id'])
-    rg_id = lib
+
+    sdid = parse_sdid(clinseq_barcode)
+    sample_type = parse_sample_type(clinseq_barcode)
+    sample_id = parse_sample_id(clinseq_barcode)
+    prep_id = parse_prep_kit_id(clinseq_barcode)
+    rg_lb = "{}-{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
+    rg_sm = "{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
+    rg_id = clinseq_barcode
+
     bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
                                                                                           rg_lb=rg_lb)
     bwa.threads = maxcores
-    bwa.output = "{}/{}.bam".format(outdir, lib)
-    bwa.jobname = "bwa/{}".format(lib)
+    bwa.output = "{}/{}.bam".format(outdir, clinseq_barcode)
+    bwa.jobname = "bwa/{}".format(clinseq_barcode)
     bwa.scratch = pipeline.scratch
     bwa.is_intermediate = False
     pipeline.add(bwa)
