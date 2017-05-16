@@ -7,7 +7,7 @@ import time
 import click
 
 from autoseq.pipeline.liqbio import LiqBioPipeline
-from autoseq.util.orderform import parse_orderform
+from autoseq.util.clinseq_barcode import extract_clinseq_barcodes
 from autoseq.util.path import mkdir
 
 
@@ -48,18 +48,22 @@ def liqbio(ctx, sample):
 
 @click.command()
 @click.option('--outdir', required=True, help="directory to write config files")
-@click.argument('orderform', type=str)
+@click.argument('barcodes-filename', type=str)
 @click.pass_context
-def liqbio_prepare(ctx, outdir, orderform):
-    logging.info("Creating config files from excel orderform")
-    libs = parse_orderform(orderform)
-    sample_dicts = make_sample_dicts(libraries=libs)
+def liqbio_prepare(ctx, outdir, barcodes_filename):
+    logging.info("Extracting clinseq barcodes from input file: " + barcodes_filename)
+    clinseq_barcodes = extract_clinseq_barcodes(barcodes_filename)
+
+    logging.info("Generating sample dictionaries from the input clinseq barcodes.")
+
+    sample_dicts = make_sample_dicts(libraries=clinseq_barcodes)
     for sdid in sample_dicts:
         fn = "{}/{}.json".format(outdir, sdid)
         with open(fn, 'w') as f:
             json.dump(sample_dicts[sdid], f, sort_keys=True, indent=4)
 
 
+# FIXME: Change this function to implement the new sample dictionary structure. Also, break into modular pieces.
 def make_sample_dicts(libraries):
     sdids = set([lib['sdid'] for lib in libraries])
     dicts = {}
