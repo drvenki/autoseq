@@ -215,6 +215,7 @@ class ClinseqPipeline(PypedreamPipeline):
         :param unique_capture: Named tuple indicating unique library capture.
         :return: The corresponding bam filename, or None if it has not been configured.
         """
+
         if unique_capture in self.get_all_unique_captures():
             return self.capture_to_results[unique_capture].merged_bamfile
         else:
@@ -262,36 +263,50 @@ class ClinseqPipeline(PypedreamPipeline):
 
     def get_all_unique_captures(self):
         """
-        Obtain tuples for all unique sample library captures in this pipeline instance.
-        
-        :return: List of tuples. 
+        Obtain all unique sample library captures in this pipeline instance.
+
+        :return: List of unique capture named tuples. 
         """
 
         return self.capture_to_results.keys()
 
     def get_unique_normal_captures(self):
         """
-        Obtain tuples for all unique normal sample library captures in this pipeline instance.
+        Obtain tuples for all unique normal sample library captures
+        in this pipeline instance - not including "WGS" (no) capture items.
 
-        :return: List of tuples.
+        :return: List of named tuples.
         """
 
         all_unique_captures = self.get_all_unique_captures()
-        return filter(lambda curr_tup: curr_tup[0] == "N", all_unique_captures)
+        return filter(lambda unique_capture: unique_capture.sample_type == "N" and
+                                             unique_capture.capture_kit_id != "WG",
+                      all_unique_captures)
+
+    def get_unique_wgs(self):
+        """
+        Obtain all unique cancer sample library WGS items in this pipeline
+        instance.
+
+        :return: List of named tuples.
+        """
+
+        all_unique_captures = self.get_all_unique_captures()
+        return filter(lambda unique_capture: unique_capture.capture_kit_id == "WG",
+                      all_unique_captures)
 
     def get_unique_cancer_captures(self):
         """
-        Obtain tuples for all unique cancer sample library captures in this pipeline instance.
+        Obtain all unique cancer sample library captures items in this
+        pipeline instance - not including "WGS" (no) capture items.
 
-        :return: List of tuples.
+        :return: List of named tuples.
         """
 
         all_unique_captures = self.get_all_unique_captures()
-        return filter(lambda curr_tup: curr_tup[0] != "N", all_unique_captures)
-
-    def get_unique_tumor_captures(self):
-        all_unique_captures = self.get_all_unique_captures()
-        return filter(lambda curr_tup: curr_tup[0] == "T", all_unique_captures)
+        return filter(lambda unique_capture: unique_capture.sample_type != "N" and
+                                             unique_capture.capture_kit_id != "WG",
+                      all_unique_captures)
 
     def get_prep_kit_name(self, prep_kit_code):
         """
@@ -511,7 +526,7 @@ class ClinseqPipeline(PypedreamPipeline):
         Configure panel analyses focused on a specific unique normal library capture.
         """
 
-        if normal_capture[0] is not "N":
+        if normal_capture.sample_type is not "N":
             raise ValueError("Invalid input tuple: " + normal_capture)
 
         normal_bam = self.get_capture_bam(normal_capture)
@@ -521,8 +536,8 @@ class ClinseqPipeline(PypedreamPipeline):
         # For each unique cancer library capture, configure a comparative analysis against
         # this normal capture:
         for cancer_capture in self.get_unique_cancer_captures():
-            self.configure_panel_analysis_cancer_vs_normal(\
-                    normal_capture, cancer_capture)
+            self.configure_panel_analysis_cancer_vs_normal(
+                normal_capture, cancer_capture)
 
     def configure_single_capture_analysis(self, unique_capture):
         """
@@ -552,6 +567,14 @@ class ClinseqPipeline(PypedreamPipeline):
         self.set_capture_cns(unique_capture, cnvkit.output_cns)
 
         self.add(cnvkit)
+
+    def configure_lowpass_analyses(self):
+        """Configure generic analyses of all low-pass whole-genome sequencing
+        data for this clinseq pipeline, under the assumption that alignment and
+        bam file merging has already been performed."""
+
+        for unique_wgs in self.get_unique_wgs():
+            self.configure_single_wgs_analyses(unique_wgs)
 
     def configure_panel_analyses(self):
         """

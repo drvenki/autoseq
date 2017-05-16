@@ -34,34 +34,10 @@ class LiqBioPipeline(ClinseqPipeline):
         self.configure_fastq_qcs()
 
         # Configure the low-pass whole genome analysis:
-        wgs_bams = self.analyze_lowpass_wgs()
+        self.configure_lowpass_analyses()
 
         # Configure MultiQC:
         self.configure_multi_qc()
-
-    def analyze_lowpass_wgs(self):
-        tbam = None
-        nbam = None
-        pbams = []
-
-        tlib = self.sampledata['wgs']['T']
-        nlib = self.sampledata['wgs']['N']
-        plibs = self.sampledata['wgs']['CFDNA']
-
-        if nlib:
-            nfiles = self.align_and_qdnaseq(nlib)
-            nbam = nfiles['bam']
-
-        if tlib:
-            tfiles = self.align_and_qdnaseq(tlib)
-            tbam = tfiles['bam']
-
-        for plib in plibs:
-            pfiles = self.align_and_qdnaseq(plib)
-            pbam = pfiles['bam']
-            pbams.append(pbam)
-
-        return {'tbam': tbam, 'nbam': nbam, 'pbams': pbams}
 
     def align_and_qdnaseq(self, lib):
         bam = align_library(self,
