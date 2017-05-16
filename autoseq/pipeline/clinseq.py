@@ -346,11 +346,12 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         :return: All clinseq barcodes included in this clinseq analysis pipeline's panel data.
         """
-        all_panel_clinseq_barcodes = \
-            self.sampledata['panel']['T'] + \
-            self.sampledata['panel']['N'] + \
-            self.sampledata['panel']['CFDNA']
-        return filter(lambda bc: bc != None, all_panel_clinseq_barcodes)
+        
+        all_clinseq_barcodes = \
+            self.sampledata['T'] + \
+            self.sampledata['N'] + \
+            self.sampledata['CFDNA']
+        return filter(lambda bc: bc != None, all_clinseq_barcodes)
 
     def get_unique_capture_to_clinseq_barcodes(self):
         """
@@ -358,8 +359,9 @@ class ClinseqPipeline(PypedreamPipeline):
         to unique library captures.
 
         :return: A dictionary with tuples indicating unique library captures as keys,
-        and barcode lists as values. 
+        and barcode lists as values.
         """
+
         capture_to_barcodes = collections.defaultdict(list)
         for clinseq_barcode in self.get_all_clinseq_barcodes():
             unique_capture = parse_capture_tuple(clinseq_barcode)
@@ -387,7 +389,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # Configure merging:
         merged_bam_filename = \
-            "{}/bams/panel/{}.bam".format(self.outdir, capture_str)
+            "{}/bams/{}/{}.bam".format(self.outdir, unique_capture.capture_kit_id, capture_str)
         merge_bams = PicardMergeSamFiles(input_bams, merged_bam_filename)
         merge_bams.is_intermediate = True
         merge_bams.jobname = "picard-mergebams-{}".format(sample_str)
@@ -395,9 +397,10 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # Configure duplicate marking:
         mark_dups_bam_filename = \
-            "{}/bams/panel/{}-nodups.bam".format(self.outdir, capture_str)
+            "{}/bams/{}/{}-nodups.bam".format(self.outdir, unique_capture.capture_kit_id, capture_str)
         mark_dups_metrics_filename = \
-            "{}/qc/picard/panel/{}-markdups-metrics.txt".format(self.outdir, capture_str)
+            "{}/qc/picard/{}/{}-markdups-metrics.txt".format(
+                self.outdir, unique_capture.capture_kit_id, capture_str)
         markdups = PicardMarkDuplicates(\
             merge_bams.output_bam, mark_dups_bam_filename, mark_dups_metrics_filename)
         markdups.is_intermediate = False
@@ -442,14 +445,15 @@ class ClinseqPipeline(PypedreamPipeline):
 
     def configure_align_and_merge(self):
         """
-        Configure the aligning of the fastq files for all clinseq barcodes for
-        this analysis, and configure merging of the resulting bam files according
-        to unique library captures, storing the resulting information in this
-        pipeline instance.
+        Configure the aligning of the fastq files for all clinseq barcodes in this pipeline,
+        and configure merging of the resulting bam files organised according to unique
+        sample library captures (including "WGS" captures - i.e. no capture).
         """
+
         capture_to_barcodes = self.get_unique_capture_to_clinseq_barcodes()
         for unique_capture in capture_to_barcodes.keys():
             curr_bamfiles = []
+            capture_kit = unique_capture.capture_kit_id
             for clinseq_barcode in capture_to_barcodes[unique_capture]:
                 curr_bamfiles.append(
                     align_library(self,
@@ -457,7 +461,7 @@ class ClinseqPipeline(PypedreamPipeline):
                                   fq2_files=find_fastqs(clinseq_barcode, self.libdir)[1],
                                   lib=clinseq_barcode,
                                   ref=self.refdata['bwaIndex'],
-                                  outdir=self.outdir + "/bams/panel",
+                                  outdir= "{}/bams/{}".format(self.outdir, capture_kit),
                                   maxcores=self.maxcores))
 
             self.merge_and_rm_dup(unique_capture, curr_bamfiles)
@@ -551,13 +555,9 @@ class ClinseqPipeline(PypedreamPipeline):
 
     def configure_panel_analyses(self):
         """
-        Configure generic analyses of all panel data for this clinseq pipeline.
-
-        Populates self.capture_to_merged_bam and normal_capture_to_results. 
+        Configure generic analyses of all panel data for this clinseq pipeline,
+        assuming that alignment and bam file merging has been performed.
         """
-
-        # Configure alignment and merging for each unique sample library capture:
-        self.configure_align_and_merge()
 
         # Configure analyses to be run on all unique panel captures individually:
         for unique_capture in self.get_unique_cancer_captures():
@@ -809,14 +809,16 @@ class ClinseqPipeline(PypedreamPipeline):
 
         isize = PicardCollectInsertSizeMetrics()
         isize.input = bam
-        isize.output_metrics = "{}/qc/picard/panel/{}.picard-insertsize.txt".format(self.outdir, capture_str)
+        isize.output_metrics = "{}/qc/picard/{}/{}.picard-insertsize.txt".format(
+            self.outdir, unique_capture.capture_kit_id, capture_str)
         isize.jobname = "picard-isize-{}".format(capture_str)
         self.add(isize)
 
         oxog = PicardCollectOxoGMetrics()
         oxog.input = bam
         oxog.reference_sequence = self.refdata['reference_genome']
-        oxog.output_metrics = "{}/qc/picard/panel/{}.picard-oxog.txt".format(self.outdir, capture_str)
+        oxog.output_metrics = "{}/qc/picard/{}/{}.picard-oxog.txt".format(
+            self.outdir, unique_capture.capture_kit_id, capture_str)
         oxog.jobname = "picard-oxog-{}".format(capture_str)
         self.add(oxog)
 
@@ -828,14 +830,16 @@ class ClinseqPipeline(PypedreamPipeline):
         hsmetrics.bait_regions = self.refdata['targets'][targets][
             'targets-interval_list-slopped20']
         hsmetrics.bait_name = targets
-        hsmetrics.output_metrics = "{}/qc/picard/panel/{}.picard-hsmetrics.txt".format(self.outdir, capture_str)
+        hsmetrics.output_metrics = "{}/qc/picard/{}/{}.picard-hsmetrics.txt".format(
+            self.outdir, unique_capture.capture_kit_id, capture_str)
         hsmetrics.jobname = "picard-hsmetrics-{}".format(capture_str)
         self.add(hsmetrics)
 
         sambamba = SambambaDepth()
         sambamba.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         sambamba.input = bam
-        sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(self.outdir, capture_str)
+        sambamba.output = "{}/qc/sambamba/{}.sambamba-depth-targets.txt".format(
+            self.outdir, capture_str)
         sambamba.jobname = "sambamba-depth-{}".format(capture_str)
         self.add(sambamba)
 
@@ -845,7 +849,8 @@ class ClinseqPipeline(PypedreamPipeline):
 #        else:
         coverage_hist.input_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
         coverage_hist.input_bam = bam
-        coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(self.outdir, capture_str)
+        coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(
+            self.outdir, capture_str)
         coverage_hist.jobname = "alascca-coverage-hist/{}".format(capture_str)
         self.add(coverage_hist)
 

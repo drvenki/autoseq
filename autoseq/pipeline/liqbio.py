@@ -18,8 +18,11 @@ class LiqBioPipeline(ClinseqPipeline):
         ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir,
                                  maxcores, scratch, **kwargs)
 
-        # Remove sample capture items for which data is not available:
+        # Remove clinseq barcodes for which data is not available:
         self.check_sampledata()
+
+        # Configure alignment and merging of fastq data for all clinseq barcodes:
+        self.configure_align_and_merge()
 
         # Configure all panel analyses:
         self.configure_panel_analyses()
