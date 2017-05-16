@@ -1,5 +1,4 @@
 import collections
-from autoseq.util.orderform import parse_orderform
 
 # Fields defining a unique library capture item:
 UniqueCapture = collections.namedtuple(
@@ -108,25 +107,3 @@ def clinseq_barcode_is_valid(clinseq_barcode):
         return False
 
     return True
-
-def extract_clinseq_barcodes(input_filename):
-    """
-    Extrat clinseq barcodes from the specified input file:
-
-    :param input_filename: Either a .txt listing clinseq barcodes one per line,
-    or a .xlsx order form file containing the barcodes.
-
-    :return: A list of validated dash-delimite clinseq barcodes.
-    """
-
-    toks = input_filename.split(".")
-    if len(toks) < 1:
-        raise ValueError("Invalid clinseq barcodes input filename: " + input_filename)
-
-    if toks[-1] == "txt":
-        return [line.strip() for line in open(input_filename)
-                if clinseq_barcode_is_valid(line.strip())]
-    elif toks[-1] == "xlsx":
-        return parse_orderform(input_filename)
-    else:
-        raise ValueError("Invalid clinseq barcodes file type: " + input_filename)
