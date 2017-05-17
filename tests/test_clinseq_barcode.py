@@ -21,3 +21,36 @@ class TestClinseqBarcode(unittest.TestCase):
     def test_extract_unique_capture_valid3(self):
         self.assertEquals(self.test_capture2,
                           extract_unique_capture("LB-P-00000001-CFDNA-01234567-TP1-WGS"))
+
+    def test_clinseq_barcode_is_valid_valid1(self):
+        self.assertTrue(clinseq_barcode_is_valid("LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000"))
+
+    def test_clinseq_barcode_is_valid_invalid_too_few(self):
+        self.assertFalse(clinseq_barcode_is_valid("LB-00000001-CFDNA-01234567-TP-CM2017001022000"))
+
+    def test_clinseq_barcode_is_valid_invalid_project(self):
+        self.assertFalse(clinseq_barcode_is_valid("01-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000"))
+
+    def test_sdid_valid_valid1(self):
+        self.assertTrue(sdid_valid("P-A"))
+
+    def test_sdid_valid_invalid1(self):
+        self.assertFalse(sdid_valid("P-$"))
+
+    def test_prep_id_valid_valid1(self):
+        self.assertTrue(prep_id_valid("AA1"))
+
+    def test_prep_id_valid_invalid_too_short(self):
+        self.assertFalse(prep_id_valid("AA"))
+
+    def test_prep_id_valid_invalid_no_number(self):
+        self.assertFalse(prep_id_valid("AAZ"))
+
+    def test_capture_id_valid_valid_wgs(self):
+        self.assertTrue(capture_id_valid("WGS"))
+
+    def test_capture_id_valid_invalid_no_number(self):
+        self.assertFalse(capture_id_valid("AAZ"))
+
+    def test_capture_id_valid_invalid_too_short(self):
+        self.assertFalse(capture_id_valid("AA"))

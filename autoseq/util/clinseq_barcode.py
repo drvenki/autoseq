@@ -1,4 +1,4 @@
-import collections
+import collections, re
 from autoseq.util.orderform import parse_orderform
 
 # Fields defining a unique library capture item:
@@ -137,20 +137,56 @@ def extract_kit_id(kit_string):
     return kit_string[:2]
 
 
+def project_valid(project_str):
+    return project_str in ["AL", "LB", "OT"]
+
+
+def sdid_valid(sdid_str):
+    return re.match("^P-[a-zA-Z0-9]+$", sdid_str) is not None
+
+
+def sample_type_valid(sample_type_str):
+    return sample_type_str in ["N", "T", "CFDNA"]
+
+
+def sample_id_valid(sample_id_str):
+    return re.match("^[a-zA-Z0-9]+$", sample_id_str) is not None
+
+
+def prep_id_valid(prep_id_str):
+    return re.match("^[A-Z]{2}[0-9]+$", prep_id_str) is not None
+
+
+def capture_id_valid(capture_id_str):
+    return (re.match("^[A-Z]{2}[0-9]+$", capture_id_str) is not None) or \
+           (capture_id_str == "WGS")
+
+
 def clinseq_barcode_is_valid(clinseq_barcode):
     """
     Test the structure of the specified clinseq barcode for validity.
+    Barcode format is defined at https://github.com/clinseq/autoseq
 
     :param clinseq_barcode: The input clinseq barcode.
     :return: True if the barcode has valid structure, False otherwise.
     """
 
-    # FIXME: Need to implement more stringent checking here.
     fields = clinseq_barcode.split("-")
     if len(fields) != 7:
         return False
 
-    return True
+    project_str = fields[0]
+    sdid_str = "-".join(fields[1:3])
+    sample_type_str = fields[3]
+    sample_id_str = fields[4]
+    prep_id_str = fields[5]
+    capture_id_str = fields[6]
+
+    barcode_valid = \
+        project_valid(project_str) and sdid_valid(sdid_str) and sample_type_valid(sample_type_str) and \
+        sample_id_valid(sample_id_str) and prep_id_valid(prep_id_str) and capture_id_valid(capture_id_str)
+
+    return barcode_valid
 
 
 def extract_clinseq_barcodes(input_filename):
