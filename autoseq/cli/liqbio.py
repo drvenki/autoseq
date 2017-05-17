@@ -7,7 +7,7 @@ import time
 import click
 
 from autoseq.pipeline.liqbio import LiqBioPipeline
-from autoseq.util.clinseq_barcode import extract_clinseq_barcodes
+from autoseq.util.clinseq_barcode import extract_clinseq_barcodes, extract_sample_dict_from_clinseq_barcodes
 from autoseq.util.path import mkdir
 
 
@@ -54,65 +54,9 @@ def liqbio_prepare(ctx, outdir, barcodes_filename):
     logging.info("Extracting clinseq barcodes from input file: " + barcodes_filename)
     clinseq_barcodes = extract_clinseq_barcodes(barcodes_filename)
 
-    logging.info("Generating sample dictionaries from the input clinseq barcodes.")
-
-    sample_dicts = make_sample_dicts(libraries=clinseq_barcodes)
+    logging.info("Generating sample dictionaries from the input clinseq barcode strings.")
+    sample_dicts = extract_sample_dict_from_clinseq_barcodes(clinseq_barcodes)
     for sdid in sample_dicts:
         fn = "{}/{}.json".format(outdir, sdid)
         with open(fn, 'w') as f:
             json.dump(sample_dicts[sdid], f, sort_keys=True, indent=4)
-
-
-# FIXME: Change this function to implement the new sample dictionary structure. Also, break into modular pieces.
-def make_sample_dicts(libraries):
-    sdids = set([lib['sdid'] for lib in libraries])
-    dicts = {}
-    for sdid in sdids:
-        logging.debug("Creating config file for SDID {}".format(sdid))
-        panel_t_lib = [lib['library_id'] for lib in libraries if
-                       lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] != "WGS"]
-        panel_n_lib = [lib['library_id'] for lib in libraries if
-                       lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] != "WGS"]
-        panel_p_libs = [lib['library_id'] for lib in libraries if
-                        lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] != "WGS"]
-
-        wgs_t_lib = [lib['library_id'] for lib in libraries if
-                     lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] == "WGS"]
-        wgs_n_lib = [lib['library_id'] for lib in libraries if
-                     lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] == "WGS"]
-        wgs_p_libs = [lib['library_id'] for lib in libraries if
-                      lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] == "WGS"]
-
-        def fix_lib(lib):
-            """lib is a vector of libraries.
-            If it has no contents, return None
-            If it has a single element, return it
-            If it has more than one element, raise error
-            """
-            if lib == []:
-                return None
-            if len(lib) == 1:
-                return lib[0]
-            if len(lib) > 1:
-                raise ValueError("Too many libs for SDID {}. Expected 1, got {}".format(sdid, lib))
-
-        panel_t_lib = fix_lib(panel_t_lib)
-        panel_n_lib = fix_lib(panel_n_lib)
-        wgs_t_lib = fix_lib(wgs_t_lib)
-        wgs_n_lib = fix_lib(wgs_n_lib)
-
-        d = {'sdid': sdid,
-             'panel': {
-                 'T': panel_t_lib,
-                 'N': panel_n_lib,
-                 'CFDNA': panel_p_libs
-             },
-             'wgs': {
-                 'T': wgs_t_lib,
-                 'N': wgs_n_lib,
-                 'CFDNA': wgs_p_libs
-             }
-        }
-        dicts[sdid] = d
-
-    return dicts

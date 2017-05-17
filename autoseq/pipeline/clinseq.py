@@ -301,7 +301,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         capture_to_barcodes = collections.defaultdict(list)
         for clinseq_barcode in self.get_all_clinseq_barcodes():
-            unique_capture = parse_capture_tuple(clinseq_barcode)
+            unique_capture = extract_unique_capture(clinseq_barcode)
             capture_to_barcodes[unique_capture].append(clinseq_barcode)
 
         return capture_to_barcodes
