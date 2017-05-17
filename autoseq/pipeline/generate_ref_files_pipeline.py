@@ -107,7 +107,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         curl_swegene.input_reference_sequence = self.reference_data['reference_genome']
         curl_swegene.input_reference_sequence_fai = self.reference_data['reference_genome'] + ".fai"
         curl_swegene.remote = "file://" + self.swegene_common_vcf
-        curl_swegene.outputs = "{}/variants/{}".format(self.outdir, os.path.basename(self.swegene_common_vcf))
+        curl_swegene.output = "{}/variants/{}".format(self.outdir, os.path.basename(self.swegene_common_vcf))
         self.add(curl_swegene)
 
         self.reference_data['dbSNP'] = filter_dbsnp.output
