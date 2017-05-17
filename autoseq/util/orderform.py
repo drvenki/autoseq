@@ -13,11 +13,12 @@ def parse_orderform_block(block_of_values):
     """
 
     clinseq_barcode_strings = []
-    clinseq_barcode_strings = False
+    clinseq_barcodes_section = False
     for cell_value in block_of_values:
         if cell_value == "</SAMPLE ENTRIES>":
             clinseq_barcodes_section = False
-        clinseq_barcode_strings.append(cell_value)
+        if clinseq_barcodes_section:
+            clinseq_barcode_strings.append(cell_value)
         if cell_value == "<SAMPLE ENTRIES>":
             clinseq_barcodes_section = True
         else:
