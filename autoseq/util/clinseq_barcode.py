@@ -14,39 +14,6 @@ UniqueCapture = collections.namedtuple(
 )
 
 
-# A named tuple representation of a clinseq barcode:
-ClinseqBarcode = collections.namedtuple(
-    'ClinseqBarcode',
-
-    ['project',
-     'sdid',
-     'sample_type',
-     'sample_id',
-     'prep_id',
-     'capture_id']
-)
-
-
-def parse_clinseq_barcode(clinseq_barcode):
-    """
-    Parses and validates the specified clinseq barcode, and produces a corresponding
-    ClinseqBarcode namedtuple.
-
-    :param clinseq_barcode: A clinseq barcode string 
-    :return: ClinseqBarcode named tuple
-    """
-
-    if not clinseq_barcode_is_valid(clinseq_barcode):
-        raise ValueError("Invalid clinseq barcode: " + clinseq_barcode)
-
-    return ClinseqBarcode(parse_project(clinseq_barcode),
-                          parse_sdid(clinseq_barcode),
-                          parse_sample_type(clinseq_barcode),
-                          parse_sample_id(clinseq_barcode),
-                          parse_prep_id(clinseq_barcode),
-                          parse_capture_id(clinseq_barcode))
-
-
 def extract_unique_capture(clinseq_barcode):
     """
     Parses the specified clinseq barcode and produces a corresponding
@@ -57,14 +24,22 @@ def extract_unique_capture(clinseq_barcode):
     :return: UniqueCapture named tuple
     """
 
-    clinseq_barcode_tuple = parse_clinseq_barcode(clinseq_barcode)
+    if not clinseq_barcode_is_valid(clinseq_barcode):
+        raise ValueError("Invalid clinseq barcode: " + clinseq_barcode)
 
-    return UniqueCapture(clinseq_barcode_tuple.project,
-                         clinseq_barcode_tuple.sdid,
-                         clinseq_barcode_tuple.sample_type,
-                         clinseq_barcode_tuple.sample_id,
-                         extract_kit_id(clinseq_barcode_tuple.prep_id),
-                         extract_kit_id(clinseq_barcode_tuple.capture_id))
+    project = parse_project(clinseq_barcode)
+    sdid = parse_sdid(clinseq_barcode)
+    sample_type = parse_sample_type(clinseq_barcode)
+    sample_id = parse_sample_id(clinseq_barcode)
+    prep_id = parse_prep_id(clinseq_barcode)
+    capture_id = parse_capture_id(clinseq_barcode)
+
+    return UniqueCapture(project,
+                         sdid,
+                         sample_type,
+                         sample_id,
+                         extract_kit_id(prep_id),
+                         extract_kit_id(capture_id))
 
 
 def parse_project(clinseq_barcode):
@@ -200,21 +175,17 @@ def extract_clinseq_barcodes(input_filename):
         raise ValueError("Invalid clinseq barcodes file type: " + input_filename)
 
 
-def extract_sample_dict_from_clinseq_barcodes(clinseq_barcodes):
+def validate_clinseq_barcodes(clinseq_barcodes):
+    """Checks all the specified clinseq barcodes for validity and raises an
+    Exception if any are not.
+    
+    :param clinseq_barcodes: List of clinseq barcode strings.
     """
-    Extracts a sample dictionary barcode to a nested sample dictionary structure.
 
-    :param clinseq_barcode: A valid clinseq barcode string.
-    :return: A dictionary containing the 
-    """
-
-    # Extract ClinseqBarcode named tuples from the input strings, also checking
-    # them for validity:
-    clinseq_barcode_tups = [parse_clinseq_barcode(clinseq_barcode)
-                            for clinseq_barcode in clinseq_barcodes]
-
-    # Munge the list of named tuples into a dictionary of the desired structure:
-    return convert_barcodes_to_sampledict(clinseq_barcode_tups)
+    # Check the input clinseq barcodes for validity:
+    for clinseq_barcode in clinseq_barcodes:
+        if not clinseq_barcode_is_valid(clinseq_barcode):
+            raise ValueError("Invalid clinseq barcode: " + clinseq_barcode)
 
 
 def create_scaffold_sampledict(sdids):
@@ -234,90 +205,39 @@ def create_scaffold_sampledict(sdids):
     return scaffold_dict
 
 
-def populate_clinseq_barcode_info(clinseq_barcode_info, clinseq_barcode_tup):
+def populate_clinseq_barcode_info(clinseq_barcode_info, clinseq_barcode):
     """
     Populates the specified clinseq barcode information item with the information
     in the specified clinseq barcode.
 
     :param clinseq_barcode_info: A dictionary containing clinseq barcode information
     for a single SDID.
-    :param clinseq_barcode_tup: A ClinseqBarcode named tuple.
+    :param clinseq_barcode: A validated clinseq barcode string.
     """
 
-    # Append this clinseq barcode XXX CONTINUE HERE: FIGURE OUT HOW TO DO THIS; SHOULD I
-    # HAVE BEEN WORKING WITH A STRING ALL ALONG? WHY DID I CONVERT TO A TUPLE IN THE FIRST PLACE?
-    # IF NOT, THEN I NEED ANOTHER UTILITY FUNCTION TO CONVERT BACK FROM TUPLE TO STRING.
+    # Append this clinseq barcode to the relevant field in the specified clinseq barcode
+    # info dictionary:
+    sample_type = parse_sample_type(clinseq_barcode)
+    clinseq_barcode_info[sample_type].append(clinseq_barcode)
 
 
-def convert_barcodes_to_sampledict(clinseq_barcode_tups):
+def convert_barcodes_to_sampledict(clinseq_barcodes):
     """
-    Munges the list of named tuples into a dictionary linking from SDID to clinseq barcode
-    information for that individual.
+    Coverts the specified clinseq barcode strings into a dictionary linking
+    from SDID to clinseq barcode information for that individual.
 
     :param clinseq_barcode_tups: A list of ClinseqBarcode named tuples.
     :return: A dictionary with the required structure.
     """
 
     # Extract set of unique SDIDs from the specified clinseq barcodes:
-    sdids = set([clinseq_barcode_tup.sdid for clinseq_barcode_tup in clinseq_barcode_tups])
+    sdids = set([parse_sdid(clinseq_barcode) for clinseq_barcode in clinseq_barcodes])
 
     # Create a scaffold dictionary from those SDIDs:
     sdid_to_clinseq_barcode_info = create_scaffold_sampledict(sdids)
 
-    for clinseq_barcode_tup in clinseq_barcode_tups:
-        populate_clinseq_barcode_info(sdid_to_clinseq_barcode_info[clinseq_barcode_tup.sdid],
-                                      clinseq_barcode_tup)
+    for clinseq_barcode in clinseq_barcodes:
+        populate_clinseq_barcode_info(sdid_to_clinseq_barcode_info[parse_sdid(clinseq_barcode)],
+                                      clinseq_barcode)
 
     return sdid_to_clinseq_barcode_info
-
-# XXX PROBABLY JUST DELETE ALL THIS:
-    dicts = {}
-    for sdid in sdids:
-        logging.debug("Creating config file for SDID {}".format(sdid))
-        panel_t_lib = [lib['library_id'] for lib in libraries if
-                       lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] != "WGS"]
-        panel_n_lib = [lib['library_id'] for lib in libraries if
-                       lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] != "WGS"]
-        panel_p_libs = [lib['library_id'] for lib in libraries if
-                        lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] != "WGS"]
-
-        wgs_t_lib = [lib['library_id'] for lib in libraries if
-                     lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] == "WGS"]
-        wgs_n_lib = [lib['library_id'] for lib in libraries if
-                     lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] == "WGS"]
-        wgs_p_libs = [lib['library_id'] for lib in libraries if
-                      lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] == "WGS"]
-
-        def fix_lib(lib):
-            """lib is a vector of libraries.
-            If it has no contents, return None
-            If it has a single element, return it
-            If it has more than one element, raise error
-            """
-            if lib == []:
-                return None
-            if len(lib) == 1:
-                return lib[0]
-            if len(lib) > 1:
-                raise ValueError("Too many libs for SDID {}. Expected 1, got {}".format(sdid, lib))
-
-        panel_t_lib = fix_lib(panel_t_lib)
-        panel_n_lib = fix_lib(panel_n_lib)
-        wgs_t_lib = fix_lib(wgs_t_lib)
-        wgs_n_lib = fix_lib(wgs_n_lib)
-
-        d = {'sdid': sdid,
-             'panel': {
-                 'T': panel_t_lib,
-                 'N': panel_n_lib,
-                 'CFDNA': panel_p_libs
-             },
-             'wgs': {
-                 'T': wgs_t_lib,
-                 'N': wgs_n_lib,
-                 'CFDNA': wgs_p_libs
-             }
-        }
-        dicts[sdid] = d
-
-    return dicts

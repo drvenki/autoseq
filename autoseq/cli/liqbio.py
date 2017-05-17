@@ -7,7 +7,7 @@ import time
 import click
 
 from autoseq.pipeline.liqbio import LiqBioPipeline
-from autoseq.util.clinseq_barcode import extract_clinseq_barcodes, extract_sample_dict_from_clinseq_barcodes
+from autoseq.util.clinseq_barcode import extract_clinseq_barcodes, convert_barcodes_to_sampledict, validate_clinseq_barcodes
 from autoseq.util.path import mkdir
 
 
@@ -54,9 +54,12 @@ def liqbio_prepare(ctx, outdir, barcodes_filename):
     logging.info("Extracting clinseq barcodes from input file: " + barcodes_filename)
     clinseq_barcodes = extract_clinseq_barcodes(barcodes_filename)
 
-    logging.info("Generating sample dictionaries from the input clinseq barcode strings.")
-    sample_dicts = extract_sample_dict_from_clinseq_barcodes(clinseq_barcodes)
-    for sdid in sample_dicts:
+    logging.info("Validating all clinseq barcodes.")
+    validate_clinseq_barcodes(clinseq_barcodes)
+
+    logging.info("Generating sample dictionary from the input clinseq barcode strings.")
+    sample_dict = convert_barcodes_to_sampledict(clinseq_barcodes)
+    for sdid in sample_dict:
         fn = "{}/{}.json".format(outdir, sdid)
         with open(fn, 'w') as f:
-            json.dump(sample_dicts[sdid], f, sort_keys=True, indent=4)
+            json.dump(sample_dict[sdid], f, sort_keys=True, indent=4)
