@@ -43,7 +43,7 @@ class ContEst(Job):
             required("-R ", self.reference_genome) + \
             required("-I:eval ", self.input_eval_bam) + \
             required("-I:genotype ", self.input_genotype_bam) + \
-            required("--popfile ", self.population_af_vcf) + \
+            required("--popfile ", self.input_population_af_vcf) + \
             required("--min_genotype_ratio ", min_genotype_ratio) + \
             required("-o ", self.output)
 

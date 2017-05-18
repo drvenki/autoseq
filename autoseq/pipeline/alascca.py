@@ -31,11 +31,11 @@ class AlasccaPipeline(ClinseqPipeline):
         # Configure all panel analyses:
         self.configure_panel_analyses()
 
-        # Configure ALASCCA report generation:
-        self.configure_alascca_specific_analysis()
-
         # Configure QC of all panel data:
         self.configure_all_panel_qcs()
+
+        # Configure ALASCCA report generation:
+        self.configure_alascca_specific_analysis()
 
         # Configure fastq QCs:
         self.configure_fastq_qcs()
@@ -64,7 +64,7 @@ class AlasccaPipeline(ClinseqPipeline):
             raise ValueError("Invalid pipeline state for configuration of ALASCCA CNA.")
 
         normal_capture = self.get_unique_normal_captures()[0]
-        tumor_capture = self.get_unique_normal_captures()[0]
+        tumor_capture = self.get_unique_cancer_captures()[0]
 
         return normal_capture, tumor_capture
 
@@ -76,7 +76,7 @@ class AlasccaPipeline(ClinseqPipeline):
         alascca_cna.input_somatic_vcf = tumor_vs_normal_results.somatic_vcf
         alascca_cna.input_germline_vcf = tumor_vs_normal_results.vcf_addsample_output
         alascca_cna.input_cnr = tumor_results.cnr
-        alascca_cna.input_cns = tumor_results.cna
+        alascca_cna.input_cns = tumor_results.cns
         alascca_cna.chrsizes = self.refdata['chrsizes']
 
         tumor_str = compose_sample_str(tumor_capture)
@@ -155,7 +155,8 @@ class AlasccaPipeline(ClinseqPipeline):
 
     def configure_alascca_specific_analysis(self):
         """
-        Configure the Jobs for specific to the ALASCCA pipeline.
+        Configure the Jobs for specific to the ALASCCA pipeline. The panel analyses
+        and panel QC analyses must be configured before this can be configured.
         """
 
         normal_capture, tumor_capture = self.get_normal_and_tumor_captures()

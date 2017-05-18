@@ -149,27 +149,27 @@ class ClinseqPipeline(PypedreamPipeline):
         each clinseq barcode has a corresponding fastq file, and if not, then modify
         the pipeline's sampledata by removing that clinseq barcode from the analysis.
         """
-        def check_clinseq_barcode_for_data(lib):
-            if lib:
-                filedir = os.path.join(self.libdir, lib)
+
+        def check_clinseq_barcode_for_data(clinseq_barcode):
+            if clinseq_barcode:
+                filedir = os.path.join(self.libdir, clinseq_barcode)
                 if not os.path.exists(filedir):
-                    logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, lib))
+                    logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, clinseq_barcode))
                     return None
-                if find_fastqs(lib, self.libdir) == (None, None):
-                    logging.warn("No fastq files found for {} in dir {}".format(lib, filedir))
+                if find_fastqs(clinseq_barcode, self.libdir) == (None, None):
+                    logging.warn("No fastq files found for {} in dir {}".format(clinseq_barcode, filedir))
                     return None
-            logging.debug("Library {} has data. Using it.".format(lib))
-            return lib
+            logging.debug("Library {} has data. Using it.".format(clinseq_barcode))
+            return clinseq_barcode
 
-        for datatype in ['panel', 'wgs']:
-            for sample_type in ['N', 'T', 'CFDNA']:
-                clinseq_barcodes_with_data = []
-                for clinseq_barcode in self.sampledata[datatype][sample_type]:
-                    barcode_checked = check_clinseq_barcode_for_data(clinseq_barcode)
-                    if barcode_checked:
-                        clinseq_barcodes_with_data.append(barcode_checked)
+        for sample_type in ['N', 'T', 'CFDNA']:
+            clinseq_barcodes_with_data = []
+            for clinseq_barcode in self.sampledata[sample_type]:
+                barcode_checked = check_clinseq_barcode_for_data(clinseq_barcode)
+                if barcode_checked:
+                    clinseq_barcodes_with_data.append(barcode_checked)
 
-                self.sampledata[datatype][sample_type] = clinseq_barcodes_with_data
+            self.sampledata[sample_type] = clinseq_barcodes_with_data
 
     def get_vep(self):
         """
@@ -313,16 +313,13 @@ class ClinseqPipeline(PypedreamPipeline):
         
         Registers the final output bam file for this library capture in this analysis.
 
-        :param sample_type: Clinseq sample type
-        :param sample_id: Sample ID
-        :param prep_kit_id: Two-letter prep kit ID
-        :param capture_kit_id: Two-letter capture kit ID
-        :input_bams: The bam filenames for which to do merging and duplicate marking
+        :param unique_capture: A unique library capture specification
+        :param input_bams: The bam filenames for which to do merging and duplicate marking
         """
 
         # Strings indicating the sample and capture, for use in output file names below:
         sample_str = "{}-{}".format(unique_capture.sample_type, unique_capture.sample_id)
-        capture_str = "{}-{}-{}".format(sample_str, unique_capture.prep_kit_id, unique_capture.capture_kit_id)
+        capture_str = "{}-{}-{}".format(sample_str, unique_capture.library_kit_id, unique_capture.capture_kit_id)
 
         # Configure merging:
         merged_bam_filename = \
@@ -403,7 +400,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         targets = self.get_capture_name(normal_capture.capture_kit_id)
         capture_str = "{}-{}-{}".format(normal_capture.sample_id,
-                                        normal_capture.prep_kit_id,
+                                        normal_capture.library_kit_id,
                                         normal_capture.capture_kit_id)
 
         freebayes = Freebayes()
@@ -437,7 +434,7 @@ class ClinseqPipeline(PypedreamPipeline):
         Configure panel analyses focused on a specific unique normal library capture.
         """
 
-        if normal_capture.sample_type is not "N":
+        if normal_capture.sample_type != "N":
             raise ValueError("Invalid input tuple: " + normal_capture)
 
         normal_bam = self.get_capture_bam(normal_capture)
@@ -561,7 +558,8 @@ class ClinseqPipeline(PypedreamPipeline):
             target_name=self.get_capture_name(cancer_capture.capture_kit_id),
             refdata=self.refdata, outdir=self.outdir,
             callers=['vardict'], vep=self.get_vep(), min_alt_frac=0.02)
-        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = somatic_variants
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = \
+            somatic_variants.values()[0]
 
     def configure_vcf_add_sample(self, normal_capture, cancer_capture):
         """
@@ -598,7 +596,8 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # Configure MSI sensor:
         msisensor = MsiSensor()
-        msisensor.msi_sites = self.refdata['targets'][cancer_capture.capture_kit_id]['msisites']
+        cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
+        msisensor.msi_sites = self.refdata['targets'][cancer_capture_name]['msisites']
         msisensor.input_normal_bam = self.get_capture_bam(normal_capture)
         msisensor.input_tumor_bam = self.get_capture_bam(cancer_capture)
         normal_capture_str = compose_sample_str(normal_capture)
@@ -625,8 +624,9 @@ class ClinseqPipeline(PypedreamPipeline):
         hzconcordance.input_vcf = self.get_germline_vcf(normal_capture)
         hzconcordance.input_bam = self.get_capture_bam(cancer_capture)
         hzconcordance.reference_sequence = self.refdata['reference_genome']
+        cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
         hzconcordance.target_regions = \
-            self.refdata['targets'][cancer_capture.capture_kit_id]['targets-interval_list-slopped20']
+            self.refdata['targets'][cancer_capture_name]['targets-interval_list-slopped20']
         hzconcordance.normalid = compose_sample_str(normal_capture)
         hzconcordance.filter_reads_with_N_cigar = True
         hzconcordance.jobname = "hzconcordance-{}".format(compose_sample_str(cancer_capture))
@@ -646,13 +646,13 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         contest_vcf_generation = CreateContestVCFs()
-        contest_vcf_generation.input_population_vcf = self.refdata['swegene_common']
         contest_vcf_generation.input_target_regions_bed_1 = normal_capture
         contest_vcf_generation.input_target_regions_bed_2 = cancer_capture
+        contest_vcf_generation.input_population_vcf = self.refdata["swegene_common"]
         normal_capture_str = compose_sample_str(normal_capture)
         cancer_capture_str = compose_sample_str(cancer_capture)
         contest_vcf_generation.output = "{}/contamination/pop_vcf_{}-{}.vcf".format(
-            normal_capture_str, cancer_capture_str)
+            self.outdir, normal_capture_str, cancer_capture_str)
         contest_vcf_generation.jobname = "contest_pop_vcf_{}-{}".format(
             normal_capture_str, cancer_capture_str)
         self.add(contest_vcf_generation)
@@ -681,18 +681,20 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(contest)
         return contest.output
 
-    def configure_contam_qc_call(self, contest_output):
+    def configure_contam_qc_call(self, contest_output, library_capture):
         """
         Configure generation of a contamination QC call in this pipeline,
         based on the specified contest output. Returns the resulting QC output
         filename.
 
         :param contest_output: ContEst output filename.
+        :param library_capture: Named tuple identifying a unique library capture.
         """
 
         process_contest = ContEstToContamCaveat()
         process_contest.input_contest_results = contest_output
-        process_contest.output = "{}/qc/{}-contam-qc-call.json".format(self.outdir, self.sampledata['panel']['T'])
+        process_contest.output = "{}/qc/{}-contam-qc-call.json".format(
+            self.outdir, compose_sample_str(library_capture))
         self.add(process_contest)
         return process_contest.output
 
@@ -717,7 +719,8 @@ class ClinseqPipeline(PypedreamPipeline):
             self.configure_contest(normal_capture, cancer_capture, intersection_contest_vcf)
 
         # Configure cancer sample contamination QC call:
-        cancer_contam_call = self.configure_contam_qc_call(self, cancer_vs_normal_contest_output)
+        cancer_contam_call = self.configure_contam_qc_call(cancer_vs_normal_contest_output,
+                                                           cancer_capture)
 
         # Register the outputs of running contest:
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].normal_contest_output = \

@@ -154,7 +154,7 @@ def align_se(pipeline, fq1_files, clinseq_barcode, ref, outdir, maxcores, remove
     sdid = parse_sdid(clinseq_barcode)
     sample_type = parse_sample_type(clinseq_barcode)
     sample_id = parse_sample_id(clinseq_barcode)
-    prep_id = parse_prep_kit_id(clinseq_barcode)
+    prep_id = parse_prep_id(clinseq_barcode)
     rg_lb = "{}-{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
     rg_sm = "{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
     rg_id = clinseq_barcode
@@ -162,9 +162,9 @@ def align_se(pipeline, fq1_files, clinseq_barcode, ref, outdir, maxcores, remove
     bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
                                                                                           rg_lb=rg_lb)
     bwa.threads = maxcores
-    bwa.output = "{}/{}.bam".format(outdir, lib)
+    bwa.output = "{}/{}.bam".format(outdir, clinseq_barcode)
     bwa.scratch = pipeline.scratch
-    bwa.jobname = "bwa/{}".format(lib)
+    bwa.jobname = "bwa/{}".format(clinseq_barcode)
     bwa.is_intermediate = False
     pipeline.add(bwa)
 
@@ -230,7 +230,7 @@ def align_pe(pipeline, fq1_files, fq2_files, clinseq_barcode, ref, outdir, maxco
     sdid = parse_sdid(clinseq_barcode)
     sample_type = parse_sample_type(clinseq_barcode)
     sample_id = parse_sample_id(clinseq_barcode)
-    prep_id = parse_prep_kit_id(clinseq_barcode)
+    prep_id = parse_prep_id(clinseq_barcode)
     rg_lb = "{}-{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
     rg_sm = "{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
     rg_id = clinseq_barcode
