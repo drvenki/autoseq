@@ -63,7 +63,7 @@ def load_ref(ref):
     # FIXME: Don't like this existing code; hard-coded duplication of information.
     # Also, the processing of this dictionary (to add base paths), whilst probably necessary,
     # is confusing at present:
-    items = ["bwaIndex", "chrsizes", "clinvar", "cosmic", "dbSNP", "exac", "genesGenePred", "genesGtf", "vep_dir",
+    items = ["bwaIndex", "chrsizes", "clinvar", "cosmic", "dbSNP", "exac", "swegene_common", "genesGenePred", "genesGtf", "vep_dir",
              "genesGtfGenesOnly", "icgc", "qdnaseq_background", "reference_dict", "reference_genome", "cnvkit-ref",
              "msisites", "targets-bed-slopped20", "targets-interval_list", "targets-interval_list-slopped20",
              "test-regions", "big", "clinseqV3V4", "clinseqV3V4big"]

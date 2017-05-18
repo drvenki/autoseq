@@ -646,8 +646,12 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         contest_vcf_generation = CreateContestVCFs()
-        contest_vcf_generation.input_target_regions_bed_1 = normal_capture
-        contest_vcf_generation.input_target_regions_bed_2 = cancer_capture
+        normal_capture_name = self.get_capture_name(normal_capture.capture_kit_id)
+        cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
+        normal_targets = self.refdata['targets'][normal_capture_name]['targets-bed-slopped20']
+        cancer_targets = self.refdata['targets'][cancer_capture_name]['targets-bed-slopped20']
+        contest_vcf_generation.input_target_regions_bed_1 = normal_targets
+        contest_vcf_generation.input_target_regions_bed_2 = cancer_targets
         contest_vcf_generation.input_population_vcf = self.refdata["swegene_common"]
         normal_capture_str = compose_sample_str(normal_capture)
         cancer_capture_str = compose_sample_str(cancer_capture)
