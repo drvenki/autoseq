@@ -38,7 +38,6 @@ class TestAlasccaPurity(unittest.TestCase, VariantAssertions, ReadAssertions):
 class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
     returncode = None
     tmpdir = None
-    outdir = None
     somatic_vcf = None
     blood_barcode = '03098849'
     tumor_barcode = '03098121'
@@ -51,6 +50,7 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
         subprocess.check_call("autoseq " +
                               " --ref /tmp/test-genome/autoseq-genome.json " +
                               " --outdir {} ".format(cls.outdir) +
+                              " --job-params tests/alascca-test-sample-params.json " +
                               " --libdir /tmp/libraries " +
                               " --scratch /scratch/tmp/autoseq-integration-tests/alascca --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
                               " tests/alascca-test-sample.json", shell=True)
