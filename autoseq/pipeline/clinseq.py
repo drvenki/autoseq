@@ -48,7 +48,7 @@ class ClinseqPipeline(PypedreamPipeline):
     """
     A pipeline for processing clinseq cancer genomics.
     """
-    def __init__(self, sampledata, refdata, outdir, libdir, maxcores=1,
+    def __init__(self, sampledata, refdata, job_params, outdir, libdir, maxcores=1,
                  scratch="/scratch/tmp/tmp", **kwargs):
         """
         :param sampledata: A dictionary specifying the clinseq barcodes of samples of different types.
@@ -62,10 +62,21 @@ class ClinseqPipeline(PypedreamPipeline):
         PypedreamPipeline.__init__(self, normpath(outdir), **kwargs)
         self.sampledata = sampledata
         self.refdata = refdata
+        # FIXME: Introduced a simple dictionary for configuring various pipeline job parameters.
+        # However, this solution is still not elegant:
+        self.job_params = job_params
         self.maxcores = maxcores
         self.libdir = libdir
         self.qc_files = []
         self.scratch = scratch
+
+        # Set up default job parameters:
+        self.default_job_params = {
+            "cov_high_thresh_fraction": 0.95,
+            "cov_high_thresh_fold_cov": 100,
+            "cov_low_thresh_fraction": 0.95,
+            "cov_low_thresh_fold_cov": 50
+        }
 
         # Dictionary linking unique captures to corresponding generic single panel
         # analysis results (SinglePanelResults objects as values):
@@ -78,6 +89,20 @@ class ClinseqPipeline(PypedreamPipeline):
         # Dictionary linking (normal capture, cancer capture) pairings to corresponding
         # cancer library capture analysis results (CancerPanelResults objects as values):
         self.normal_cancer_pair_to_results = collections.defaultdict(CancerVsNormalPanelResults)
+
+    def get_job_param(self, param_name):
+        """
+        Retrieve the parameter of the specified name from the job parameters, or
+        return a default value if it is not found.
+
+        :param param_name: String defining the parameter to retrieve 
+        :return: The parameter value to use.
+        """
+
+        if param_name in self.job_params.keys():
+            return self.job_params[param_name]
+        else:
+            return self.default_job_params[param_name]
 
     def set_germline_vcf(self, normal_capture, vcf_filename):
         """
@@ -880,6 +905,8 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(coverage_hist)
 
         coverage_qc_call = CoverageCaveat()
+        coverage_qc_call.low_thresh_fraction = self.get_job_param('cov_low_thresh_fraction')
+        coverage_qc_call.low_thresh_fold_cov = self.get_job_param('cov_low_thresh_fold_cov')
         coverage_qc_call.input_histogram = coverage_hist.output
         coverage_qc_call.output = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, capture_str)
         coverage_qc_call.jobname = "coverage-qc-call/{}".format(capture_str)

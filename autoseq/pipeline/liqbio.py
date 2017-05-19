@@ -13,9 +13,9 @@ __author__ = 'dankle'
 
 
 class LiqBioPipeline(ClinseqPipeline):
-    def __init__(self, sampledata, refdata, outdir, libdir, maxcores=1, scratch="/scratch/tmp/tmp",
+    def __init__(self, sampledata, refdata, job_params, outdir, libdir, maxcores=1, scratch="/scratch/tmp/tmp",
                  **kwargs):
-        ClinseqPipeline.__init__(self, sampledata, refdata, outdir, libdir,
+        ClinseqPipeline.__init__(self, sampledata, refdata, job_params, outdir, libdir,
                                  maxcores, scratch, **kwargs)
 
         # Remove clinseq barcodes for which data is not available:

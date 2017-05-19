@@ -26,6 +26,7 @@ def liqbio(ctx, sample):
 
     ctx.obj['pipeline'] = LiqBioPipeline(sampledata=sampledata,
                                          refdata=ctx.obj['refdata'],
+                                         job_params=ctx.obj['job_params'],
                                          outdir=ctx.obj['outdir'],
                                          libdir=ctx.obj['libdir'],
                                          maxcores=ctx.obj['cores'],

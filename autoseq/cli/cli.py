@@ -17,6 +17,9 @@ __author__ = 'dankle'
 @click.option('--ref', default='/nfs/ALASCCA/autoseq-genome/autoseq-genome.json',
               help='json with reference files to use',
               type=str)
+@click.option('--job-params', default=None, help='JSON file specifying various pipeline job ' + \
+                                                 'parameters.',
+              type=str)
 @click.option('--outdir', default='/tmp/autoseq-test', help='output directory', type=click.Path())
 @click.option('--libdir', default="/tmp", help="directory to search for libraries")
 @click.option('--runner_name', default='shellrunner', help='Runner to use.')
@@ -26,11 +29,12 @@ __author__ = 'dankle'
 @click.option('--cores', default=1, help="max number of cores to allow jobs to use")
 @click.option('--scratch', default="/tmp", help="scratch dir to use")
 @click.pass_context
-def cli(ctx, ref, outdir, libdir, runner_name, loglevel, jobdb, dot_file, cores, scratch):
+def cli(ctx, ref, job_params, outdir, libdir, runner_name, loglevel, jobdb, dot_file, cores, scratch):
     setup_logging(loglevel)
     logging.debug("Reading reference data from {}".format(ref))
     ctx.obj = {}
     ctx.obj['refdata'] = load_ref(ref)
+    ctx.obj['job_params'] = load_job_params(job_params)
     ctx.obj['outdir'] = outdir
     ctx.obj['libdir'] = libdir
     ctx.obj['pipeline'] = None
@@ -56,6 +60,16 @@ def cli(ctx, ref, outdir, libdir, runner_name, loglevel, jobdb, dot_file, cores,
 
     signal.signal(signal.SIGINT, capture_sigint)
     signal.signal(signal.SIGTERM, capture_sigint)
+
+
+def load_job_params(job_params_filename):
+    # FIXME: Need to validate this and other input files, and clearly define their structure:
+    if job_params_filename:
+        return json.load(open(job_params_filename))
+    else:
+        # Return an empty dictionary if no job parameters file is specified, which
+        # will result in default job parameters being applied:
+        return {}
 
 
 def load_ref(ref):
