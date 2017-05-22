@@ -60,10 +60,13 @@ def compose_sample_str(capture):
     :param capture: A named tuple identifying a unique sample library capture.
     :return: A dash-delimted string of the fields uniquely identifying the capture.
     """
-    return "{}-{}-{}-{}".format(capture.sample_type,
-                                capture.sample_id,
-                                capture.library_kit_id,
-                                capture.capture_kit_id)
+    return "{}-{}-{}-{}-{}-{}".format(
+        capture.project,
+        capture.sdid,
+        capture.sample_type,
+        capture.sample_id,
+        capture.library_kit_id,
+        capture.capture_kit_id)
 
 
 def parse_sample_type(clinseq_barcode):

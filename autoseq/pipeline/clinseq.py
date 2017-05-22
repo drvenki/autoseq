@@ -72,10 +72,10 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # Set up default job parameters:
         self.default_job_params = {
-            "cov_high_thresh_fraction": 0.95,
-            "cov_high_thresh_fold_cov": 100,
-            "cov_low_thresh_fraction": 0.95,
-            "cov_low_thresh_fold_cov": 50
+            "cov-high-thresh-fraction": 0.95,
+            "cov-high-thresh-fold-cov": 100,
+            "cov-low-thresh-fraction": 0.95,
+            "cov-low-thresh-fold-cov": 50
         }
 
         # Dictionary linking unique captures to corresponding generic single panel
