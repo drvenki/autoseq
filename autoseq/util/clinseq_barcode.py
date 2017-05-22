@@ -204,9 +204,9 @@ def extract_clinseq_barcodes(input_filename):
         raise ValueError("Invalid clinseq barcodes input filename: " + input_filename)
 
     if toks[-1] == "txt":
-        return [line.strip() for line in open(input_filename)]
+        return list(set([line.strip() for line in open(input_filename)]))
     elif toks[-1] == "xlsx":
-        return parse_orderform(input_filename)
+        return list(set(parse_orderform(input_filename)))
     else:
         raise ValueError("Invalid clinseq barcodes file type: " + input_filename)
 
