@@ -578,7 +578,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
         somatic_variants = call_somatic_variants(
-            self, tbam=self.get_capture_bam(normal_capture), nbam=self.get_capture_bam(cancer_capture),
+            self, tbam=self.get_capture_bam(cancer_capture), nbam=self.get_capture_bam(normal_capture),
             tlib=compose_sample_str(cancer_capture), nlib=compose_sample_str(normal_capture),
             target_name=self.get_capture_name(cancer_capture.capture_kit_id),
             refdata=self.refdata, outdir=self.outdir,
@@ -905,8 +905,8 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(coverage_hist)
 
         coverage_qc_call = CoverageCaveat()
-        coverage_qc_call.low_thresh_fraction = self.get_job_param('cov_low_thresh_fraction')
-        coverage_qc_call.low_thresh_fold_cov = self.get_job_param('cov_low_thresh_fold_cov')
+        coverage_qc_call.low_thresh_fraction = self.get_job_param('cov-low-thresh-fraction')
+        coverage_qc_call.low_thresh_fold_cov = self.get_job_param('cov-low-thresh-fold-cov')
         coverage_qc_call.input_histogram = coverage_hist.output
         coverage_qc_call.output = "{}/qc/{}.coverage-qc-call.json".format(self.outdir, capture_str)
         coverage_qc_call.jobname = "coverage-qc-call/{}".format(capture_str)
