@@ -28,7 +28,7 @@ class TestAlasccaPurity(unittest.TestCase, VariantAssertions, ReadAssertions):
                               " tests/alascca-test-sample_low_purity.json", shell=True)
 
     def test_purity_estimate_file(self):
-        purity_json_fn = "{}/variants/T-03098849-TD-TT-alascca-purity.json".format(self.outdir)
+        purity_json_fn = "{}/variants/AL-P-NA12877-T-03098849-TD-TT-alascca-purity.json".format(self.outdir)
         with open(purity_json_fn, 'r') as fh:
             purity_json = json.load(fh)
             self.assertEqual(purity_json['CALL'], 'FAIL')
