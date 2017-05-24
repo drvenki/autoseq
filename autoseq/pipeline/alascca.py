@@ -3,7 +3,7 @@ import logging
 from autoseq.pipeline.clinseq import ClinseqPipeline
 from autoseq.tools.cnvcalling import AlasccaCNAPlot
 from autoseq.tools.reports import CompileMetadata, CompileAlasccaGenomicJson, WriteAlasccaReport
-from autoseq.pipeline.clinseq import compose_sample_str
+from autoseq.pipeline.clinseq import compose_lib_capture_str
 
 __author__ = 'dankle'
 
@@ -79,7 +79,7 @@ class AlasccaPipeline(ClinseqPipeline):
         alascca_cna.input_cns = tumor_results.cns
         alascca_cna.chrsizes = self.refdata['chrsizes']
 
-        tumor_str = compose_sample_str(tumor_capture)
+        tumor_str = compose_lib_capture_str(tumor_capture)
 
         alascca_cna.output_cna = "{}/variants/{}-alascca-cna.json".format(
             self.outdir, tumor_str)

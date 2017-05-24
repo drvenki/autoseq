@@ -1,7 +1,9 @@
 import collections, re
 from autoseq.util.orderform import parse_orderform
 
-# Fields defining a unique library capture item:
+# Fields defining a unique library capture item. Note: A library capture item can
+# include an item where no capture was performed; i.e. capture_kit_id indicates
+# whole-genome sequencing:
 UniqueCapture = collections.namedtuple(
     'UniqueCapture',
 
@@ -55,11 +57,28 @@ def parse_project(clinseq_barcode):
 
 def compose_sample_str(capture):
     """
+    Produce a string representing the unique sample for the specified library capture item.
+
+    :param capture: Named tuple indicating a unique sample library capture. 
+    :return: Dash-delimited string of the fields uniquely identifying the sample.
+    """
+
+    return "{}-{}-{}-{}".format(
+        capture.project,
+        capture.sdid,
+        capture.sample_type,
+        capture.sample_id
+    )
+
+
+def compose_lib_capture_str(capture):
+    """
     Produce a string for a unique library capture item.
 
     :param capture: A named tuple identifying a unique sample library capture.
     :return: A dash-delimted string of the fields uniquely identifying the capture.
     """
+
     return "{}-{}-{}-{}-{}-{}".format(
         capture.project,
         capture.sdid,

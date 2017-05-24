@@ -25,7 +25,7 @@ class SinglePanelResults(object):
         # CNV kit outputs:
         self.cnr = None
         self.cns = None
-        
+
         # Coverage QC call:
         self.cov_qc_call = None
 
@@ -210,12 +210,35 @@ class ClinseqPipeline(PypedreamPipeline):
 
     def get_all_unique_captures(self):
         """
-        Obtain all unique sample library captures in this pipeline instance.
+        Obtain all unique sample library captures in this pipeline instance (including
+        library -> WGS items).
 
         :return: List of unique capture named tuples. 
         """
 
         return self.capture_to_results.keys()
+
+    def get_unique_captures_no_wgs(self):
+        """
+        Obtain all unique sample library captures in this pipeline instance (excluding
+        library -> WGS items).
+
+        :return: List of unique capture named tuples.
+        """
+
+        return [capture for capture in self.capture_to_results.keys()
+                if capture.capture_kit_id != "WG"]
+
+    def get_unique_captures_only_wgs(self):
+        """
+        Obtain all unique sample library captures in this pipeline instance (only
+        including library -> WGS items).
+
+        :return: List of unique capture named tuples.
+        """
+
+        return [capture for capture in self.capture_to_results.keys()
+                if capture.capture_kit_id == "WG"]
 
     def get_unique_normal_captures(self):
         """
@@ -225,10 +248,9 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of named tuples.
         """
 
-        all_unique_captures = self.get_all_unique_captures()
-        return filter(lambda unique_capture: unique_capture.sample_type == "N" and
-                                             unique_capture.capture_kit_id != "WG",
-                      all_unique_captures)
+        non_wgs_unique_captures = self.get_unique_captures_no_wgs()
+        return filter(lambda unique_capture: unique_capture.sample_type == "N",
+                      non_wgs_unique_captures)
 
     def get_unique_wgs(self):
         """
@@ -238,9 +260,9 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of named tuples.
         """
 
-        all_unique_captures = self.get_all_unique_captures()
+        wgs_unique_captures = self.get_unique_captures_only_wgs()
         return filter(lambda unique_capture: unique_capture.capture_kit_id == "WG",
-                      all_unique_captures)
+                      wgs_unique_captures)
 
     def get_unique_cancer_captures(self):
         """
@@ -250,10 +272,9 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of named tuples.
         """
 
-        all_unique_captures = self.get_all_unique_captures()
-        return filter(lambda unique_capture: unique_capture.sample_type != "N" and
-                                             unique_capture.capture_kit_id != "WG",
-                      all_unique_captures)
+        non_wgs_unique_captures = self.get_unique_captures_no_wgs()
+        return filter(lambda unique_capture: unique_capture.sample_type != "N",
+                      non_wgs_unique_captures)
 
     def get_prep_kit_name(self, prep_kit_code):
         """
@@ -308,7 +329,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         :return: All clinseq barcodes included in this clinseq analysis pipeline's panel data.
         """
-        
+
         all_clinseq_barcodes = \
             self.sampledata['T'] + \
             self.sampledata['N'] + \
@@ -335,7 +356,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         Configures Picard merging and duplicate marking, for the specified group input bams,
         which should all correspond to the specified sample library capture.
-        
+
         Registers the final output bam file for this library capture in this analysis.
 
         :param unique_capture: A unique library capture specification
@@ -343,15 +364,16 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         # Strings indicating the sample and capture, for use in output file names below:
-        sample_str = "{}-{}".format(unique_capture.sample_type, unique_capture.sample_id)
-        capture_str = "{}-{}-{}".format(sample_str, unique_capture.library_kit_id, unique_capture.capture_kit_id)
+        capture_str = compose_lib_capture_str(unique_capture)
+        #sample_str = "{}-{}".format(unique_capture.sample_type, unique_capture.sample_id)
+        #capture_str = "{}-{}-{}".format(sample_str, unique_capture.library_kit_id, unique_capture.capture_kit_id)
 
         # Configure merging:
         merged_bam_filename = \
             "{}/bams/{}/{}.bam".format(self.outdir, unique_capture.capture_kit_id, capture_str)
         merge_bams = PicardMergeSamFiles(input_bams, merged_bam_filename)
         merge_bams.is_intermediate = True
-        merge_bams.jobname = "picard-mergebams-{}".format(sample_str)
+        merge_bams.jobname = "picard-mergebams-{}".format(capture_str)
         self.add(merge_bams)
 
         # Configure duplicate marking:
@@ -364,6 +386,10 @@ class ClinseqPipeline(PypedreamPipeline):
             merge_bams.output_bam, mark_dups_bam_filename, mark_dups_metrics_filename)
         markdups.is_intermediate = False
         self.add(markdups)
+
+        # FIXME: Continue here: Need to fix naming of bam files and naming of the
+        # sample in the bam header. Currently not sure how/where to fix this, and merge_bams.output_bam
+        # seems to not exist.
 
         self.set_capture_bam(unique_capture, markdups.output_bam)
 
@@ -410,7 +436,8 @@ class ClinseqPipeline(PypedreamPipeline):
                                   clinseq_barcode=clinseq_barcode,
                                   ref=self.refdata['bwaIndex'],
                                   outdir= "{}/bams/{}".format(self.outdir, capture_kit),
-                                  maxcores=self.maxcores))
+                                  maxcores=self.maxcores,
+                                  remove_duplicates=False))
 
             self.merge_and_rm_dup(unique_capture, curr_bamfiles)
 
@@ -424,9 +451,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         targets = self.get_capture_name(normal_capture.capture_kit_id)
-        capture_str = "{}-{}-{}".format(normal_capture.sample_id,
-                                        normal_capture.library_kit_id,
-                                        normal_capture.capture_kit_id)
+        capture_str = compose_lib_capture_str(normal_capture)
 
         freebayes = Freebayes()
         freebayes.input_bams = [bam]
@@ -478,7 +503,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         input_bam = self.get_capture_bam(unique_capture)
-        sample_str = compose_sample_str(unique_capture)
+        sample_str = compose_lib_capture_str(unique_capture)
         targets = self.get_capture_name(unique_capture.capture_kit_id)
 
         # Configure CNV kit analysis:
@@ -518,7 +543,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         input_bam = self.get_capture_bam(unique_wgs)
-        sample_str = compose_sample_str(unique_wgs)
+        sample_str = compose_lib_capture_str(unique_wgs)
 
         qdnaseq = QDNASeq(input_bam,
                           output_segments="{}/cnv/{}-qdnaseq.segments.txt".format(
@@ -579,7 +604,7 @@ class ClinseqPipeline(PypedreamPipeline):
         # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
         somatic_variants = call_somatic_variants(
             self, tbam=self.get_capture_bam(cancer_capture), nbam=self.get_capture_bam(normal_capture),
-            tlib=compose_sample_str(cancer_capture), nlib=compose_sample_str(normal_capture),
+            tumor_capture=cancer_capture, normal_capture=normal_capture,
             target_name=self.get_capture_name(cancer_capture.capture_kit_id),
             refdata=self.refdata, outdir=self.outdir,
             callers=['vardict'], vep=self.get_vep(), min_alt_frac=0.02)
@@ -599,13 +624,14 @@ class ClinseqPipeline(PypedreamPipeline):
         vcfaddsample = VcfAddSample()
         vcfaddsample.input_bam = self.get_capture_bam(cancer_capture)
         vcfaddsample.input_vcf = self.get_germline_vcf(normal_capture)
-        normal_sample_str = compose_sample_str(normal_capture)
+        normal_capture_str = compose_lib_capture_str(normal_capture)
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
         cancer_sample_str = compose_sample_str(cancer_capture)
         vcfaddsample.samplename = cancer_sample_str
         vcfaddsample.filter_hom = True
         vcfaddsample.output = "{}/variants/{}-and-{}.germline-variants-with-somatic-afs.vcf.gz".format(
-            self.outdir, normal_sample_str, cancer_sample_str)
-        vcfaddsample.jobname = "vcf-add-sample-{}".format(cancer_sample_str)
+            self.outdir, normal_capture_str, cancer_capture_str)
+        vcfaddsample.jobname = "vcf-add-sample-{}".format(cancer_capture_str)
         self.add(vcfaddsample)
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vcf_addsample_output = \
             vcfaddsample.output
@@ -625,8 +651,8 @@ class ClinseqPipeline(PypedreamPipeline):
         msisensor.msi_sites = self.refdata['targets'][cancer_capture_name]['msisites']
         msisensor.input_normal_bam = self.get_capture_bam(normal_capture)
         msisensor.input_tumor_bam = self.get_capture_bam(cancer_capture)
-        normal_capture_str = compose_sample_str(normal_capture)
-        cancer_capture_str = compose_sample_str(cancer_capture)
+        normal_capture_str = compose_lib_capture_str(normal_capture)
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
         msisensor.output = "{}/msisensor-{}-{}.tsv".format(
             self.outdir, normal_capture_str, cancer_capture_str)
         msisensor.threads = self.maxcores
@@ -652,11 +678,11 @@ class ClinseqPipeline(PypedreamPipeline):
         cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
         hzconcordance.target_regions = \
             self.refdata['targets'][cancer_capture_name]['targets-interval_list-slopped20']
-        hzconcordance.normalid = compose_sample_str(normal_capture)
+        hzconcordance.normalid = compose_lib_capture_str(normal_capture)
         hzconcordance.filter_reads_with_N_cigar = True
-        hzconcordance.jobname = "hzconcordance-{}".format(compose_sample_str(cancer_capture))
+        hzconcordance.jobname = "hzconcordance-{}".format(compose_lib_capture_str(cancer_capture))
         hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(
-            self.outdir, compose_sample_str(cancer_capture), compose_sample_str(normal_capture))
+            self.outdir, compose_lib_capture_str(cancer_capture), compose_lib_capture_str(normal_capture))
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].hzconcordance_output = \
             hzconcordance.output
         self.add(hzconcordance)
@@ -678,8 +704,8 @@ class ClinseqPipeline(PypedreamPipeline):
         contest_vcf_generation.input_target_regions_bed_1 = normal_targets
         contest_vcf_generation.input_target_regions_bed_2 = cancer_targets
         contest_vcf_generation.input_population_vcf = self.refdata["swegene_common"]
-        normal_capture_str = compose_sample_str(normal_capture)
-        cancer_capture_str = compose_sample_str(cancer_capture)
+        normal_capture_str = compose_lib_capture_str(normal_capture)
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
         contest_vcf_generation.output = "{}/contamination/pop_vcf_{}-{}.vcf".format(
             self.outdir, normal_capture_str, cancer_capture_str)
         contest_vcf_generation.jobname = "contest_pop_vcf_{}-{}".format(
@@ -705,8 +731,8 @@ class ClinseqPipeline(PypedreamPipeline):
         contest.input_genotype_bam = self.get_capture_bam(library_capture_2)
         contest.input_population_af_vcf = contest_vcf
         # TODO: Is it necessary to create the output subdir contamination somewhere? Check how it's done for e.g. cnvkit.
-        contest.output = "{}/contamination/{}.contest.txt".format(self.outdir, compose_sample_str(library_capture_1)) # TODO: Should the analysis id also be in name of out file?
-        contest.jobname = "contest_tumor/{}".format(compose_sample_str(library_capture_1))  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
+        contest.output = "{}/contamination/{}.contest.txt".format(self.outdir, compose_lib_capture_str(library_capture_1)) # TODO: Should the analysis id also be in name of out file?
+        contest.jobname = "contest_tumor/{}".format(compose_lib_capture_str(library_capture_1))  # TODO: Is it ok that the job name does not contain analysis id, i.e. may not be unique?
         self.add(contest)
         return contest.output
 
@@ -723,7 +749,7 @@ class ClinseqPipeline(PypedreamPipeline):
         process_contest = ContEstToContamCaveat()
         process_contest.input_contest_results = contest_output
         process_contest.output = "{}/qc/{}-contam-qc-call.json".format(
-            self.outdir, compose_sample_str(library_capture))
+            self.outdir, compose_lib_capture_str(library_capture))
         self.add(process_contest)
         return process_contest.output
 
@@ -731,7 +757,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         Configure contamination estimatates for a given normal, cancer library capture
         pairing.
-        
+
         :param normal_capture: Namedtuple indicating a normal library capture.
         :param cancer_capture: Namedtuple indicating a cancer library capture. 
         """
@@ -822,10 +848,10 @@ class ClinseqPipeline(PypedreamPipeline):
 
     def configure_all_panel_qcs(self):
         """
-        Configures QC checks for all panel data in this pipeline.
+        Configures QC checks for all panel data (not including WGS data) in this pipeline.
         """
 
-        for unique_capture in self.get_all_unique_captures():
+        for unique_capture in self.get_unique_captures_no_wgs():
             self.qc_files += \
                 self.configure_panel_qc(unique_capture)
 
@@ -855,7 +881,7 @@ class ClinseqPipeline(PypedreamPipeline):
         targets = self.get_capture_name(unique_capture.capture_kit_id)
         logging.debug("Adding QC jobs for {}".format(bam))
 
-        capture_str = compose_sample_str(unique_capture)
+        capture_str = compose_lib_capture_str(unique_capture)
 
         isize = PicardCollectInsertSizeMetrics()
         isize.input = bam

@@ -71,8 +71,8 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
         # PTEN hotspot R233*, MU589331, chr10:g.89717672C>T
         # AR intron variant, MU50988553, chrX:g.66788924G>A
 
-        self.assertVcfHasSample(vcf, 'AL-P-NA12877-N-03098121-TD-TT')  # N lib id is set
-        self.assertVcfHasSample(vcf, 'AL-P-NA12877-T-03098849-TD-TT')  # T lib id is set
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-N-03098121')  # N lib id is set
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-T-03098849')  # T lib id is set
 
         # deletion is called
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, 17, 7577557, 'AG', 'A')
@@ -93,21 +93,21 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
     def test_panel_bam_readgroups(self):
         bam = os.path.join(self.outdir, "bams", "TT", "AL-P-NA12877-T-03098849-TD1-TT1.bam")
         self.assertBamHeaderElementEquals(bam, 'RG', [{'ID': 'AL-P-NA12877-T-03098849-TD1-TT1',
-                                                       'SM': 'P-NA12877-T-03098849',
-                                                       'LB': 'P-NA12877-T-03098849-TD1',
+                                                       'SM': 'AL-P-NA12877-T-03098849',
+                                                       'LB': 'TD1',
                                                        'PL': 'ILLUMINA'}])
 
         bam = os.path.join(self.outdir, "bams", "TT", "AL-P-NA12877-N-03098121-TD1-TT1.bam")
         self.assertBamHeaderElementEquals(bam, 'RG', [{'ID': 'AL-P-NA12877-N-03098121-TD1-TT1',
-                                                       'SM': 'P-NA12877-N-03098121',
-                                                       'LB': 'P-NA12877-N-03098121-TD1',
+                                                       'SM': 'AL-P-NA12877-N-03098121',
+                                                       'LB': 'TD1',
                                                        'PL': 'ILLUMINA'}])
 
     def test_germline_vcf(self):
         vcf = os.path.join(self.outdir, "variants",
-                           "03098121-TD-TT.freebayes-germline.vcf.gz")
+                           "AL-P-NA12877-N-03098121-TD-TT.freebayes-germline.vcf.gz")
 
-        self.assertVcfHasSample(vcf, 'P-NA12877-N-03098121')  # sample is the name of the normal lib id
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-N-03098121')  # sample is the name of the normal lib id
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '3', 178925677, 'G', 'A')  # SNP
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '17', 7579643, 'CCCCCAGCCCTCCAGGT', 'C')  # deletion
 

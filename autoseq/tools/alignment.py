@@ -151,16 +151,12 @@ def align_se(pipeline, fq1_files, clinseq_barcode, ref, outdir, maxcores, remove
     bwa.input_reference_sequence = ref
     bwa.remove_duplicates = remove_duplicates
 
-    sdid = parse_sdid(clinseq_barcode)
-    sample_type = parse_sample_type(clinseq_barcode)
-    sample_id = parse_sample_id(clinseq_barcode)
-    prep_id = parse_prep_id(clinseq_barcode)
-    rg_lb = "{}-{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
-    rg_sm = "{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
-    rg_id = clinseq_barcode
+    library_id = parse_prep_id(clinseq_barcode)
+    sample_string = compose_sample_str(extract_unique_capture(clinseq_barcode))
 
-    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
-                                                                                          rg_lb=rg_lb)
+    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(\
+        rg_id=clinseq_barcode, rg_sm=sample_string, rg_lb=library_id)
+
     bwa.threads = maxcores
     bwa.output = "{}/{}.bam".format(outdir, clinseq_barcode)
     bwa.scratch = pipeline.scratch
@@ -227,16 +223,12 @@ def align_pe(pipeline, fq1_files, fq2_files, clinseq_barcode, ref, outdir, maxco
     bwa.input_reference_sequence = ref
     bwa.remove_duplicates = remove_duplicates
 
-    sdid = parse_sdid(clinseq_barcode)
-    sample_type = parse_sample_type(clinseq_barcode)
-    sample_id = parse_sample_id(clinseq_barcode)
-    prep_id = parse_prep_id(clinseq_barcode)
-    rg_lb = "{}-{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
-    rg_sm = "{}-{}-{}".format(sdid, sample_type, sample_id, prep_id)
-    rg_id = clinseq_barcode
+    library_id = parse_prep_id(clinseq_barcode)
+    sample_string = compose_sample_str(extract_unique_capture(clinseq_barcode))
 
-    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(rg_id=rg_id, rg_sm=rg_sm,
-                                                                                          rg_lb=rg_lb)
+    bwa.readgroup = "\"@RG\\tID:{rg_id}\\tSM:{rg_sm}\\tLB:{rg_lb}\\tPL:ILLUMINA\"".format(\
+        rg_id=clinseq_barcode, rg_sm=sample_string, rg_lb=library_id)
+
     bwa.threads = maxcores
     bwa.output = "{}/{}.bam".format(outdir, clinseq_barcode)
     bwa.jobname = "bwa/{}".format(clinseq_barcode)

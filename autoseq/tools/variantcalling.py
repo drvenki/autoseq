@@ -3,6 +3,7 @@ import sys
 import uuid
 
 from pypedream.job import Job, repeat, required, optional, conditional
+from autoseq.util.clinseq_barcode import *
 from autoseq.util.vcfutils import vt_split_and_leftaln, fix_ambiguous_cl, remove_dup_cl
 
 
@@ -236,7 +237,7 @@ class InstallVep(Job):
                " --species homo_sapiens --version 83_GRCh37"
 
 
-def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata, outdir,
+def call_somatic_variants(pipeline, tbam, nbam, tumor_capture, normal_capture, target_name, refdata, outdir,
                           callers=['vardict', 'freebayes'], vep=True, min_alt_frac=0.1):
     """
     Call somatic variants.
@@ -254,6 +255,11 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
     :param min_alt_frac:
     :return:
     """
+    tlib = compose_lib_capture_str(tumor_capture)
+    nlib = compose_lib_capture_str(normal_capture)
+    normal_sample_str = compose_sample_str(normal_capture)
+    tumor_sample_str = compose_sample_str(tumor_capture)
+
     d = {}
     if 'mutect2' in callers:
         mutect2 = Mutect2()
@@ -295,8 +301,8 @@ def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata
             d['freebayes'] = vep_freebayes.output_vcf
 
     if 'vardict' in callers:
-        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tlib,
-                          normalid=nlib,
+        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tumor_sample_str,
+                          normalid=normal_sample_str,
                           reference_sequence=refdata['reference_genome'],
                           reference_dict=refdata['reference_dict'],
                           target_bed=refdata['targets'][target_name]['targets-bed-slopped20'],

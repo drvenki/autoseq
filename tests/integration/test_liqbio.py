@@ -7,35 +7,34 @@ from genomicassertions.readassertions import ReadAssertions
 from genomicassertions.variantassertions import VariantAssertions
 
 from autoseq.tests import liqbio_test_outdir
-from autoseq.util.path import normpath
 
 
 class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
     returncode = None
     tmpdir = None
-    outdir = None
     somatic_vcf = None
     outdir = liqbio_test_outdir
 
     @classmethod
     def setUpClass(cls):
         cls.jobdb = os.path.join(cls.outdir, "jobdb.json")
-        subprocess.check_call("autoseq " +
-                              " --ref /tmp/test-genome/autoseq-genome.json " +
-                              " --outdir {} ".format(cls.outdir) +
-                              " --libdir /tmp/libraries/ " +
-                              " --scratch /scratch/tmp/autoseq-integration-tests/liqbio --jobdb {} --cores 2 ".format(cls.jobdb) +
-                              " liqbio "
-                              " tests/liqbio-test-sample.json", shell=True)
+        command = "autoseq " + \
+            " --ref /tmp/test-genome/autoseq-genome.json " + \
+            " --outdir {} ".format(cls.outdir) + \
+            " --libdir /tmp/libraries/ " + \
+            " --scratch /scratch/tmp/autoseq-integration-tests/liqbio --jobdb {} --cores 2 ".format(cls.jobdb) + \
+            " liqbio " + \
+            " tests/liqbio-test-sample.json"
+        subprocess.check_call(command, shell=True)
 
     def test_jobdb(self):
         jobdb = json.load(open(self.jobdb, 'r'))
         self.assertEqual(set([job['status'] for job in jobdb['jobs']]),
-                         set(['COMPLETED']))
+                         {'COMPLETED'})
 
     def test_vardict_somatic(self):
         vcf = os.path.join(self.outdir, "variants",
-                           "NA12877-T-03098849-NA12877-N-03098121-TD1-TT1.vardict-somatic.vcf.gz")
+                           "AL-P-NA12877-T-03098849-TD-TT-AL-P-NA12877-N-03098121-TD-TT.vardict-somatic.vcf.gz")
 
         # TP53 insertion: MU2185182, chr17:g.7578475->G
         # TP53 deletion: MU25947, chr17:g.7577558G>-
@@ -45,8 +44,8 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
         # PTEN hotspot R233*, MU589331, chr10:g.89717672C>T
         # AR intron variant, MU50988553, chrX:g.66788924G>A
 
-        self.assertVcfHasSample(vcf, 'NA12877-N-03098121-TD1-TT1')  # N lib id is set
-        self.assertVcfHasSample(vcf, 'NA12877-T-03098849')  # T lib id is the merged library
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-N-03098121')  # N lib id is set
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-T-03098849')  # T lib id is the merged library
 
         # deletion is called
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, 17, 7577557, 'AG', 'A')
@@ -65,27 +64,27 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, 3, 178936091, 'G', 'A')
 
     def test_panel_bam_readgroups(self):
-        bam = os.path.join(self.outdir, "bams", "panel", "NA12877-T-03098849-TD-TT-nodups.bam")
-        self.assertBamHeaderElementEquals(bam, 'RG', [{'ID': 'NA12877-T-03098849-TD1-TT1',
-                                                       'SM': 'NA12877-T-03098849',
-                                                       'LB': 'NA12877-T-03098849-TD1',
+        bam = os.path.join(self.outdir, "bams", "TT", "AL-P-NA12877-T-03098849-TD-TT-nodups.bam")
+        self.assertBamHeaderElementEquals(bam, 'RG', [{'ID': 'AL-P-NA12877-T-03098849-TD1-TT1',
+                                                       'SM': 'AL-P-NA12877-T-03098849',
+                                                       'LB': 'TD1',
                                                        'PL': 'ILLUMINA'}])
 
-        bam = os.path.join(self.outdir, "bams", "panel", "NA12877-CFDNA-03098850-TD-TT-nodups.bam")
-        self.assertBamHeaderElementEquals(bam, 'RG', [{'LB': 'NA12877-CFDNA-03098850-TD1',
-                                                       'ID': 'NA12877-CFDNA-03098850-TD1-TT1',
-                                                       'SM': 'NA12877-CFDNA-03098850',
+        bam = os.path.join(self.outdir, "bams", "TT", "LB-P-NA12877-CFDNA-03098850-TD-TT-nodups.bam")
+        self.assertBamHeaderElementEquals(bam, 'RG', [{'LB': 'TD1',
+                                                       'ID': 'LB-P-NA12877-CFDNA-03098850-TD1-TT1',
+                                                       'SM': 'LB-P-NA12877-CFDNA-03098850',
                                                        'PL': 'ILLUMINA'},
-                                                      {'LB': 'NA12877-CFDNA-03098850-TD1',
-                                                       'ID': 'NA12877-CFDNA-03098850-TD1-TT2',
-                                                       'SM': 'NA12877-CFDNA-03098850',
+                                                      {'LB': 'TD1',
+                                                       'ID': 'LB-P-NA12877-CFDNA-03098850-TD1-TT2',
+                                                       'SM': 'LB-P-NA12877-CFDNA-03098850',
                                                        'PL': 'ILLUMINA'}]
                                           )
 
     def test_qdnaseq(self):
-        qdnaseq_file_names = ["NA12877-T-03098849-TD1-WGS-qdnaseq.segments.txt",
-                              "NA12877-CFDNA-03098850-TD1-WGS-qdnaseq.segments.txt",
-                              "NA12877-N-03098121-TD1-WGS-qdnaseq.segments.txt"]
+        qdnaseq_file_names = ["AL-P-NA12877-T-03098849-TD-WG-qdnaseq.segments.txt",
+                              "LB-P-NA12877-CFDNA-03098850-TD-WG-qdnaseq.segments.txt",
+                              "AL-P-NA12877-N-03098121-TD-WG-qdnaseq.segments.txt"]
         for qdnaseqf in qdnaseq_file_names:
             absf = os.path.join(self.outdir, "cnv", qdnaseqf)
 
@@ -97,28 +96,28 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
                 self.assertListEqual(header, correct_header)
 
     def test_wgs_bam_coverage(self):
-        bam = os.path.join(self.outdir, "bams/wgs/",
-                           "NA12877-T-03098849-TD1-WGS.bam")
+        bam = os.path.join(self.outdir, "bams/WG/",
+                           "AL-P-NA12877-T-03098849-TD-WG-nodups.bam")
         self.assertBamHasCoverageAt(bam, 1, '3', 3617655)  # 1x coverage in that position
         self.assertBamHasCoverageAt(bam, 0, '3', 3618655)  # no coverage in that position
 
     def test_germline_vcf(self):
         vcf = os.path.join(self.outdir, "variants",
-                           "NA12877-N-03098121-TD1-TT1.freebayes-germline.vcf.gz")
+                           "AL-P-NA12877-N-03098121-TD-TT.freebayes-germline.vcf.gz")
 
-        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')  # sample is the name of the normal lib id
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-N-03098121')  # sample is the name of the normal lib id
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '3', 178925677, 'G', 'A')  # SNP
         self.assertVcfHasVariantWithChromPosRefAlt(vcf, '17', 7579643, 'CCCCCAGCCCTCCAGGT', 'C')  # deletion
 
     def test_germline_vcf_with_added_tumor_afs(self):
         vcf = os.path.join(self.outdir, "variants",
-                           "NA12877-N-03098121-TD1-TT1-and-NA12877-T-03098849.germline-variants-with-somatic-afs.vcf.gz")
+                           "AL-P-NA12877-N-03098121-TD-TT-and-AL-P-NA12877-T-03098849-TD-TT.germline-variants-with-somatic-afs.vcf.gz")
 
-        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')
-        self.assertVcfHasSample(vcf, 'NA12877-T-03098849')
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-N-03098121')
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-T-03098849')
 
         vcf = os.path.join(self.outdir, "variants",
-                           "NA12877-N-03098121-TD1-TT1-and-NA12877-CFDNA-03098850.germline-variants-with-somatic-afs.vcf.gz")
+                           "AL-P-NA12877-N-03098121-TD-TT-and-LB-P-NA12877-CFDNA-03098850-TD-TT.germline-variants-with-somatic-afs.vcf.gz")
 
-        self.assertVcfHasSample(vcf, 'NA12877-N-03098121')
-        self.assertVcfHasSample(vcf, 'NA12877-CFDNA-03098850')
+        self.assertVcfHasSample(vcf, 'AL-P-NA12877-N-03098121')
+        self.assertVcfHasSample(vcf, 'LB-P-NA12877-CFDNA-03098850')
