@@ -1,4 +1,5 @@
 import unittest
+from mock import patch
 from autoseq.pipeline.clinseq import *
 from autoseq.util.clinseq_barcode import UniqueCapture
 
@@ -93,3 +94,36 @@ class TestClinseq(unittest.TestCase):
     def test_get_capture_bam_none(self):
         self.assertEquals(self.test_clinseq_pipeline.get_capture_bam(self.test_unique_capture),
                           None)
+
+    @patch('autoseq.pipeline.clinseq.data_available_for_clinseq_barcode')
+    def test_check_sampledata_all_available(self, mock_data_available_for_clinseq_barcode):
+        mock_data_available_for_clinseq_barcode.return_value = True
+        # Test that no changes occur to the sample data if the data is all available:
+        self.test_clinseq_pipeline.check_sampledata()
+        self.assertEquals(self.test_clinseq_pipeline.sampledata,
+                          {
+                              "sdid": "P-NA12877",
+                              "T": ["AL-P-NA12877-T-03098849-TD1-TT1", "AL-P-NA12877-T-03098849-TD1-WGS"],
+                              "N": ["AL-P-NA12877-N-03098121-TD1-TT1", "AL-P-NA12877-N-03098121-TD1-WGS"],
+                              "CFDNA": ["LB-P-NA12877-CFDNA-03098850-TD1-TT1", "LB-P-NA12877-CFDNA-03098850-TD1-TT2",
+                                        "LB-P-NA12877-CFDNA-03098850-TD1-WGS"]
+                          })
+
+    @patch('autoseq.pipeline.clinseq.data_available_for_clinseq_barcode')
+    def test_check_sampledata_none_available(self, mock_data_available_for_clinseq_barcode):
+        mock_data_available_for_clinseq_barcode.return_value = False
+        # Test that no changes occur to the sample data if the data is all available:
+        self.test_clinseq_pipeline.check_sampledata()
+        self.assertEquals(self.test_clinseq_pipeline.sampledata,
+                          {
+                              "sdid": "P-NA12877",
+                              "T": [],
+                              "N": [],
+                              "CFDNA": []
+                          })
+
+    def test_vep_is_set(self):
+        self.assertEquals(self.test_clinseq_pipeline.vep_is_set(), False)
+
+    def test_get_all_unique_capture(self):
+        self.assertEquals(self.test_clinseq_pipeline.get_all_unique_captures(), [])

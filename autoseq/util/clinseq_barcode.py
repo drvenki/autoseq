@@ -1,5 +1,7 @@
-import collections, re
+import collections, logging, os, re
 from autoseq.util.orderform import parse_orderform
+from autoseq.util.library import find_fastqs
+
 
 # Fields defining a unique library capture item. Note: A library capture item can
 # include an item where no capture was performed; i.e. capture_kit_id indicates
@@ -14,6 +16,27 @@ UniqueCapture = collections.namedtuple(
     'library_kit_id',
     'capture_kit_id']
 )
+
+
+def data_available_for_clinseq_barcode(libdir, clinseq_barcode):
+    """
+    Check that data is available for the specified clinseq barcode in the specified library folder.
+
+    :param libdir: Directory name where fastqs are organised.
+    :param clinseq_barcode: A clinseq barcode string
+    :return: True if data is available, False otherwise
+    """
+
+    if clinseq_barcode:
+        filedir = os.path.join(libdir, clinseq_barcode)
+        if not os.path.exists(filedir):
+            logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, clinseq_barcode))
+            return False
+        if find_fastqs(clinseq_barcode, libdir) == (None, None):
+            logging.warn("No fastq files found for {} in dir {}".format(clinseq_barcode, filedir))
+            return False
+    logging.debug("Library {} has data. Using it.".format(clinseq_barcode))
+    return True
 
 
 def extract_unique_capture(clinseq_barcode):

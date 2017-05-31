@@ -175,38 +175,21 @@ class ClinseqPipeline(PypedreamPipeline):
         the pipeline's sampledata by removing that clinseq barcode from the analysis.
         """
 
-        def check_clinseq_barcode_for_data(clinseq_barcode):
-            if clinseq_barcode:
-                filedir = os.path.join(self.libdir, clinseq_barcode)
-                if not os.path.exists(filedir):
-                    logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, clinseq_barcode))
-                    return None
-                if find_fastqs(clinseq_barcode, self.libdir) == (None, None):
-                    logging.warn("No fastq files found for {} in dir {}".format(clinseq_barcode, filedir))
-                    return None
-            logging.debug("Library {} has data. Using it.".format(clinseq_barcode))
-            return clinseq_barcode
-
         for sample_type in ['N', 'T', 'CFDNA']:
             clinseq_barcodes_with_data = []
             for clinseq_barcode in self.sampledata[sample_type]:
-                barcode_checked = check_clinseq_barcode_for_data(clinseq_barcode)
-                if barcode_checked:
-                    clinseq_barcodes_with_data.append(barcode_checked)
+                if data_available_for_clinseq_barcode(self.libdir, clinseq_barcode):
+                    clinseq_barcodes_with_data.append(clinseq_barcode)
 
             self.sampledata[sample_type] = clinseq_barcodes_with_data
 
-    def get_vep(self):
+    def vep_is_set(self):
         """
         Indicates whether the VEP folder has been set for this analysis.
 
         :return: Boolean.
         """
-        vep = False
-        if self.refdata['vep_dir']:
-            vep = True
-
-        return vep
+        return self.refdata['vep_dir'] != None
 
     def get_all_unique_captures(self):
         """
@@ -607,7 +590,7 @@ class ClinseqPipeline(PypedreamPipeline):
             tumor_capture=cancer_capture, normal_capture=normal_capture,
             target_name=self.get_capture_name(cancer_capture.capture_kit_id),
             refdata=self.refdata, outdir=self.outdir,
-            callers=['vardict'], vep=self.get_vep(), min_alt_frac=0.02)
+            callers=['vardict'], vep=self.vep_is_set(), min_alt_frac=0.02)
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = \
             somatic_variants.values()[0]
 
