@@ -43,6 +43,7 @@ class TestClinseq(unittest.TestCase):
         }
         self.test_unique_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
         self.test_normal_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "TT")
+        self.test_wg_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "WG")
         self.test_clinseq_pipeline = ClinseqPipeline(sample_data, ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
 
     def test_single_panel_results(self):
@@ -241,9 +242,29 @@ class TestClinseq(unittest.TestCase):
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_name')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
     def test_configure_single_capture_analysis_no_ref(self, mock_get_capture_bam,
-                                               mock_get_capture_name, mock_cnvkit_ref_exists):
+                                                      mock_get_capture_name, mock_cnvkit_ref_exists):
         mock_cnvkit_ref_exists.return_value = False
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_unique_capture)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_wgs_analyses')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_unique_captures_only_wgs')
+    def test_configure_lowpass_analyses(self, mock_get_unique_captures_only_wgs,
+                                        mock_configure_single_wgs_analyses):
+        mock_get_unique_captures_only_wgs.return_value = [self.test_wg_capture]
+        self.test_clinseq_pipeline.configure_lowpass_analyses()
+        self.assertTrue(mock_configure_single_wgs_analyses.called)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
+    def test_configure_single_wgs_analyses(self, mock_get_capture_bam):
+        mock_get_capture_bam.return_value = "test.bam"
+        self.test_clinseq_pipeline.configure_single_wgs_analyses(self.test_wg_capture)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    def test_run_wgs_bam_qc(self):
+        self.assertEquals(len(self.test_clinseq_pipeline.run_wgs_bam_qc(["test1.bam", "test2.bam"])),
+                          4)
+
+    # XXX CONTINUE TESTING FROM configure_panel_analyses ONWARDS
