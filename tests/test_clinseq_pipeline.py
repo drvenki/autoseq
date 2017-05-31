@@ -127,3 +127,35 @@ class TestClinseq(unittest.TestCase):
 
     def test_get_all_unique_capture(self):
         self.assertEquals(self.test_clinseq_pipeline.get_all_unique_captures(), [])
+
+    def test_get_unique_captures_no_wgs(self):
+        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_unique_captures_no_wgs(), [self.test_unique_capture])
+
+    def test_get_unique_captures_only_wgs(self):
+        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_unique_captures_only_wgs(), [])
+
+    def test_get_unique_normal_captures(self):
+        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_unique_normal_captures(), [])
+
+    def test_get_unique_cancer_captures(self):
+        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_unique_cancer_captures(), [self.test_unique_capture])
+
+    def test_get_prep_kit_name(self):
+        self.assertEquals(self.test_clinseq_pipeline.get_prep_kit_name("BN"), "BIOO_NEXTFLEX")
+
+    def test_get_capture_name(self):
+        self.assertEquals(self.test_clinseq_pipeline.get_capture_name("CM"), "monitor")
+
+    def test_get_capture_name_wg(self):
+        self.assertEquals(self.test_clinseq_pipeline.get_capture_name("WG"), "lowpass_wgs")
+
+    def test_get_all_clinseq_barcodes(self):
+        self.assertEquals(self.test_clinseq_pipeline.get_all_clinseq_barcodes(),
+                          ["AL-P-NA12877-T-03098849-TD1-TT1", "AL-P-NA12877-T-03098849-TD1-WGS",
+                           "AL-P-NA12877-N-03098121-TD1-TT1", "AL-P-NA12877-N-03098121-TD1-WGS",
+                           "LB-P-NA12877-CFDNA-03098850-TD1-TT1", "LB-P-NA12877-CFDNA-03098850-TD1-TT2",
+                           "LB-P-NA12877-CFDNA-03098850-TD1-WGS"])

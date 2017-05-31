@@ -235,18 +235,6 @@ class ClinseqPipeline(PypedreamPipeline):
         return filter(lambda unique_capture: unique_capture.sample_type == "N",
                       non_wgs_unique_captures)
 
-    def get_unique_wgs(self):
-        """
-        Obtain all unique cancer sample library WGS items in this pipeline
-        instance.
-
-        :return: List of named tuples.
-        """
-
-        wgs_unique_captures = self.get_unique_captures_only_wgs()
-        return filter(lambda unique_capture: unique_capture.capture_kit_id == "WG",
-                      wgs_unique_captures)
-
     def get_unique_cancer_captures(self):
         """
         Obtain all unique cancer sample library captures items in this
@@ -515,7 +503,7 @@ class ClinseqPipeline(PypedreamPipeline):
         data for this clinseq pipeline, under the assumption that alignment and
         bam file merging has already been performed."""
 
-        for unique_wgs in self.get_unique_wgs():
+        for unique_wgs in self.get_unique_captures_only_wgs():
             self.configure_single_wgs_analyses(unique_wgs)
 
     def configure_single_wgs_analyses(self, unique_wgs):
@@ -795,7 +783,7 @@ class ClinseqPipeline(PypedreamPipeline):
         Configure QC checks for all low-pass whole genome data in this pipeline.
         """
 
-        for unique_wgs in self.get_unique_wgs():
+        for unique_wgs in self.get_unique_captures_only_wgs():
             self.qc_files += \
                 self.configure_wgs_qc(unique_wgs)
 
