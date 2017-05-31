@@ -206,3 +206,44 @@ class TestClinseq(unittest.TestCase):
         mock_vep_is_set.return_value = True
         self.test_clinseq_pipeline.call_germline_variants(self.test_normal_capture, "test.bam")
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.call_germline_variants')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_unique_cancer_captures')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_panel_analysis_cancer_vs_normal')
+    def test_configure_panel_analysis_with_normal(self, mock_configure_panel_analysis_cancer_vs_normal,
+                                                  mock_get_unique_cancer_captures,
+                                                  mock_call_germline_variants):
+        mock_get_unique_cancer_captures.return_value = [self.test_unique_capture]
+        self.test_clinseq_pipeline.configure_panel_analysis_with_normal(self.test_normal_capture)
+        self.assertTrue(mock_call_germline_variants.called)
+        self.assertTrue(mock_configure_panel_analysis_cancer_vs_normal.called)
+
+    def test_configure_panel_analysis_with_normal_invalid(self):
+        self.assertRaises(ValueError,
+                          lambda: self.test_clinseq_pipeline.configure_panel_analysis_with_normal(
+                              self.test_unique_capture))
+
+    def test_cnvkit_ref_exists(self):
+        self.assertFalse(self.test_clinseq_pipeline.cnvkit_ref_exists("test-regions"))
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.cnvkit_ref_exists')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_name')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
+    def test_configure_single_capture_analysis(self, mock_get_capture_bam,
+                                               mock_get_capture_name, mock_cnvkit_ref_exists):
+        mock_cnvkit_ref_exists.return_value = True
+        mock_get_capture_name.return_value = "test-regions"
+        mock_get_capture_bam.return_value = "test.bam"
+        self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_unique_capture)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.cnvkit_ref_exists')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_name')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
+    def test_configure_single_capture_analysis_no_ref(self, mock_get_capture_bam,
+                                               mock_get_capture_name, mock_cnvkit_ref_exists):
+        mock_cnvkit_ref_exists.return_value = False
+        mock_get_capture_name.return_value = "test-regions"
+        mock_get_capture_bam.return_value = "test.bam"
+        self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_unique_capture)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)

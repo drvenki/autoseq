@@ -456,7 +456,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         if normal_capture.sample_type != "N":
-            raise ValueError("Invalid input tuple: " + normal_capture)
+            raise ValueError("Invalid input capture: " + compose_sample_str(normal_capture))
 
         normal_bam = self.get_capture_bam(normal_capture)
         # Configure germline variant calling:
@@ -468,6 +468,9 @@ class ClinseqPipeline(PypedreamPipeline):
             self.configure_panel_analysis_cancer_vs_normal(
                 normal_capture, cancer_capture)
 
+    def cnvkit_ref_exists(self, capture_kit_name):
+        return self.refdata['targets'][capture_kit_name]['cnvkit-ref'] != None
+
     def configure_single_capture_analysis(self, unique_capture):
         """
         Configure all general analyses to perform given a single sample library capture.
@@ -475,7 +478,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         input_bam = self.get_capture_bam(unique_capture)
         sample_str = compose_lib_capture_str(unique_capture)
-        targets = self.get_capture_name(unique_capture.capture_kit_id)
+        capture_kit_name = self.get_capture_name(unique_capture.capture_kit_id)
 
         # Configure CNV kit analysis:
         cnvkit = CNVkit(input_bam=input_bam,
@@ -484,10 +487,10 @@ class ClinseqPipeline(PypedreamPipeline):
                         scratch=self.scratch)
 
         # If we have a CNVkit reference
-        if self.refdata['targets'][targets]['cnvkit-ref']:
-            cnvkit.reference = self.refdata['targets'][targets]['cnvkit-ref']
+        if self.cnvkit_ref_exists(capture_kit_name):
+            cnvkit.reference = self.refdata['targets'][capture_kit_name]['cnvkit-ref']
         else:
-            cnvkit.targets_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
+            cnvkit.targets_bed = self.refdata['targets'][capture_kit_name]['targets-bed-slopped20']
 
         cnvkit.jobname = "cnvkit/{}".format(sample_str)
 
