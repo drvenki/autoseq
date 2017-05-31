@@ -42,6 +42,7 @@ class TestClinseq(unittest.TestCase):
             "vep_dir": None
         }
         self.test_unique_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
+        self.test_normal_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "TT")
         self.test_clinseq_pipeline = ClinseqPipeline(sample_data, ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
 
     def test_single_panel_results(self):
@@ -195,3 +196,13 @@ class TestClinseq(unittest.TestCase):
         self.assertTrue(mock_align_library.called)
         self.assertEquals(len(self.test_clinseq_pipeline.qc_files),
                           len(self.test_clinseq_pipeline.get_unique_capture_to_clinseq_barcodes()))
+
+    def test_call_germline_variants(self):
+        self.test_clinseq_pipeline.call_germline_variants(self.test_normal_capture, "test.bam")
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.vep_is_set')
+    def test_call_germline_variants_with_vep(self, mock_vep_is_set):
+        mock_vep_is_set.return_value = True
+        self.test_clinseq_pipeline.call_germline_variants(self.test_normal_capture, "test.bam")
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)

@@ -436,7 +436,7 @@ class ClinseqPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(capture_str)
         self.add(freebayes)
 
-        if self.refdata['vep_dir']:
+        if self.vep_is_set():
             vep_freebayes = VEP()
             vep_freebayes.input_vcf = freebayes.output
             vep_freebayes.threads = self.maxcores
