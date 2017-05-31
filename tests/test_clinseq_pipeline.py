@@ -1,4 +1,5 @@
 import unittest
+import itertools
 from mock import patch
 from autoseq.pipeline.clinseq import *
 from autoseq.util.clinseq_barcode import UniqueCapture
@@ -159,3 +160,38 @@ class TestClinseq(unittest.TestCase):
                            "AL-P-NA12877-N-03098121-TD1-TT1", "AL-P-NA12877-N-03098121-TD1-WGS",
                            "LB-P-NA12877-CFDNA-03098850-TD1-TT1", "LB-P-NA12877-CFDNA-03098850-TD1-TT2",
                            "LB-P-NA12877-CFDNA-03098850-TD1-WGS"])
+
+    def test_get_unique_capture_to_clinseq_barcodes(self):
+        l1 = list(itertools.chain.from_iterable(self.test_clinseq_pipeline.get_unique_capture_to_clinseq_barcodes().values()))
+        l2 = ["AL-P-NA12877-T-03098849-TD1-TT1", "AL-P-NA12877-T-03098849-TD1-WGS",
+              "AL-P-NA12877-N-03098121-TD1-TT1", "AL-P-NA12877-N-03098121-TD1-WGS",
+              "LB-P-NA12877-CFDNA-03098850-TD1-TT1", "LB-P-NA12877-CFDNA-03098850-TD1-TT2",
+              "LB-P-NA12877-CFDNA-03098850-TD1-WGS"]
+        self.assertEquals(set(l1),
+                          set(l2))
+
+    def test_merge_and_rm_dup(self):
+        self.test_clinseq_pipeline.merge_and_rm_dup(self.test_unique_capture, ["test.bam"])
+        self.assertNotEqual(
+            self.test_clinseq_pipeline.capture_to_results[self.test_unique_capture].merged_bamfile,
+            None)
+        self.assertEquals(\
+            len(self.test_clinseq_pipeline.graph.nodes()), 2)
+        self.assertEquals(\
+            len(self.test_clinseq_pipeline.qc_files), 1)
+
+    @patch('autoseq.pipeline.clinseq.find_fastqs')
+    def test_configure_fastq_qcs(self, mock_find_fastqs):
+        mock_find_fastqs.return_value = ["dummy.fastq.gz"]
+        self.assertEquals(len(self.test_clinseq_pipeline.configure_fastq_qcs()),
+                          len(self.test_clinseq_pipeline.get_all_clinseq_barcodes()))
+
+    @patch('autoseq.pipeline.clinseq.align_library')
+    @patch('autoseq.pipeline.clinseq.find_fastqs')
+    def test_configure_align_and_merge(self, mock_find_fastqs, mock_align_library):
+        mock_align_library.return_value = "dummy_merged.bam"
+        mock_find_fastqs.return_value = "dummy.fastq.gz"
+        self.test_clinseq_pipeline.configure_align_and_merge()
+        self.assertTrue(mock_align_library.called)
+        self.assertEquals(len(self.test_clinseq_pipeline.qc_files),
+                          len(self.test_clinseq_pipeline.get_unique_capture_to_clinseq_barcodes()))
