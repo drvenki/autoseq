@@ -41,7 +41,7 @@ class TestAlignment(unittest.TestCase):
             "vep_dir": None
         }
         self.test_clinseq_pipeline = ClinseqPipeline(sample_data, ref_data, {}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
-    
+
     def test_bwa_pe(self):
         """
         test bwa paired end, should contain string "foo_1.fq  foo_2.fq" with a double-space between the file names
