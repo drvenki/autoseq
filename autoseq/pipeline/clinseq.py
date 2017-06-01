@@ -799,21 +799,21 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         bam = self.get_capture_bam(unique_wgs)
+        wgs_name = compose_lib_capture_str(unique_wgs)
 
         qc_files = []
 
-        basefn = stripsuffix(os.path.basename(bam), ".bam")
         isize = PicardCollectInsertSizeMetrics()
         isize.input = bam
-        isize.jobname = "picard-isize-{}".format(basefn)
-        isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, basefn)
+        isize.jobname = "picard-isize-{}".format(wgs_name)
+        isize.output_metrics = "{}/qc/picard/wgs/{}.picard-insertsize.txt".format(self.outdir, wgs_name)
         self.add(isize)
 
         wgsmetrics = PicardCollectWgsMetrics()
         wgsmetrics.input = bam
         wgsmetrics.reference_sequence = self.refdata['reference_genome']
-        wgsmetrics.output_metrics = "{}/qc/picard/wgs/{}.picard-wgsmetrics.txt".format(self.outdir, basefn)
-        wgsmetrics.jobname = "picard-wgsmetrics-{}".format(basefn)
+        wgsmetrics.output_metrics = "{}/qc/picard/wgs/{}.picard-wgsmetrics.txt".format(self.outdir, wgs_name)
+        wgsmetrics.jobname = "picard-wgsmetrics-{}".format(wgs_name)
         self.add(wgsmetrics)
 
         qc_files += [isize.output_metrics, wgsmetrics.output_metrics]

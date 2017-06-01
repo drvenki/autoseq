@@ -364,3 +364,18 @@ class TestClinseq(unittest.TestCase):
         stored_cancer_contam_call = self.test_clinseq_pipeline.normal_cancer_pair_to_results[
             (self.test_normal_capture, self.test_cancer_capture)].cancer_contam_call
         self.assertEquals(stored_cancer_contam_call, "dummy_call.json")
+
+    def test_configure_panel_analysis_cancer_vs_normal(self):
+        self.test_clinseq_pipeline.configure_panel_analysis_cancer_vs_normal(self.test_normal_capture,
+                                                                             self.test_cancer_capture)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 9)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_only_wgs')
+    def test_configure_all_lowpass_qcs(self, mock_get_mapped_captures_only_wgs):
+        mock_get_mapped_captures_only_wgs.return_value = [self.test_wg_capture]
+        self.test_clinseq_pipeline.configure_all_lowpass_qcs()
+        self.assertEquals(len(self.test_clinseq_pipeline.qc_files), 2)
+
+    def test_configure_wgs_qc(self):
+        qc_files = self.test_clinseq_pipeline.configure_wgs_qc(self.test_wg_capture)
+        self.assertEquals(len(qc_files), 2)
