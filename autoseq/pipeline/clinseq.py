@@ -163,7 +163,7 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: The corresponding bam filename, or None if it has not been configured.
         """
 
-        if unique_capture in self.get_all_unique_captures():
+        if unique_capture in self.get_mapped_captures_all():
             return self.capture_to_results[unique_capture].merged_bamfile
         else:
             return None
@@ -191,7 +191,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
         return self.refdata['vep_dir'] != None
 
-    def get_all_unique_captures(self):
+    def get_mapped_captures_all(self):
         """
         Obtain all unique sample library captures in this pipeline instance (including
         library -> WGS items).
@@ -201,7 +201,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         return self.capture_to_results.keys()
 
-    def get_unique_captures_no_wgs(self):
+    def get_mapped_captures_no_wgs(self):
         """
         Obtain all unique sample library captures in this pipeline instance (excluding
         library -> WGS items).
@@ -212,7 +212,7 @@ class ClinseqPipeline(PypedreamPipeline):
         return [capture for capture in self.capture_to_results.keys()
                 if capture.capture_kit_id != "WG"]
 
-    def get_unique_captures_only_wgs(self):
+    def get_mapped_captures_only_wgs(self):
         """
         Obtain all unique sample library captures in this pipeline instance (only
         including library -> WGS items).
@@ -223,7 +223,7 @@ class ClinseqPipeline(PypedreamPipeline):
         return [capture for capture in self.capture_to_results.keys()
                 if capture.capture_kit_id == "WG"]
 
-    def get_unique_normal_captures(self):
+    def get_mapped_captures_normal(self):
         """
         Obtain tuples for all unique normal sample library captures
         in this pipeline instance - not including "WGS" (no) capture items.
@@ -231,11 +231,11 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of named tuples.
         """
 
-        non_wgs_unique_captures = self.get_unique_captures_no_wgs()
+        non_wgs_unique_captures = self.get_mapped_captures_no_wgs()
         return filter(lambda unique_capture: unique_capture.sample_type == "N",
                       non_wgs_unique_captures)
 
-    def get_unique_cancer_captures(self):
+    def get_mapped_captures_cancer(self):
         """
         Obtain all unique cancer sample library captures items in this
         pipeline instance - not including "WGS" (no) capture items.
@@ -243,7 +243,7 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of named tuples.
         """
 
-        non_wgs_unique_captures = self.get_unique_captures_no_wgs()
+        non_wgs_unique_captures = self.get_mapped_captures_no_wgs()
         return filter(lambda unique_capture: unique_capture.sample_type != "N",
                       non_wgs_unique_captures)
 
@@ -464,7 +464,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # For each unique cancer library capture, configure a comparative analysis against
         # this normal capture:
-        for cancer_capture in self.get_unique_cancer_captures():
+        for cancer_capture in self.get_mapped_captures_cancer():
             self.configure_panel_analysis_cancer_vs_normal(
                 normal_capture, cancer_capture)
 
@@ -506,7 +506,7 @@ class ClinseqPipeline(PypedreamPipeline):
         data for this clinseq pipeline, under the assumption that alignment and
         bam file merging has already been performed."""
 
-        for unique_wgs in self.get_unique_captures_only_wgs():
+        for unique_wgs in self.get_mapped_captures_only_wgs():
             self.configure_single_wgs_analyses(unique_wgs)
 
     def configure_single_wgs_analyses(self, unique_wgs):
@@ -560,11 +560,11 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         # Configure analyses to be run on all unique panel captures individually:
-        for unique_capture in self.get_unique_cancer_captures():
+        for unique_capture in self.get_mapped_captures_no_wgs():
             self.configure_single_capture_analysis(unique_capture)
 
         # Configure a separate group of analyses for each unique normal library capture:
-        for normal_capture in self.get_unique_normal_captures():
+        for normal_capture in self.get_mapped_captures_normal():
             self.configure_panel_analysis_with_normal(normal_capture)
 
     def configure_somatic_calling(self, normal_capture, cancer_capture):
@@ -786,7 +786,7 @@ class ClinseqPipeline(PypedreamPipeline):
         Configure QC checks for all low-pass whole genome data in this pipeline.
         """
 
-        for unique_wgs in self.get_unique_captures_only_wgs():
+        for unique_wgs in self.get_mapped_captures_only_wgs():
             self.qc_files += \
                 self.configure_wgs_qc(unique_wgs)
 
@@ -825,7 +825,7 @@ class ClinseqPipeline(PypedreamPipeline):
         Configures QC checks for all panel data (not including WGS data) in this pipeline.
         """
 
-        for unique_capture in self.get_unique_captures_no_wgs():
+        for unique_capture in self.get_mapped_captures_no_wgs():
             self.qc_files += \
                 self.configure_panel_qc(unique_capture)
 

@@ -41,7 +41,7 @@ class TestClinseq(unittest.TestCase):
             },
             "vep_dir": None
         }
-        self.test_unique_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
+        self.test_cancer_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
         self.test_normal_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "TT")
         self.test_wg_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "WG")
         self.test_clinseq_pipeline = ClinseqPipeline(sample_data, ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
@@ -64,38 +64,38 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(self.test_clinseq_pipeline.get_job_param("cov-high-thresh-fold-cov"), 100)
 
     def test_set_germline_vcf(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_unique_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_unique_capture], "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
+        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_cancer_capture], "test.vcf")
 
     def test_get_germline_vcf_exists(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_unique_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_unique_capture), "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), "test.vcf")
 
     def test_get_germline_vcf_none(self):
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_unique_capture), None)
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), None)
 
     def test_set_capture_bam(self):
-        self.test_clinseq_pipeline.set_capture_bam(self.test_unique_capture, "test.bam")
-        self.assertEquals(self.test_clinseq_pipeline.capture_to_results[self.test_unique_capture].merged_bamfile,
+        self.test_clinseq_pipeline.set_capture_bam(self.test_cancer_capture, "test.bam")
+        self.assertEquals(self.test_clinseq_pipeline.capture_to_results[self.test_cancer_capture].merged_bamfile,
                           "test.bam")
 
     def test_set_capture_cnr(self):
-        self.test_clinseq_pipeline.set_capture_cnr(self.test_unique_capture, "test.cnr")
-        self.assertEquals(self.test_clinseq_pipeline.capture_to_results[self.test_unique_capture].cnr,
+        self.test_clinseq_pipeline.set_capture_cnr(self.test_cancer_capture, "test.cnr")
+        self.assertEquals(self.test_clinseq_pipeline.capture_to_results[self.test_cancer_capture].cnr,
                           "test.cnr")
 
     def test_set_capture_cns(self):
-        self.test_clinseq_pipeline.set_capture_cns(self.test_unique_capture, "test.cns")
-        self.assertEquals(self.test_clinseq_pipeline.capture_to_results[self.test_unique_capture].cns,
+        self.test_clinseq_pipeline.set_capture_cns(self.test_cancer_capture, "test.cns")
+        self.assertEquals(self.test_clinseq_pipeline.capture_to_results[self.test_cancer_capture].cns,
                           "test.cns")
 
     def test_get_capture_bam_exists(self):
-        self.test_clinseq_pipeline.set_capture_bam(self.test_unique_capture, "test.bam")
-        self.assertEquals(self.test_clinseq_pipeline.get_capture_bam(self.test_unique_capture),
+        self.test_clinseq_pipeline.set_capture_bam(self.test_cancer_capture, "test.bam")
+        self.assertEquals(self.test_clinseq_pipeline.get_capture_bam(self.test_cancer_capture),
                           "test.bam")
 
     def test_get_capture_bam_none(self):
-        self.assertEquals(self.test_clinseq_pipeline.get_capture_bam(self.test_unique_capture),
+        self.assertEquals(self.test_clinseq_pipeline.get_capture_bam(self.test_cancer_capture),
                           None)
 
     @patch('autoseq.pipeline.clinseq.data_available_for_clinseq_barcode')
@@ -129,23 +129,23 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(self.test_clinseq_pipeline.vep_is_set(), False)
 
     def test_get_all_unique_capture(self):
-        self.assertEquals(self.test_clinseq_pipeline.get_all_unique_captures(), [])
+        self.assertEquals(self.test_clinseq_pipeline.get_mapped_captures_all(), [])
 
     def test_get_unique_captures_no_wgs(self):
-        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
-        self.assertEquals(self.test_clinseq_pipeline.get_unique_captures_no_wgs(), [self.test_unique_capture])
+        self.test_clinseq_pipeline.capture_to_results = {self.test_cancer_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_mapped_captures_no_wgs(), [self.test_cancer_capture])
 
     def test_get_unique_captures_only_wgs(self):
-        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
-        self.assertEquals(self.test_clinseq_pipeline.get_unique_captures_only_wgs(), [])
+        self.test_clinseq_pipeline.capture_to_results = {self.test_cancer_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_mapped_captures_only_wgs(), [])
 
     def test_get_unique_normal_captures(self):
-        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
-        self.assertEquals(self.test_clinseq_pipeline.get_unique_normal_captures(), [])
+        self.test_clinseq_pipeline.capture_to_results = {self.test_cancer_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_mapped_captures_normal(), [])
 
     def test_get_unique_cancer_captures(self):
-        self.test_clinseq_pipeline.capture_to_results = {self.test_unique_capture: 1}
-        self.assertEquals(self.test_clinseq_pipeline.get_unique_cancer_captures(), [self.test_unique_capture])
+        self.test_clinseq_pipeline.capture_to_results = {self.test_cancer_capture: 1}
+        self.assertEquals(self.test_clinseq_pipeline.get_mapped_captures_cancer(), [self.test_cancer_capture])
 
     def test_get_prep_kit_name(self):
         self.assertEquals(self.test_clinseq_pipeline.get_prep_kit_name("BN"), "BIOO_NEXTFLEX")
@@ -173,9 +173,9 @@ class TestClinseq(unittest.TestCase):
                           set(l2))
 
     def test_merge_and_rm_dup(self):
-        self.test_clinseq_pipeline.merge_and_rm_dup(self.test_unique_capture, ["test.bam"])
+        self.test_clinseq_pipeline.merge_and_rm_dup(self.test_cancer_capture, ["test.bam"])
         self.assertNotEqual(
-            self.test_clinseq_pipeline.capture_to_results[self.test_unique_capture].merged_bamfile,
+            self.test_clinseq_pipeline.capture_to_results[self.test_cancer_capture].merged_bamfile,
             None)
         self.assertEquals(\
             len(self.test_clinseq_pipeline.graph.nodes()), 2)
@@ -209,12 +209,12 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.call_germline_variants')
-    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_unique_cancer_captures')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_cancer')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_panel_analysis_cancer_vs_normal')
     def test_configure_panel_analysis_with_normal(self, mock_configure_panel_analysis_cancer_vs_normal,
-                                                  mock_get_unique_cancer_captures,
+                                                  mock_get_mapped_captures_cancer,
                                                   mock_call_germline_variants):
-        mock_get_unique_cancer_captures.return_value = [self.test_unique_capture]
+        mock_get_mapped_captures_cancer.return_value = [self.test_cancer_capture]
         self.test_clinseq_pipeline.configure_panel_analysis_with_normal(self.test_normal_capture)
         self.assertTrue(mock_call_germline_variants.called)
         self.assertTrue(mock_configure_panel_analysis_cancer_vs_normal.called)
@@ -222,7 +222,7 @@ class TestClinseq(unittest.TestCase):
     def test_configure_panel_analysis_with_normal_invalid(self):
         self.assertRaises(ValueError,
                           lambda: self.test_clinseq_pipeline.configure_panel_analysis_with_normal(
-                              self.test_unique_capture))
+                              self.test_cancer_capture))
 
     def test_cnvkit_ref_exists(self):
         self.assertFalse(self.test_clinseq_pipeline.cnvkit_ref_exists("test-regions"))
@@ -235,7 +235,7 @@ class TestClinseq(unittest.TestCase):
         mock_cnvkit_ref_exists.return_value = True
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
-        self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_unique_capture)
+        self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.cnvkit_ref_exists')
@@ -246,14 +246,14 @@ class TestClinseq(unittest.TestCase):
         mock_cnvkit_ref_exists.return_value = False
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
-        self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_unique_capture)
+        self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_wgs_analyses')
-    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_unique_captures_only_wgs')
-    def test_configure_lowpass_analyses(self, mock_get_unique_captures_only_wgs,
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_only_wgs')
+    def test_configure_lowpass_analyses(self, mock_get_mapped_only_wgs,
                                         mock_configure_single_wgs_analyses):
-        mock_get_unique_captures_only_wgs.return_value = [self.test_wg_capture]
+        mock_get_mapped_only_wgs.return_value = [self.test_wg_capture]
         self.test_clinseq_pipeline.configure_lowpass_analyses()
         self.assertTrue(mock_configure_single_wgs_analyses.called)
 
@@ -267,4 +267,57 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(len(self.test_clinseq_pipeline.run_wgs_bam_qc(["test1.bam", "test2.bam"])),
                           4)
 
-    # XXX CONTINUE TESTING FROM configure_panel_analyses ONWARDS
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_capture_analysis')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_panel_analysis_with_normal')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_no_wgs')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_normal')
+    def test_configure_lowpass_analyses(self, mock_get_mapped_captures_normal,
+                                        mock_get_mapped_captures_no_wgs,
+                                        mock_configure_panel_analysis_with_normal,
+                                        mock_configure_single_capture_analysis):
+        mock_get_mapped_captures_normal.return_value = [self.test_normal_capture]
+        mock_get_mapped_captures_no_wgs.return_value = [self.test_cancer_capture]
+        self.test_clinseq_pipeline.configure_panel_analyses()
+        self.assertTrue(mock_configure_single_capture_analysis.called)
+        self.assertTrue(mock_configure_panel_analysis_with_normal.called)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_capture_analysis')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_panel_analysis_with_normal')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_no_wgs')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_normal')
+    def test_configure_lowpass_analyses_cancer_only(self, mock_get_mapped_captures_normal,
+                                        mock_get_mapped_captures_no_wgs,
+                                        mock_configure_panel_analysis_with_normal,
+                                        mock_configure_single_capture_analysis):
+        mock_get_mapped_captures_normal.return_value = []
+        mock_get_mapped_captures_no_wgs.return_value = [self.test_cancer_capture]
+        self.test_clinseq_pipeline.configure_panel_analyses()
+        self.assertTrue(mock_configure_single_capture_analysis.called)
+        self.assertFalse(mock_configure_panel_analysis_with_normal.called)
+
+    @patch('autoseq.pipeline.clinseq.call_somatic_variants')
+    def test_configure_somatic_calling(self, mock_call_somatic_variants):
+        mock_call_somatic_variants.return_value = {"vardict": "test.vcf"}
+        self.test_clinseq_pipeline.configure_somatic_calling(self.test_normal_capture,
+                                                             self.test_cancer_capture)
+        self.assertTrue(mock_call_somatic_variants.called)
+        stored_vcf = self.test_clinseq_pipeline.normal_cancer_pair_to_results[
+            (self.test_normal_capture, self.test_cancer_capture)].somatic_vcf
+        self.assertEquals(stored_vcf, "test.vcf")
+
+    def test_configure_vcf_add_sample(self):
+        self.test_clinseq_pipeline.configure_vcf_add_sample(self.test_normal_capture,
+                                                            self.test_cancer_capture)
+        self.assertTrue(
+            self.test_clinseq_pipeline.normal_cancer_pair_to_results[(
+                self.test_normal_capture, self.test_cancer_capture)].vcf_addsample_output is not None)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    def test_configure_msi_sensor(self):
+        self.test_clinseq_pipeline.configure_msi_sensor(self.test_normal_capture,
+                                                        self.test_cancer_capture)
+        self.assertTrue(
+            self.test_clinseq_pipeline.normal_cancer_pair_to_results[(
+                self.test_normal_capture, self.test_cancer_capture)].msi_output is not None)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+ 

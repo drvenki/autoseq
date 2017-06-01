@@ -59,12 +59,12 @@ class AlasccaPipeline(ClinseqPipeline):
         """
 
         # There must be exactly one tumor and exactly one normal for this to be valid:
-        if len(self.get_unique_cancer_captures()) != 1 or \
-           len(self.get_unique_normal_captures()) != 1:
+        if len(self.get_mapped_captures_cancer()) != 1 or \
+           len(self.get_mapped_captures_normal()) != 1:
             raise ValueError("Invalid pipeline state for configuration of ALASCCA CNA.")
 
-        normal_capture = self.get_unique_normal_captures()[0]
-        tumor_capture = self.get_unique_cancer_captures()[0]
+        normal_capture = self.get_mapped_captures_normal()[0]
+        tumor_capture = self.get_mapped_captures_cancer()[0]
 
         return normal_capture, tumor_capture
 
