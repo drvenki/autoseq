@@ -250,10 +250,10 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_wgs_analyses')
-    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_only_wgs')
-    def test_configure_lowpass_analyses(self, mock_get_mapped_only_wgs,
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_only_wgs')
+    def test_configure_lowpass_analyses(self, mock_get_mapped_captures_only_wgs,
                                         mock_configure_single_wgs_analyses):
-        mock_get_mapped_only_wgs.return_value = [self.test_wg_capture]
+        mock_get_mapped_captures_only_wgs.return_value = [self.test_wg_capture]
         self.test_clinseq_pipeline.configure_lowpass_analyses()
         self.assertTrue(mock_configure_single_wgs_analyses.called)
 
@@ -271,10 +271,10 @@ class TestClinseq(unittest.TestCase):
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_panel_analysis_with_normal')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_no_wgs')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_normal')
-    def test_configure_lowpass_analyses(self, mock_get_mapped_captures_normal,
-                                        mock_get_mapped_captures_no_wgs,
-                                        mock_configure_panel_analysis_with_normal,
-                                        mock_configure_single_capture_analysis):
+    def test_configure_panel_analyses(self, mock_get_mapped_captures_normal,
+                                      mock_get_mapped_captures_no_wgs,
+                                      mock_configure_panel_analysis_with_normal,
+                                      mock_configure_single_capture_analysis):
         mock_get_mapped_captures_normal.return_value = [self.test_normal_capture]
         mock_get_mapped_captures_no_wgs.return_value = [self.test_cancer_capture]
         self.test_clinseq_pipeline.configure_panel_analyses()
@@ -285,10 +285,10 @@ class TestClinseq(unittest.TestCase):
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_panel_analysis_with_normal')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_no_wgs')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_normal')
-    def test_configure_lowpass_analyses_cancer_only(self, mock_get_mapped_captures_normal,
-                                        mock_get_mapped_captures_no_wgs,
-                                        mock_configure_panel_analysis_with_normal,
-                                        mock_configure_single_capture_analysis):
+    def test_configure_panel_analyses_cancer_only(self, mock_get_mapped_captures_normal,
+                                                  mock_get_mapped_captures_no_wgs,
+                                                  mock_configure_panel_analysis_with_normal,
+                                                  mock_configure_single_capture_analysis):
         mock_get_mapped_captures_normal.return_value = []
         mock_get_mapped_captures_no_wgs.return_value = [self.test_cancer_capture]
         self.test_clinseq_pipeline.configure_panel_analyses()
@@ -379,3 +379,18 @@ class TestClinseq(unittest.TestCase):
     def test_configure_wgs_qc(self):
         qc_files = self.test_clinseq_pipeline.configure_wgs_qc(self.test_wg_capture)
         self.assertEquals(len(qc_files), 2)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_no_wgs')
+    def test_configure_all_panel_qcs(self, mock_get_mapped_captures_no_wgs):
+        mock_get_mapped_captures_no_wgs.return_value = [self.test_normal_capture, self.test_cancer_capture]
+        self.test_clinseq_pipeline.configure_all_panel_qcs()
+        self.assertEquals(len(self.test_clinseq_pipeline.qc_files), 12)
+
+    def test_configure_multi_qc(self):
+        self.test_clinseq_pipeline.configure_multi_qc()
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    def test_configure_panel_qc(self):
+        qc_files = self.test_clinseq_pipeline.configure_panel_qc(self.test_cancer_capture)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 6)
+        self.assertEquals(len(qc_files), 6)
