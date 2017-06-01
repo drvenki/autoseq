@@ -7,38 +7,6 @@ from autoseq.util.clinseq_barcode import *
 from autoseq.util.vcfutils import vt_split_and_leftaln, fix_ambiguous_cl, remove_dup_cl
 
 
-class Mutect2(Job):
-    def __init__(self):
-        Job.__init__(self)
-        self.input_tumor = None
-        self.input_normal = None
-        self.reference_sequence = None
-        self.target_regions = None
-        self.cosmic = None
-        self.dbsnp = None
-        self.output = None
-        self.jobname = "mutect2"
-
-    def command(self):
-        if not self.output.endswith("gz"):
-            raise ValueError("Output needs to be gzipped: {}".format(self.output))
-        tmpf = "{scratch}/mutect2-{uuid}.vcf.gz".format(scratch=self.scratch, uuid=uuid.uuid4())
-        mutect_cmd = "mutect2 -R " + self.reference_sequence + \
-                     required("--input_file:tumor ", self.input_tumor) + \
-                     optional("--input_file:normal ", self.input_normal) + \
-                     required("--out ", tmpf) + \
-                     optional("-L ", self.target_regions) + \
-                     optional("-nct ", self.threads) + \
-                     optional("--dbsnp ", self.dbsnp) + \
-                     optional("--cosmic ", self.cosmic)
-        leftaln_cmd = "gzip -cd {} ".format(tmpf) + \
-                      " | " + vt_split_and_leftaln(self.reference_sequence) + \
-                      " | bcftools view --apply-filters .,PASS " + \
-                      " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
-        rmtmp_cmd = "rm {} {}.tbi".format(tmpf, tmpf)
-        return " && ".join([mutect_cmd, leftaln_cmd, rmtmp_cmd])
-
-
 class Freebayes(Job):
     def __init__(self):
         Job.__init__(self)
@@ -249,7 +217,7 @@ def call_somatic_variants(pipeline, tbam, nbam, tumor_capture, normal_capture, t
     :param target_name:
     :param refdata:
     :param outdir:
-    :param callers: list of callers to use (conbination of mutect2, vardict, freebayes)
+    :param callers: list of callers to use (combination of vardict, freebayes)
     # :return: dict of generated files
     :param vep: boolean whether to run vep on generated vcfs or not
     :param min_alt_frac:
@@ -261,18 +229,6 @@ def call_somatic_variants(pipeline, tbam, nbam, tumor_capture, normal_capture, t
     tumor_sample_str = compose_sample_str(tumor_capture)
 
     d = {}
-    if 'mutect2' in callers:
-        mutect2 = Mutect2()
-        mutect2.input_tumor = tbam
-        mutect2.input_normal = nbam
-        mutect2.reference_sequence = refdata['reference_genome']
-        mutect2.target_regions = refdata['targets'][target_name]['targets-interval_list-slopped20']
-        mutect2.scratch = pipeline.scratch
-        mutect2.jobname = "mutect2/{}".format(tlib)
-        mutect2.output = "{}/variants/{}-{}.mutect.vcf.gz".format(outdir, tlib, nlib)
-        pipeline.add(mutect2)
-        d['mutect2'] = mutect2.output
-
     if 'freebayes' in callers:
         freebayes = Freebayes()
         freebayes.input_bams = [tbam, nbam]
