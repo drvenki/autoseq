@@ -320,4 +320,47 @@ class TestClinseq(unittest.TestCase):
             self.test_clinseq_pipeline.normal_cancer_pair_to_results[(
                 self.test_normal_capture, self.test_cancer_capture)].msi_output is not None)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
- 
+
+    def test_configure_hz_conc(self):
+        self.test_clinseq_pipeline.configure_hz_conc(self.test_normal_capture,
+                                                     self.test_cancer_capture)
+        self.assertTrue(
+            self.test_clinseq_pipeline.normal_cancer_pair_to_results[(
+                self.test_normal_capture, self.test_cancer_capture)].hzconcordance_output is not None)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    def test_configure_contest_vcf_generation(self):
+        self.test_clinseq_pipeline.configure_contest_vcf_generation(self.test_normal_capture,
+                                                                    self.test_cancer_capture)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    def test_configure_contest(self):
+        self.test_clinseq_pipeline.configure_contest(self.test_normal_capture,
+                                                     self.test_cancer_capture,
+                                                     "test.vcf")
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    def test_configure_contam_qc_call(self):
+        self.test_clinseq_pipeline.configure_contam_qc_call("dummy.txt",
+                                                            self.test_cancer_capture)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_contest')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_contam_qc_call')
+    def test_configure_contamination_estimate(self, mock_configure_contam_qc_call, mock_configure_contest):
+        mock_configure_contest.side_effect = ["cancer_vs_normal_output.txt", "normal_vs_cancer_output.txt"]
+        mock_configure_contam_qc_call.return_value = "dummy_call.json"
+        self.test_clinseq_pipeline.configure_contamination_estimate(self.test_normal_capture,
+                                                                    self.test_cancer_capture)
+
+        stored_normal_contest_output = self.test_clinseq_pipeline.normal_cancer_pair_to_results[
+            (self.test_normal_capture, self.test_cancer_capture)].normal_contest_output
+        self.assertEquals(stored_normal_contest_output, "normal_vs_cancer_output.txt")
+
+        stored_cancer_contest_output = self.test_clinseq_pipeline.normal_cancer_pair_to_results[
+            (self.test_normal_capture, self.test_cancer_capture)].cancer_contest_output
+        self.assertEquals(stored_cancer_contest_output, "cancer_vs_normal_output.txt")
+
+        stored_cancer_contam_call = self.test_clinseq_pipeline.normal_cancer_pair_to_results[
+            (self.test_normal_capture, self.test_cancer_capture)].cancer_contam_call
+        self.assertEquals(stored_cancer_contam_call, "dummy_call.json")
