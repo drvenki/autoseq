@@ -281,7 +281,7 @@ def create_scaffold_sampledict(sdids):
 
     scaffold_dict = {}
     for sdid in sdids:
-        curr_clinseq_barcode_info = {"sdid":sdid, "N": [], "T": [], "CFDNA": []}
+        curr_clinseq_barcode_info = {"sdid": sdid, "N": [], "T": [], "CFDNA": []}
         scaffold_dict[sdid] = curr_clinseq_barcode_info
 
     return scaffold_dict
@@ -297,6 +297,9 @@ def populate_clinseq_barcode_info(clinseq_barcode_info, clinseq_barcode):
     :param clinseq_barcode: A validated clinseq barcode string.
     """
 
+    if not clinseq_barcode_is_valid(clinseq_barcode):
+        raise ValueError("Invalid clinseq barcode: ", clinseq_barcode)
+
     # Append this clinseq barcode to the relevant field in the specified clinseq barcode
     # info dictionary:
     sample_type = parse_sample_type(clinseq_barcode)
@@ -308,9 +311,13 @@ def convert_barcodes_to_sampledict(clinseq_barcodes):
     Coverts the specified clinseq barcode strings into a dictionary linking
     from SDID to clinseq barcode information for that individual.
 
-    :param clinseq_barcode_tups: A list of ClinseqBarcode named tuples.
+    :param clinseq_barcodes: A list of valid clinseq barcode strings
     :return: A dictionary with the required structure.
     """
+
+    for curr_clinseq_barcode in clinseq_barcodes:
+        if not clinseq_barcode_is_valid(curr_clinseq_barcode):
+            raise ValueError("Invalid clinseq barcode: ", curr_clinseq_barcode)
 
     # Extract set of unique SDIDs from the specified clinseq barcodes:
     sdids = set([parse_sdid(clinseq_barcode) for clinseq_barcode in clinseq_barcodes])

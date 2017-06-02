@@ -67,6 +67,63 @@ class TestClinseqBarcode(unittest.TestCase):
     def test_extract_clinseq_barcodes_invalid_file_extension(self):
         self.assertRaises(ValueError, lambda: extract_clinseq_barcodes("some_file.invalid_extension"))
 
+    def test_validate_clinseq_barcodes_two_valid(self):
+        validate_clinseq_barcodes(["LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000",
+                                   "LB-P-00000002-T-01234567-TP201701011541-CM2017001022001"])
+
+    def test_validate_clinseq_barcodes_none(self):
+        validate_clinseq_barcodes([])
+
+    def test_validate_clinseq_barcodes_one_invalid(self):
+        self.assertRaises(ValueError, lambda: validate_clinseq_barcodes(["an_invalid_barcode"]))
+
+    def test_create_scaffold_sampledict(self):
+        test_scaffold = create_scaffold_sampledict(["test_id1", "test_id2"])
+        self.assertEqual(test_scaffold.keys(), ["test_id1", "test_id2"])
+        self.assertEqual(test_scaffold["test_id1"]["N"], [])
+
+    def test_create_scaffold_sampledict_empty(self):
+        self.assertEqual(create_scaffold_sampledict([]),
+                         {})
+
+    def test_validate_clinseq_barcodes_one_of_two_invalid(self):
+        self.assertRaises(ValueError, lambda: validate_clinseq_barcodes([
+            "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000",
+            "an_invalid_barcode"]))
+
+    def test_populate_clinseq_barcode_info_normal(self):
+        test_dict = {"sdid": "P-00000001", "N": [], "T": [], "CFDNA": []}
+        populate_clinseq_barcode_info(test_dict,
+                                      "LB-P-00000001-N-01234567-TP201701011540-CM2017001022000")
+        self.assertEqual(test_dict["N"], ["LB-P-00000001-N-01234567-TP201701011540-CM2017001022000"])
+
+    def test_populate_clinseq_barcode_info_cfdna(self):
+        test_dict = {"sdid": "P-00000001", "N": [], "T": [], "CFDNA": []}
+        populate_clinseq_barcode_info(test_dict,
+                                      "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000")
+        self.assertEqual(test_dict["CFDNA"], ["LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000"])
+
+    def test_populate_clinseq_barcode_info_invalid_sample_type(self):
+        test_dict = {"sdid": "P-00000001", "N": [], "T": [], "CFDNA": []}
+        self.assertRaises(ValueError, lambda: populate_clinseq_barcode_info(
+            test_dict, "LB-P-00000001-INVALIDVALUE-01234567-TP201701011540-CM2017001022000"))
+
+    def test_convert_barcodes_to_sampledict_invalid_barcode(self):
+        self.assertRaises(ValueError, lambda: convert_barcodes_to_sampledict([
+            "an_invalid_barcode", "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000"]))
+
+    def test_convert_barcodes_to_sampledict_two_barcodes_same_sdid(self):
+        sample_dict = convert_barcodes_to_sampledict([
+            "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000",
+            "LB-P-00000001-N-01234568-TP201701011540-CM2017001022000"])
+        self.assertEqual(sample_dict.keys(), ["P-00000001"])
+
+    def test_convert_barcodes_to_sampledict_two_barcodes_different_sdid(self):
+        sample_dict = convert_barcodes_to_sampledict([
+            "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000",
+            "LB-P-00000002-N-01234568-TP201701011540-CM2017001022000"])
+        self.assertEqual(set(sample_dict.keys()), set(["P-00000001", "P-00000002"]))
+
     @patch('autoseq.util.clinseq_barcode.parse_orderform')
     def test_extract_clinseq_barcodes_xlsx(self, mock_parse_orderform):
         mock_parse_orderform.return_value = ["a_mock_barcode", "another_mock_barcode"]
