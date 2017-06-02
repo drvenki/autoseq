@@ -23,18 +23,21 @@ def data_available_for_clinseq_barcode(libdir, clinseq_barcode):
     Check that data is available for the specified clinseq barcode in the specified library folder.
 
     :param libdir: Directory name where fastqs are organised.
-    :param clinseq_barcode: A clinseq barcode string
+    :param clinseq_barcode: A valid clinseq barcode string
     :return: True if data is available, False otherwise
     """
 
-    if clinseq_barcode:
-        filedir = os.path.join(libdir, clinseq_barcode)
-        if not os.path.exists(filedir):
-            logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, clinseq_barcode))
-            return False
-        if find_fastqs(clinseq_barcode, libdir) == (None, None):
-            logging.warn("No fastq files found for {} in dir {}".format(clinseq_barcode, filedir))
-            return False
+    if not clinseq_barcode_is_valid(clinseq_barcode):
+        raise ValueError("Invalid clinseq barcode: " + clinseq_barcode)
+
+    filedir = os.path.join(libdir, clinseq_barcode)
+    if not os.path.exists(filedir):
+        logging.warn("Dir {} does not exists for {}. Not using library.".format(filedir, clinseq_barcode))
+        return False
+    if find_fastqs(clinseq_barcode, libdir) == (None, None):
+        logging.warn("No fastq files found for {} in dir {}".format(clinseq_barcode, filedir))
+        return False
+
     logging.debug("Library {} has data. Using it.".format(clinseq_barcode))
     return True
 
@@ -245,11 +248,9 @@ def extract_clinseq_barcodes(input_filename):
     """
 
     toks = input_filename.split(".")
-    if len(toks) < 1:
-        raise ValueError("Invalid clinseq barcodes input filename: " + input_filename)
 
     if toks[-1] == "txt":
-        return list(set([line.strip() for line in open(input_filename)]))
+        return list(set([line.strip() for line in open(input_filename).readlines()]))
     elif toks[-1] == "xlsx":
         return list(set(parse_orderform(input_filename)))
     else:
