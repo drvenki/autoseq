@@ -205,43 +205,45 @@ class InstallVep(Job):
                " --species homo_sapiens --version 83_GRCh37"
 
 
-def call_somatic_variants(pipeline, tbam, nbam, tumor_capture, normal_capture, target_name, refdata, outdir,
-                          callers=['vardict', 'freebayes'], vep=True, min_alt_frac=0.1):
+def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, normal_capture,
+                          target_name, refdata, outdir, callers=['vardict', 'freebayes'],
+                          vep=True, min_alt_frac=0.1):
     """
-    Call somatic variants.
-    :param pipeline:
-    :param tbam:
-    :param nbam:
-    :param tlib:
-    :param nlib:
-    :param target_name:
-    :param refdata:
-    :param outdir:
-    :param callers: list of callers to use (combination of vardict, freebayes)
-    # :return: dict of generated files
+    Configuring calling of somatic variants on a given pairing of cancer and normal bam files,
+    using a set of specified algorithms.
+
+    :param pipeline: The analysis pipeline for which to configure somatic calling.
+    :param cancer_bam: Location of the cancer sample bam file
+    :param normal_bam: Location of the normal sample bam file
+    :param cancer_capture: A UniqueCapture item identifying the cancer sample library capture 
+    :param normal_capture: A UniqueCapture item identifying the normal sample library capture
+    :param target_name: The name of the capture panel used
+    :param refdata: Genomic reference data dictionary
+    :param outdir: Output location
+    :param callers: List of calling algorithms to use - can include 'vardict' and/or 'freebayes'
     :param vep: boolean whether to run vep on generated vcfs or not
-    :param min_alt_frac:
-    :return:
+    :param min_alt_frac: The minimum allelic fraction value in order to retain a called variant 
+    :return: A dictionary with somatic caller name as key and corresponding output file location as value
     """
-    tlib = compose_lib_capture_str(tumor_capture)
-    nlib = compose_lib_capture_str(normal_capture)
+    cancer_capture_str = compose_lib_capture_str(cancer_capture)
+    normal_capture_str = compose_lib_capture_str(normal_capture)
     normal_sample_str = compose_sample_str(normal_capture)
-    tumor_sample_str = compose_sample_str(tumor_capture)
+    tumor_sample_str = compose_sample_str(cancer_capture)
 
     d = {}
     if 'freebayes' in callers:
         freebayes = Freebayes()
-        freebayes.input_bams = [tbam, nbam]
-        freebayes.tumorid = tlib
-        freebayes.normalid = nlib
+        freebayes.input_bams = [cancer_bam, normal_bam]
+        freebayes.tumorid = cancer_capture_str
+        freebayes.normalid = normal_capture_str
         freebayes.somatic_only = True
         freebayes.reference_sequence = refdata['reference_genome']
         freebayes.target_bed = refdata['targets'][target_name]['targets-bed-slopped20']
         freebayes.threads = pipeline.maxcores
         freebayes.min_alt_frac = min_alt_frac
         freebayes.scratch = pipeline.scratch
-        freebayes.jobname = "freebayes-somatic/{}".format(tlib)
-        freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(outdir, tlib, nlib)
+        freebayes.jobname = "freebayes-somatic/{}".format(cancer_capture_str)
+        freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str)
         pipeline.add(freebayes)
         d['freebayes'] = freebayes.output
 
@@ -251,22 +253,22 @@ def call_somatic_variants(pipeline, tbam, nbam, tumor_capture, normal_capture, t
             vep_freebayes.threads = pipeline.maxcores
             vep_freebayes.reference_sequence = refdata['reference_genome']
             vep_freebayes.vep_dir = refdata['vep_dir']
-            vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
-            vep_freebayes.jobname = "vep-freebayes-somatic/{}".format(tlib)
+            vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str)
+            vep_freebayes.jobname = "vep-freebayes-somatic/{}".format(cancer_capture_str)
             pipeline.add(vep_freebayes)
             d['freebayes'] = vep_freebayes.output_vcf
 
     if 'vardict' in callers:
-        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tumor_sample_str,
+        vardict = VarDict(input_tumor=cancer_bam, input_normal=normal_bam, tumorid=tumor_sample_str,
                           normalid=normal_sample_str,
                           reference_sequence=refdata['reference_genome'],
                           reference_dict=refdata['reference_dict'],
                           target_bed=refdata['targets'][target_name]['targets-bed-slopped20'],
-                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, tlib, nlib),
+                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str),
                           min_alt_frac=min_alt_frac
                           )
 
-        vardict.jobname = "vardict/{}".format(tlib)
+        vardict.jobname = "vardict/{}".format(cancer_capture_str)
         pipeline.add(vardict)
 
         vep_vardict = VEP()
@@ -274,8 +276,8 @@ def call_somatic_variants(pipeline, tbam, nbam, tumor_capture, normal_capture, t
         vep_vardict.threads = pipeline.maxcores
         vep_vardict.reference_sequence = refdata['reference_genome']
         vep_vardict.vep_dir = refdata['vep_dir']
-        vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
-        vep_vardict.jobname = "vep-vardict/{}".format(tlib)
+        vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str)
+        vep_vardict.jobname = "vep-vardict/{}".format(cancer_capture_str)
         pipeline.add(vep_vardict)
         d['vardict'] = vep_vardict.output_vcf
 

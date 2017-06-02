@@ -1,8 +1,46 @@
 import unittest
 from autoseq.tools.variantcalling import *
+from autoseq.pipeline.clinseq import ClinseqPipeline
 
 
 class TestVariantCalling(unittest.TestCase):
+    def setUp(self):
+        sample_data = {
+            "sdid": "P-NA12877",
+            "T": ["AL-P-NA12877-T-03098849-TD1-TT1", "AL-P-NA12877-T-03098849-TD1-WGS"],
+            "N": ["AL-P-NA12877-N-03098121-TD1-TT1", "AL-P-NA12877-N-03098121-TD1-WGS"],
+            "CFDNA": ["LB-P-NA12877-CFDNA-03098850-TD1-TT1", "LB-P-NA12877-CFDNA-03098850-TD1-TT2",
+                      "LB-P-NA12877-CFDNA-03098850-TD1-WGS"]
+        }
+        self.ref_data = {
+            "bwaIndex": "bwa/test-genome-masked.fasta",
+            "chrsizes": "genome/test-genome-masked.chrsizes.txt",
+            "clinvar": "variants/clinvar_20160203.vcf.gz",
+            "cosmic": "variants/CosmicCodingMuts_v71.vcf.gz",
+            "dbSNP": "variants/dbsnp142-germline-only.vcf.gz",
+            "exac": "variants/ExAC.r0.3.1.sites.vep.vcf.gz",
+            "icgc": "variants/icgc_release_20_simple_somatic_mutation.aggregated.vcf.gz",
+            "reference_dict": "genome/test-genome-masked.dict",
+            "reference_genome": "genome/test-genome-masked.fasta",
+            "swegene_common": "variants/swegen_common.vcf.gz",
+            "targets": {
+                "test-regions": {
+                    "cnvkit-ref": None,
+                    "msisites": "intervals/targets/test-regions.msisites.tsv",
+                    "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
+                    "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
+                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list"
+                }
+            },
+            "contest_vcfs": {
+                "test-regions": "test_contest.vcf"
+            },
+            "vep_dir": None
+        }
+        self.test_cancer_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
+        self.test_normal_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "TT")
+        self.test_clinseq_pipeline = ClinseqPipeline(sample_data, self.ref_data, {}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
+
     def test_freebayes(self):
         freebayes = Freebayes()
         freebayes.input_bams = ["input.bam"]
@@ -46,6 +84,25 @@ class TestVariantCalling(unittest.TestCase):
         self.assertIn('dummy_dir', cmd)
         self.assertIn('output.vcf', cmd)
 
+    def test_vep_fork(self):
+        vep = VEP()
+        vep.input_vcf = "input.vcf"
+        vep.output_vcf = "output.vcf"
+        vep.reference_sequence = "dummy.fasta"
+        vep.vep_dir = "dummy_dir"
+        vep.threads = 2
+        cmd = vep.command()
+        self.assertIn('fork', cmd)
+
+    def test_vep_gz(self):
+        vep = VEP()
+        vep.input_vcf = "input.vcf"
+        vep.output_vcf = "output.vcf.gz"
+        vep.reference_sequence = "dummy.fasta"
+        vep.vep_dir = "dummy_dir"
+        cmd = vep.command()
+        self.assertIn('bgzip', cmd)
+
     def test_vcf_add_sample(self):
         vcf_add_sample = VcfAddSample()
         vcf_add_sample.input_vcf = "input.vcf"
@@ -58,8 +115,15 @@ class TestVariantCalling(unittest.TestCase):
         self.assertIn('dummy_name', cmd)
         self.assertIn('output.vcf', cmd)
 
-    # XXX CONTINUE HERE: ADD AN EXTRA TEST TO TEST THE GZ FUNCTIONALITY.
-    # ALSO, ADD TESTS FOR BRANCHES IN THE VEP JOB CODE.
+    def test_vcf_add_sample_gz(self):
+        vcf_add_sample = VcfAddSample()
+        vcf_add_sample.input_vcf = "input.vcf"
+        vcf_add_sample.input_bam = "input.bam"
+        vcf_add_sample.samplename = "dummy_name"
+        vcf_add_sample.output = "output.vcf.gz"
+        cmd = vcf_add_sample.command()
+        self.assertIn('bgzip > output.vcf.gz', cmd)
+        self.assertIn('tabix', cmd)
 
     def test_vcf_filter(self):
         vcf_filter = VcfFilter()
@@ -88,7 +152,11 @@ class TestVariantCalling(unittest.TestCase):
         cmd = install_vep.command()
         self.assertIn('dummy_output_dir', cmd)
 
-    # XXX CONTINUE HERE: WRITE TESTS FOR THIS FUNCTION. POSSIBLY ALSO REFACTOR IT TO MAKE THE INTERFACE
-    # CLEANER, AND IMPROVE THE DOCUMENTATION TO IT.
     def test_call_somatic_variants(self):
-        pass
+        num_jobs_before_call = len(self.test_clinseq_pipeline.graph.nodes())
+        output_dict = call_somatic_variants(self.test_clinseq_pipeline, "test_cancer.bam", "test_normal.bam",
+                                            self.test_cancer_capture, self.test_normal_capture, "test-regions",
+                                            self.ref_data, "test_outdir")
+        self.assertEquals(output_dict.keys(), ["vardict", "freebayes"])
+        num_jobs_after_call = len(self.test_clinseq_pipeline.graph.nodes())
+        self.assertEquals(num_jobs_after_call, num_jobs_before_call + 4)
