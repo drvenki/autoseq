@@ -4,7 +4,7 @@ from autoseq.pipeline.alascca import *
 from autoseq.util.clinseq_barcode import UniqueCapture
 
 
-class TestClinseq(unittest.TestCase):
+class TestAlascca(unittest.TestCase):
     def setUp(self):
         self.sample_data_invalid = {
             "sdid": "P-NA12877",
