@@ -30,8 +30,12 @@ class TestAlasccaPurity(unittest.TestCase, VariantAssertions, ReadAssertions):
     def test_purity_estimate_file(self):
         purity_json_fn = "{}/variants/AL-P-NA12877-T-03098849-TD-TT-alascca-purity.json".format(self.outdir)
         with open(purity_json_fn, 'r') as fh:
+            # NOTE: The purity call is no longer "FAIL" for this example, as the number of SNPs
+            # is insufficient to estimate purity => It should be "OK" now. Need to run a larger
+            # test (with more SNPs) or change the minimum SNP threshold in alasccaCNA.R in order
+            # to test a purity "FAIL" example.
             purity_json = json.load(fh)
-            self.assertEqual(purity_json['CALL'], 'FAIL')
+            self.assertEqual(purity_json['CALL'], 'OK')
 
 
 class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
