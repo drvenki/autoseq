@@ -36,6 +36,7 @@ class CancerVsNormalPanelResults(object):
     """
     def __init__(self):
         self.somatic_vcf = None
+        self.vepped_vcf = None
         self.msi_output = None
         self.hzconcordance_output = None
         self.vcf_addsample_output = None
@@ -49,7 +50,7 @@ class ClinseqPipeline(PypedreamPipeline):
     A pipeline for processing clinseq cancer genomics.
     """
     def __init__(self, sampledata, refdata, job_params, outdir, libdir, maxcores=1,
-                 scratch="/scratch/tmp/tmp", **kwargs):
+                 scratch="/scratch/tmp/tmp", analysis_id=None, **kwargs):
         """
         :param sampledata: A dictionary specifying the clinseq barcodes of samples of different types.
         :param refdata: A dictionary specifying the reference data used for configuring the pipeline jobs.
@@ -69,6 +70,7 @@ class ClinseqPipeline(PypedreamPipeline):
         self.libdir = libdir
         self.qc_files = []
         self.scratch = scratch
+        self.analysis_id = analysis_id
 
         # Set up default job parameters:
         self.default_job_params = {
@@ -183,7 +185,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
             self.sampledata[sample_type] = clinseq_barcodes_with_data
 
-    def vep_is_set(self):
+    def vep_data_is_available(self):
         """
         Indicates whether the VEP folder has been set for this analysis.
 
@@ -436,7 +438,7 @@ class ClinseqPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(capture_str)
         self.add(freebayes)
 
-        if self.vep_is_set():
+        if self.vep_data_is_available():
             vep_freebayes = VEP()
             vep_freebayes.input_vcf = freebayes.output
             vep_freebayes.threads = self.maxcores
@@ -575,15 +577,42 @@ class ClinseqPipeline(PypedreamPipeline):
         :param normal_capture: Named tuple indicating normal library capture.
         :param cancer_capture: Named tuple indicating cancer library capture.
         """
+
+        cancer_bam = self.get_capture_bam(cancer_capture)
+        normal_bam = self.get_capture_bam(normal_capture)
+        target_name = self.get_capture_name(cancer_capture.capture_kit_id)
+
         # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
         somatic_variants = call_somatic_variants(
-            self, cancer_bam=self.get_capture_bam(cancer_capture), normal_bam=self.get_capture_bam(normal_capture),
+            self, cancer_bam=cancer_bam, normal_bam=normal_bam  ,
             cancer_capture=cancer_capture, normal_capture=normal_capture,
-            target_name=self.get_capture_name(cancer_capture.capture_kit_id),
-            refdata=self.refdata, outdir=self.outdir,
-            callers=['vardict'], vep=self.vep_is_set(), min_alt_frac=0.02)
+            target_name=target_name,
+            outdir=self.outdir, callers=['vardict'], min_alt_frac=0.02)
+
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = \
             somatic_variants.values()[0]
+
+    def configure_vep(self, normal_capture, cancer_capture):
+        if not self.vep_data_is_available():
+            raise ValueError("Invalid call to configure_vep: No vep data available.")
+
+        somatic_vcf = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf
+
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        normal_capture_str = compose_lib_capture_str(normal_capture)
+
+        vep = VEP()
+        vep.input_vcf = somatic_vcf
+        vep.threads = self.maxcores
+        vep.reference_sequence = self.refdata['reference_genome']
+        vep.vep_dir = self.refdata['vep_dir']
+        vep.output_vcf = "{}/variants/{}-{}.somatic.vep.vcf.gz".format(
+            self.outdir, cancer_capture_str, normal_capture_str)
+        vep.jobname = "vep-freebayes-somatic/{}".format(cancer_capture_str)
+        self.add(vep)
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vepped_vcf = \
+            vep.output_vcf
+
 
     def configure_vcf_add_sample(self, normal_capture, cancer_capture):
         """
@@ -766,6 +795,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         Comprises the following analyses:
         - Somatic variant calling
+        - Running VEP on the resulting somatic VCF
         - Updating of the germline VCF to take into consideration the cancer sample
         - MSI sensor
         - Heterozygote concordance of the sample pair
@@ -776,6 +806,7 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         self.configure_somatic_calling(normal_capture, cancer_capture)
+        self.configure_vep(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
         self.configure_msi_sensor(normal_capture, cancer_capture)
         self.configure_hz_conc(normal_capture, cancer_capture)
@@ -838,7 +869,7 @@ class ClinseqPipeline(PypedreamPipeline):
         multiqc = MultiQC()
         multiqc.input_files = self.qc_files
         multiqc.search_dir = self.outdir
-        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.sampledata['sdid'])
+        multiqc.output = "{}/multiqc/{}-multiqc".format(self.outdir, self.analysis_id)
         multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
 

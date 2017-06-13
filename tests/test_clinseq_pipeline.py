@@ -98,6 +98,7 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(self.test_clinseq_pipeline.get_capture_bam(self.test_cancer_capture),
                           None)
 
+
     @patch('autoseq.pipeline.clinseq.data_available_for_clinseq_barcode')
     def test_check_sampledata_all_available(self, mock_data_available_for_clinseq_barcode):
         mock_data_available_for_clinseq_barcode.return_value = True
@@ -126,7 +127,7 @@ class TestClinseq(unittest.TestCase):
                           })
 
     def test_vep_is_set(self):
-        self.assertEquals(self.test_clinseq_pipeline.vep_is_set(), False)
+        self.assertEquals(self.test_clinseq_pipeline.vep_data_is_available(), False)
 
     def test_get_all_unique_capture(self):
         self.assertEquals(self.test_clinseq_pipeline.get_mapped_captures_all(), [])
@@ -202,7 +203,7 @@ class TestClinseq(unittest.TestCase):
         self.test_clinseq_pipeline.call_germline_variants(self.test_normal_capture, "test.bam")
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
-    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.vep_is_set')
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.vep_data_is_available')
     def test_call_germline_variants_with_vep(self, mock_vep_is_set):
         mock_vep_is_set.return_value = True
         self.test_clinseq_pipeline.call_germline_variants(self.test_normal_capture, "test.bam")
@@ -305,6 +306,20 @@ class TestClinseq(unittest.TestCase):
             (self.test_normal_capture, self.test_cancer_capture)].somatic_vcf
         self.assertEquals(stored_vcf, "test.vcf")
 
+    def test_configure_vep_no_vep_data(self):
+        self.assertRaises(ValueError, lambda: self.test_clinseq_pipeline.configure_vep(
+            self.test_normal_capture, self.test_cancer_capture))
+
+    def test_configure_vep_data_available(self):
+        normal_capture_str = compose_lib_capture_str(self.test_normal_capture)
+        cancer_capture_str = compose_lib_capture_str(self.test_cancer_capture)
+        self.test_clinseq_pipeline.refdata['vep_dir'] = "dummy_vep_dir"
+        self.test_clinseq_pipeline.configure_vep(self.test_normal_capture, self.test_cancer_capture)
+        vepped_file = self.test_clinseq_pipeline.normal_cancer_pair_to_results[
+            (self.test_normal_capture, self.test_cancer_capture)].vepped_vcf
+        self.assertIn(cancer_capture_str, vepped_file)
+        self.assertIn(normal_capture_str, vepped_file)
+
     def test_configure_vcf_add_sample(self):
         self.test_clinseq_pipeline.configure_vcf_add_sample(self.test_normal_capture,
                                                             self.test_cancer_capture)
@@ -366,6 +381,7 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(stored_cancer_contam_call, "dummy_call.json")
 
     def test_configure_panel_analysis_cancer_vs_normal(self):
+        self.test_clinseq_pipeline.refdata['vep_dir'] = "dummy_vep_dir"
         self.test_clinseq_pipeline.configure_panel_analysis_cancer_vs_normal(self.test_normal_capture,
                                                                              self.test_cancer_capture)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 9)

@@ -52,9 +52,13 @@ def convert_to_libdict(clinseq_barcode):
     """
 
     library_id = clinseq_barcode
+
+    if not clinseq_barcode_is_valid(clinseq_barcode):
+        raise ValueError("Invalid clinseq barcode: " + clinseq_barcode)
+
     capture_id = parse_capture_id(clinseq_barcode)
     type = parse_sample_type(clinseq_barcode)
-    sample_id = parse_sample_type(clinseq_barcode)
+    sample_id = parse_sample_id(clinseq_barcode)
     project_id = parse_project(clinseq_barcode)
     sdid = parse_sdid(clinseq_barcode)
     prep_id = parse_prep_id(clinseq_barcode)

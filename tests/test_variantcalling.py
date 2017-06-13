@@ -156,7 +156,7 @@ class TestVariantCalling(unittest.TestCase):
         num_jobs_before_call = len(self.test_clinseq_pipeline.graph.nodes())
         output_dict = call_somatic_variants(self.test_clinseq_pipeline, "test_cancer.bam", "test_normal.bam",
                                             self.test_cancer_capture, self.test_normal_capture, "test-regions",
-                                            self.ref_data, "test_outdir")
+                                            "test_outdir")
         self.assertEquals(output_dict.keys(), ["vardict", "freebayes"])
         num_jobs_after_call = len(self.test_clinseq_pipeline.graph.nodes())
-        self.assertEquals(num_jobs_after_call, num_jobs_before_call + 4)
+        self.assertEquals(num_jobs_after_call, num_jobs_before_call + 2)

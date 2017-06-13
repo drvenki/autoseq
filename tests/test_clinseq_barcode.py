@@ -34,6 +34,19 @@ class TestClinseqBarcode(unittest.TestCase):
     def test_clinseq_barcode_is_valid_invalid_project(self):
         self.assertFalse(clinseq_barcode_is_valid("01-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000"))
 
+    def test_convert_to_libdict_invalid(self):
+        self.assertRaises(ValueError, lambda: convert_to_libdict("An_Invalid_Barcode"))
+
+    def test_convert_to_libdict_valid1(self):
+        libdict = convert_to_libdict("LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000")
+        self.assertEquals(libdict["project_id"], "LB")
+        self.assertEquals(libdict["sdid"], "P-00000001")
+        self.assertEquals(libdict["type"], "CFDNA")
+        self.assertEquals(libdict["sample_id"], "01234567")
+        self.assertEquals(libdict["prep_id"], "TP201701011540")
+        self.assertEquals(libdict["capture_id"], "CM2017001022000")
+        self.assertEquals(libdict["library_id"], "LB-P-00000001-CFDNA-01234567-TP201701011540-CM2017001022000")
+
     def test_sdid_valid_valid1(self):
         self.assertTrue(sdid_valid("P-A"))
 

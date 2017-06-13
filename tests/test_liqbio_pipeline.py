@@ -37,7 +37,7 @@ class TestLiqbio(unittest.TestCase):
             "contest_vcfs": {
                 "test-regions": "test_contest.vcf"
             },
-            "vep_dir": None
+            "vep_dir": "dummy_vep_dir"
         }
 
         self.test_tumor_capture = UniqueCapture("AL", "P-NA12877", "T", "03098849", "TD", "TT")

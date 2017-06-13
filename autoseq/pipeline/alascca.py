@@ -73,7 +73,7 @@ class AlasccaPipeline(ClinseqPipeline):
         tumor_results = self.capture_to_results[tumor_capture]
 
         alascca_cna = AlasccaCNAPlot()
-        alascca_cna.input_somatic_vcf = tumor_vs_normal_results.somatic_vcf
+        alascca_cna.input_somatic_vcf = tumor_vs_normal_results.vepped_vcf
         alascca_cna.input_germline_vcf = tumor_vs_normal_results.vcf_addsample_output
         alascca_cna.input_cnr = tumor_results.cnr
         alascca_cna.input_cns = tumor_results.cns
@@ -116,7 +116,7 @@ class AlasccaPipeline(ClinseqPipeline):
             self.outdir, blood_barcode, tumor_barcode)
 
         compile_genomic_json = CompileAlasccaGenomicJson(
-            input_somatic_vcf=tumor_vs_normal_results.somatic_vcf,
+            input_somatic_vcf=tumor_vs_normal_results.vepped_vcf,
             input_cn_calls=alascca_cna_output,
             input_msisensor=tumor_vs_normal_results.msi_output,
             input_purity_qc=alascca_cna_purity_call,
