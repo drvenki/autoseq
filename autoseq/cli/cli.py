@@ -72,28 +72,68 @@ def load_job_params(job_params_filename):
         return {}
 
 
+def convert_to_absolute_path(possible_relative_path, base_path):
+    """
+    Convert the input potential relative file path to an absolute path by
+    prepending the specified base_path, but only if the resulting absolute path points
+    to a pre-existing file or directory.
+
+    If the base_path cannot be prepended, then simply return the original input value.
+
+    :param possible_relative_path: A string potentially indicating a relative file/directory path. 
+    :param base_path: The base path to prepend.
+    :return: Modified path string.
+    """
+
+    converted_value = possible_relative_path
+    try:
+        if not os.path.isabs(possible_relative_path):
+            joined_path = os.path.join(base_path, possible_relative_path)
+            if os.path.isfile(joined_path) or os.path.isdir(joined_path):
+                converted_value = joined_path
+
+    except Exception, e:
+        pass
+
+    return converted_value
+
+
+def make_paths_absolute(input_dict, base_path):
+    """Processes the input dictionary, converting relative file paths to absolute
+    file paths throughout the dictionary structure.
+
+    Specifically, for each value in the dictionary:
+    - If it is also a dictionary, then recursively apply this function,
+    replacing the initial dictionary.
+    - Otherwise:
+    -- If the value is a non-null string that is not already an absolute path,
+    then try prepending the specified base_path and see if the resulting file name
+    exists, and in that case then replace the string with the resulting absolute path.
+    """
+
+    for curr_key, curr_value in input_dict.items():
+        if isinstance(curr_value, dict):
+            input_dict[curr_key] = make_paths_absolute(curr_value, base_path)
+        else:
+            converted_value = convert_to_absolute_path(curr_value, base_path)
+            input_dict[curr_key] = converted_value
+
+    return input_dict
+
+
 def load_ref(ref):
+    """
+    Processes the input genomic reference data JSON file, converting relative file paths
+    to absolute paths where required.
+
+    :param ref: Input reference file configuration JSON file.
+    :return: Modified reference file dictionary with relative->absolute file path conversions performed.
+    """
+
     basepath = os.path.dirname(ref)
-    # FIXME: Don't like this existing code; hard-coded duplication of information.
-    # Also, the processing of this dictionary (to add base paths), whilst probably necessary,
-    # is confusing at present:
-    items = ["bwaIndex", "chrsizes", "clinvar", "cosmic", "dbSNP", "exac", "swegene_common", "genesGenePred", "genesGtf", "vep_dir",
-             "genesGtfGenesOnly", "icgc", "qdnaseq_background", "reference_dict", "reference_genome", "cnvkit-ref",
-             "msisites", "targets-bed-slopped20", "targets-interval_list", "targets-interval_list-slopped20",
-             "test-regions", "big", "clinseqV3V4", "clinseqV3V4big"]
     with open(ref, 'r') as fh:
         refjson = json.load(fh)
-
-        def make_paths_absolute(d):
-            for k, v in d.items():
-                if isinstance(v, dict):
-                    make_paths_absolute(v)
-                else:
-                    if k in items and d[k]:
-                        d[k] = os.path.join(basepath, v)
-            return d
-
-        refjson_abs = make_paths_absolute(refjson)
+        refjson_abs = make_paths_absolute(refjson, basepath)
         return refjson_abs
 
 
