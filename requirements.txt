@@ -1,9 +1,4 @@
-pysam
-openpyxl
-pip
 pydotplus
-click
-multiqc
 pytest-cov
 genomicassertions>=0.2.5
 
