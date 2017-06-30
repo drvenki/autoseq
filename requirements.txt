@@ -1,7 +1,7 @@
 pydotplus
 pytest-cov
 genomicassertions>=0.2.5
-multiqc=1.0
+multiqc==1.0
 
 git+https://github.com/dakl/localq.git
 git+https://github.com/ClinSeq/pypedream.git
