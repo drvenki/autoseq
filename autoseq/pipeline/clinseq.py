@@ -584,10 +584,10 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # FIXME: Need to fix the configuration of the min_alt_frac threshold, rather than hard-coding it here:
         somatic_variants = call_somatic_variants(
-            self, cancer_bam=cancer_bam, normal_bam=normal_bam  ,
+            self, cancer_bam=cancer_bam, normal_bam=normal_bam,
             cancer_capture=cancer_capture, normal_capture=normal_capture,
             target_name=target_name,
-            outdir=self.outdir, callers=['vardict'], min_alt_frac=0.02)
+            outdir=self.outdir, callers=['vardict'], min_alt_frac=0.01)
 
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = \
             somatic_variants.values()[0]
