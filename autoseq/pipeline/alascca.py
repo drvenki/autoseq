@@ -164,3 +164,16 @@ class AlasccaPipeline(ClinseqPipeline):
             self.configure_alascca_cna(normal_capture, tumor_capture)
         self.configure_alascca_report_generation(
             normal_capture, tumor_capture, alascca_cna_ouput, alascca_cna_purity)
+
+    def get_coverage_bed(self, targets):
+        """
+        Retrieve the targets bed file to use for calculating coverage, given the specified
+        targets name. Uses the alascca bed file if available.
+
+        :param targets: Target capture name
+        :return: bed file name
+        """
+        if 'alascca_targets' in self.refdata['targets']:
+            return self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
+        else:
+            return self.refdata['targets'][targets]['targets-bed-slopped20']

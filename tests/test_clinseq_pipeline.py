@@ -203,12 +203,6 @@ class TestClinseq(unittest.TestCase):
         self.test_clinseq_pipeline.call_germline_variants(self.test_normal_capture, "test.bam")
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
-    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.vep_data_is_available')
-    def test_call_germline_variants_with_vep(self, mock_vep_is_set):
-        mock_vep_is_set.return_value = True
-        self.test_clinseq_pipeline.call_germline_variants(self.test_normal_capture, "test.bam")
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
-
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.call_germline_variants')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_cancer')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_panel_analysis_cancer_vs_normal')

@@ -438,19 +438,19 @@ class ClinseqPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(capture_str)
         self.add(freebayes)
 
-        if self.vep_data_is_available():
-            vep_freebayes = VEP()
-            vep_freebayes.input_vcf = freebayes.output
-            vep_freebayes.threads = self.maxcores
-            vep_freebayes.reference_sequence = self.refdata['reference_genome']
-            vep_freebayes.vep_dir = self.refdata['vep_dir']
-            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, capture_str)
-            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
-            self.add(vep_freebayes)
-
-            self.set_germline_vcf(normal_capture, vep_freebayes.output_vcf)
-        else:
-            self.set_germline_vcf(normal_capture, freebayes.output)
+#        if self.vep_data_is_available():
+#            vep_freebayes = VEP()
+#            vep_freebayes.input_vcf = freebayes.output
+#            vep_freebayes.threads = self.maxcores
+#            vep_freebayes.reference_sequence = self.refdata['reference_genome']
+#            vep_freebayes.vep_dir = self.refdata['vep_dir']
+#            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, capture_str)
+#            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
+#            self.add(vep_freebayes)
+#
+#            self.set_germline_vcf(normal_capture, vep_freebayes.output_vcf)
+#        else:
+        self.set_germline_vcf(normal_capture, freebayes.output)
 
     def configure_panel_analysis_with_normal(self, normal_capture):
         """
@@ -681,7 +681,7 @@ class ClinseqPipeline(PypedreamPipeline):
         cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
         hzconcordance.target_regions = \
             self.refdata['targets'][cancer_capture_name]['targets-interval_list-slopped20']
-        hzconcordance.normalid = compose_lib_capture_str(normal_capture)
+        hzconcordance.normalid = compose_sample_str(normal_capture)
         hzconcordance.filter_reads_with_N_cigar = True
         hzconcordance.jobname = "hzconcordance-{}".format(compose_lib_capture_str(cancer_capture))
         hzconcordance.output = "{}/bams/{}-{}-hzconcordance.txt".format(
@@ -873,6 +873,16 @@ class ClinseqPipeline(PypedreamPipeline):
         multiqc.jobname = "multiqc-{}".format(self.sampledata['sdid'])
         self.add(multiqc)
 
+    def get_coverage_bed(self, targets):
+        """
+        Retrieve the targets bed file to use for calculating coverage, given the specified
+        targets name.
+
+        :param targets: Target capture name
+        :return: bed file name
+        """
+        return self.refdata['targets'][targets]['targets-bed-slopped20']
+
     def configure_panel_qc(self, unique_capture):
         """
         Configure QC analyses for a given library capture.
@@ -925,10 +935,9 @@ class ClinseqPipeline(PypedreamPipeline):
         self.add(sambamba)
 
         coverage_hist = CoverageHistogram()
-#        if 'alascca_targets' in self.refdata['targets']:
-#            alascca_coverage_hist.input_bed = self.refdata['targets']['alascca_targets']['targets-bed-slopped20']
-#        else:
-        coverage_hist.input_bed = self.refdata['targets'][targets]['targets-bed-slopped20']
+        # FIXME: Ugly temporary solution to allow the alascca pipeline to use a specific
+        # targets file:
+        coverage_hist.input_bed = self.get_coverage_bed(targets)
         coverage_hist.input_bam = bam
         coverage_hist.output = "{}/qc/{}.coverage-histogram.txt".format(
             self.outdir, capture_str)
