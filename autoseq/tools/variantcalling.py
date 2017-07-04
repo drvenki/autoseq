@@ -3,39 +3,8 @@ import sys
 import uuid
 
 from pypedream.job import Job, repeat, required, optional, conditional
+from autoseq.util.clinseq_barcode import *
 from autoseq.util.vcfutils import vt_split_and_leftaln, fix_ambiguous_cl, remove_dup_cl
-
-
-class Mutect2(Job):
-    def __init__(self):
-        Job.__init__(self)
-        self.input_tumor = None
-        self.input_normal = None
-        self.reference_sequence = None
-        self.target_regions = None
-        self.cosmic = None
-        self.dbsnp = None
-        self.output = None
-        self.jobname = "mutect2"
-
-    def command(self):
-        if not self.output.endswith("gz"):
-            raise ValueError("Output needs to be gzipped: {}".format(self.output))
-        tmpf = "{scratch}/mutect2-{uuid}.vcf.gz".format(scratch=self.scratch, uuid=uuid.uuid4())
-        mutect_cmd = "mutect2 -R " + self.reference_sequence + \
-                     required("--input_file:tumor ", self.input_tumor) + \
-                     optional("--input_file:normal ", self.input_normal) + \
-                     required("--out ", tmpf) + \
-                     optional("-L ", self.target_regions) + \
-                     optional("-nct ", self.threads) + \
-                     optional("--dbsnp ", self.dbsnp) + \
-                     optional("--cosmic ", self.cosmic)
-        leftaln_cmd = "gzip -cd {} ".format(tmpf) + \
-                      " | " + vt_split_and_leftaln(self.reference_sequence) + \
-                      " | bcftools view --apply-filters .,PASS " + \
-                      " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
-        rmtmp_cmd = "rm {} {}.tbi".format(tmpf, tmpf)
-        return " && ".join([mutect_cmd, leftaln_cmd, rmtmp_cmd])
 
 
 class Freebayes(Job):
@@ -132,22 +101,17 @@ class VEP(Job):
     def command(self):
         bgzip = ""
         fork = ""
-        if self.threads > 1 and self.vep_dir:  # vep does not accept "--fork 1", so need to check.
+        if self.threads > 1:  # vep does not accept "--fork 1", so need to check.
             fork = " --fork {} ".format(self.threads)
         if self.output_vcf.endswith('gz'):
             bgzip = " | bgzip "
 
         cmdstr = "variant_effect_predictor.pl --vcf --output_file STDOUT " + \
-                 optional("--dir ", self.vep_dir) + \
+                 required("--dir ", self.vep_dir) + \
                  required("--fasta ", self.reference_sequence) + \
                  required("-i ", self.input_vcf) + \
                  " --check_alleles --check_existing  --total_length --allele_number " + \
-                 " --no_escape --no_stats " + \
-                 conditional(self.vep_dir, " --everything ") + \
-                 conditional(self.vep_dir, " --offline ") + \
-                 conditional(not self.vep_dir, " --database ") + \
-                 conditional(not self.vep_dir, " --port 3337 ") + \
-                 conditional(not self.vep_dir, " --hgvs ") + \
+                 " --no_escape --no_stats --everything --offline " + \
                  fork + bgzip + " > " + required("", self.output_vcf) + \
                  " && tabix -p vcf {}".format(self.output_vcf)
 
@@ -236,85 +200,58 @@ class InstallVep(Job):
                " --species homo_sapiens --version 83_GRCh37"
 
 
-def call_somatic_variants(pipeline, tbam, nbam, tlib, nlib, target_name, refdata, outdir,
-                          callers=['vardict', 'freebayes'], vep=True, min_alt_frac=0.1):
+def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, normal_capture,
+                          target_name, outdir, callers=['vardict', 'freebayes'],
+                          min_alt_frac=0.1):
     """
-    Call somatic variants.
-    :param pipeline:
-    :param tbam:
-    :param nbam:
-    :param tlib:
-    :param nlib:
-    :param target_name:
-    :param refdata:
-    :param outdir:
-    :param callers: list of callers to use (conbination of mutect2, vardict, freebayes)
-    # :return: dict of generated files
-    :param vep: boolean whether to run vep on generated vcfs or not
-    :param min_alt_frac:
-    :return:
-    """
-    d = {}
-    if 'mutect2' in callers:
-        mutect2 = Mutect2()
-        mutect2.input_tumor = tbam
-        mutect2.input_normal = nbam
-        mutect2.reference_sequence = refdata['reference_genome']
-        mutect2.target_regions = refdata['targets'][target_name]['targets-interval_list-slopped20']
-        mutect2.scratch = pipeline.scratch
-        mutect2.jobname = "mutect2/{}".format(tlib)
-        mutect2.output = "{}/variants/{}-{}.mutect.vcf.gz".format(outdir, tlib, nlib)
-        pipeline.add(mutect2)
-        d['mutect2'] = mutect2.output
+    Configuring calling of somatic variants on a given pairing of cancer and normal bam files,
+    using a set of specified algorithms.
 
+    :param pipeline: The analysis pipeline for which to configure somatic calling.
+    :param cancer_bam: Location of the cancer sample bam file
+    :param normal_bam: Location of the normal sample bam file
+    :param cancer_capture: A UniqueCapture item identifying the cancer sample library capture 
+    :param normal_capture: A UniqueCapture item identifying the normal sample library capture
+    :param target_name: The name of the capture panel used
+    :param outdir: Output location
+    :param callers: List of calling algorithms to use - can include 'vardict' and/or 'freebayes'
+    :param min_alt_frac: The minimum allelic fraction value in order to retain a called variant 
+    :return: A dictionary with somatic caller name as key and corresponding output file location as value
+    """
+    cancer_capture_str = compose_lib_capture_str(cancer_capture)
+    normal_capture_str = compose_lib_capture_str(normal_capture)
+    normal_sample_str = compose_sample_str(normal_capture)
+    tumor_sample_str = compose_sample_str(cancer_capture)
+
+    d = {}
     if 'freebayes' in callers:
         freebayes = Freebayes()
-        freebayes.input_bams = [tbam, nbam]
-        freebayes.tumorid = tlib
-        freebayes.normalid = nlib
+        freebayes.input_bams = [cancer_bam, normal_bam]
+        freebayes.tumorid = cancer_capture_str
+        freebayes.normalid = normal_capture_str
         freebayes.somatic_only = True
-        freebayes.reference_sequence = refdata['reference_genome']
-        freebayes.target_bed = refdata['targets'][target_name]['targets-bed-slopped20']
+        freebayes.reference_sequence = pipeline.refdata['reference_genome']
+        freebayes.target_bed = pipeline.refdata['targets'][target_name]['targets-bed-slopped20']
         freebayes.threads = pipeline.maxcores
         freebayes.min_alt_frac = min_alt_frac
         freebayes.scratch = pipeline.scratch
-        freebayes.jobname = "freebayes-somatic/{}".format(tlib)
-        freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(outdir, tlib, nlib)
+        freebayes.jobname = "freebayes-somatic/{}".format(cancer_capture_str)
+        freebayes.output = "{}/variants/{}-{}.freebayes-somatic.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str)
         pipeline.add(freebayes)
         d['freebayes'] = freebayes.output
 
-        if vep:
-            vep_freebayes = VEP()
-            vep_freebayes.input_vcf = freebayes.output
-            vep_freebayes.threads = pipeline.maxcores
-            vep_freebayes.reference_sequence = refdata['reference_genome']
-            vep_freebayes.vep_dir = refdata['vep_dir']
-            vep_freebayes.output_vcf = "{}/variants/{}-{}.freebayes-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
-            vep_freebayes.jobname = "vep-freebayes-somatic/{}".format(tlib)
-            pipeline.add(vep_freebayes)
-            d['freebayes'] = vep_freebayes.output_vcf
-
     if 'vardict' in callers:
-        vardict = VarDict(input_tumor=tbam, input_normal=nbam, tumorid=tlib,
-                          normalid=nlib,
-                          reference_sequence=refdata['reference_genome'],
-                          reference_dict=refdata['reference_dict'],
-                          target_bed=refdata['targets'][target_name]['targets-bed-slopped20'],
-                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, tlib, nlib),
+        vardict = VarDict(input_tumor=cancer_bam, input_normal=normal_bam, tumorid=tumor_sample_str,
+                          normalid=normal_sample_str,
+                          reference_sequence=pipeline.refdata['reference_genome'],
+                          reference_dict=pipeline.refdata['reference_dict'],
+                          target_bed=pipeline.refdata['targets'][target_name]['targets-bed-slopped20'],
+                          output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str),
                           min_alt_frac=min_alt_frac
                           )
 
-        vardict.jobname = "vardict/{}".format(tlib)
+        vardict.jobname = "vardict/{}".format(cancer_capture_str)
         pipeline.add(vardict)
-
-        vep_vardict = VEP()
-        vep_vardict.input_vcf = vardict.output
-        vep_vardict.threads = pipeline.maxcores
-        vep_vardict.reference_sequence = refdata['reference_genome']
-        vep_vardict.vep_dir = refdata['vep_dir']
-        vep_vardict.output_vcf = "{}/variants/{}-{}.vardict-somatic.vep.vcf.gz".format(outdir, tlib, nlib)
-        vep_vardict.jobname = "vep-vardict/{}".format(tlib)
-        pipeline.add(vep_vardict)
-        d['vardict'] = vep_vardict.output_vcf
+        d['vardict'] = vardict.output
 
     return d

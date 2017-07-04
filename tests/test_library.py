@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from autoseq.util.library import find_fastqs, get_libdict
+from autoseq.util.library import find_fastqs
 
 
 class TestLibrary(unittest.TestCase):
@@ -51,31 +51,3 @@ class TestLibrary(unittest.TestCase):
         files = find_fastqs(library='NA12877-N-03098121-TD1-TT1', libdir='tests/libraries')
         self.assertIn(self.libdir, files[0][0])
         self.assertIn(self.library, files[0][0])
-
-    def test_get_libdict_no_project(self):
-        libdict = get_libdict(self.library)
-
-        self.assertEqual(libdict['capture_kit_name'], 'test-regions')
-        self.assertEqual(libdict['prep_kit_name'], 'THRUPLEX_DNASEQ')
-        self.assertEqual(libdict['sdid'], "NA12877")
-
-    def test_get_libdict_with_project(self):
-        library_with_project = 'AL-NA12878-T-sample1-TD1-TT1'
-        library_with_wrong_project = 'RX-NA12878-T-sample1-TD1-TT1'
-        libdict = get_libdict(library_with_project)
-        self.assertEqual(libdict['project_name'], 'ALASCCA')
-
-        with self.assertRaises(ValueError):
-            get_libdict(library_with_wrong_project)
-
-    def test_library_formats(self):
-        libs = ['NA12877-N-03098121-TD1-TT1',
-                'AL-NA12877-N-03098121-TD1-TT1',
-                'P-NA12877-N-03098121-TD1-TT1',
-                'AL-P-NA12877-N-03098121-TD1-TT1']
-
-        for libnm in libs:
-            lib = get_libdict(libnm)
-            self.assertIn(lib['sdid'], ['P-NA12877', 'NA12877'])
-            self.assertEqual(lib['type'], 'N')
-            self.assertEqual(lib['capture_kit_name'], 'test-regions')

@@ -1,5 +1,7 @@
 # autoseq
 
+[![Coverage Status](https://coveralls.io/repos/github/dakl/autoseq/badge.svg?branch=master)](https://coveralls.io/github/dakl/autoseq?branch=master)
+
 ## Clinseq barcodes
 
 Each sample+preparation+capture item should have a corresponding barcode with the format `PROJECT-SDID-TYPE-SAMPLEID-PREPID-CAPTUREID` where:

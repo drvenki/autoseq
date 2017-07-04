@@ -29,6 +29,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.input_reference_sequence = "{}/human_g1k_v37_decoy.fasta.gz".format(genome_resources)
         self.cosmic_vcf = "{}/CosmicCodingMuts_v71.vcf.gz".format(genome_resources)
         self.qdnaseq_background = "{}/qdnaseq_background.Rdata".format(genome_resources)
+        self.swegene_common_vcf = "{}/swegen_common.vcf.gz".format(genome_resources)
         self.outdir = outdir
         self.maxcores = maxcores
         self.reference_data = dict()
@@ -46,7 +47,6 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.prepare_genes()
         self.prepare_intervals()
         self.prepare_variants()
-        self.prepare_contest_vcfs()
 
         fetch_vep_cache = InstallVep()
         fetch_vep_cache.output_dir = "{}/vep/".format(self.outdir)
@@ -103,11 +103,19 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
                                                    "icgc_release_20_simple_somatic_mutation.aggregated.vcf.gz")
         self.add(curl_icgc)
 
+        curl_swegene = CurlSplitAndLeftAlign()
+        curl_swegene.input_reference_sequence = self.reference_data['reference_genome']
+        curl_swegene.input_reference_sequence_fai = self.reference_data['reference_genome'] + ".fai"
+        curl_swegene.remote = "file://" + self.swegene_common_vcf
+        curl_swegene.output = "{}/variants/{}".format(self.outdir, os.path.basename(self.swegene_common_vcf))
+        self.add(curl_swegene)
+
         self.reference_data['dbSNP'] = filter_dbsnp.output
         self.reference_data['cosmic'] = curl_cosmic.output
         self.reference_data['exac'] = curl_exac.output
         self.reference_data['clinvar'] = curl_clinvar.output
         self.reference_data['icgc'] = curl_icgc.output
+        self.reference_data['swegene_common'] = curl_swegene.output
 
     def prepare_intervals(self):
         self.reference_data['targets'] = {}
@@ -162,22 +170,6 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             self.reference_data['targets'][kit_name]['targets-interval_list-slopped20'] = slop_interval_list.output
             self.reference_data['targets'][kit_name]['targets-bed-slopped20'] = interval_list_to_bed.output
             self.reference_data['targets'][kit_name]['msisites'] = intersect_msi.output_msi_sites
-
-    def prepare_contest_vcfs(self):
-        self.reference_data['contest_vcfs'] = {}
-        contest_vcfs_dir = "{}/contest_vcfs/".format(self.genome_resources)
-        input_files = [f for f in os.listdir(contest_vcfs_dir)]
-
-        for f in input_files:
-            file_full_path = "{}/contest_vcfs/{}".format(self.genome_resources, f)
-            logging.debug("Parsing contest vcf file {}".format(file_full_path))
-            combined_kits = re.sub("_.*", "", f)    # the kit(s) which the vcf contains SNPs for,
-                                                    # eg "big" or "clinseqV3V4"
-            copy_file = Copy(input_file=file_full_path,
-                             output_file="{}/contest_vcfs/{}".format(self.outdir, os.path.basename(file_full_path)))
-            self.add(copy_file)
-            self.reference_data['contest_vcfs'][combined_kits] = copy_file.output
-            # TODO: Is it necessary to specify creation of the subdir "contest_vcfs" somewhere?
 
     def prepare_genes(self):
         curl_ensembl_gtf = Curl()

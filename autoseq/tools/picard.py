@@ -148,11 +148,11 @@ class PicardMarkDuplicates(Job):
         self.jobname = "picard-markdups"
 
     def command(self):
-	return "picard -Xmx5g -XX:ParallelGCThreads=1 " + \
-	       required("-Djava.io.tmpdir=", self.scratch) + \
-	       " MarkDuplicates " + \
-               required("INPUT=", self.input_bam) + \
-               required("METRICS_FILE=", self.output_metrics) + \
-               required("OUTPUT=", self.output_bam) + \
-               conditional(self.remove_duplicates, "REMOVE_DUPLICATES=true") + \
-               " && samtools index " + required("", self.output_bam)
+        return "picard -Xmx5g -XX:ParallelGCThreads=1 " + \
+            required("-Djava.io.tmpdir=", self.scratch) + \
+                " MarkDuplicates " + \
+                required("INPUT=", self.input_bam) + \
+                required("METRICS_FILE=", self.output_metrics) + \
+                required("OUTPUT=", self.output_bam) + \
+                conditional(self.remove_duplicates, "REMOVE_DUPLICATES=true") + \
+                " && samtools index " + required("", self.output_bam)

@@ -20,4 +20,8 @@ install:
   - pip install -r requirements.txt
   - pip install .
 
-script: py.test --capture=no --ignore=tests/integration tests/
+script:
+  - py.test --capture=no --cov autoseq --ignore=tests/integration tests/
+
+after_success:
+    - coveralls

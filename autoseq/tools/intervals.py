@@ -1,6 +1,5 @@
 import uuid
-
-from pypedream.job import required, Job, conditional, optional
+from pypedream.job import required, Job, conditional
 
 
 class SlopIntervalList(Job):
