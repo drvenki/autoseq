@@ -7,7 +7,7 @@ import time
 import click
 
 from autoseq.pipeline.liqbio import LiqBioPipeline
-from autoseq.util.orderform import parse_orderform
+from autoseq.util.clinseq_barcode import extract_clinseq_barcodes, convert_barcodes_to_sampledict, validate_clinseq_barcodes
 from autoseq.util.path import mkdir
 
 
@@ -26,6 +26,7 @@ def liqbio(ctx, sample):
 
     ctx.obj['pipeline'] = LiqBioPipeline(sampledata=sampledata,
                                          refdata=ctx.obj['refdata'],
+                                         job_params=ctx.obj['job_params'],
                                          outdir=ctx.obj['outdir'],
                                          libdir=ctx.obj['libdir'],
                                          maxcores=ctx.obj['cores'],
@@ -48,67 +49,18 @@ def liqbio(ctx, sample):
 
 @click.command()
 @click.option('--outdir', required=True, help="directory to write config files")
-@click.argument('orderform', type=str)
+@click.argument('barcodes-filename', type=str)
 @click.pass_context
-def liqbio_prepare(ctx, outdir, orderform):
-    logging.info("Creating config files from excel orderform")
-    libs = parse_orderform(orderform)
-    sample_dicts = make_sample_dicts(libraries=libs)
-    for sdid in sample_dicts:
+def liqbio_prepare(ctx, outdir, barcodes_filename):
+    logging.info("Extracting clinseq barcodes from input file: " + barcodes_filename)
+    clinseq_barcodes = extract_clinseq_barcodes(barcodes_filename)
+
+    logging.info("Validating all clinseq barcodes.")
+    validate_clinseq_barcodes(clinseq_barcodes)
+
+    logging.info("Generating sample dictionary from the input clinseq barcode strings.")
+    sample_dict = convert_barcodes_to_sampledict(clinseq_barcodes)
+    for sdid in sample_dict:
         fn = "{}/{}.json".format(outdir, sdid)
         with open(fn, 'w') as f:
-            json.dump(sample_dicts[sdid], f, sort_keys=True, indent=4)
-
-
-def make_sample_dicts(libraries):
-    sdids = set([lib['sdid'] for lib in libraries])
-    dicts = {}
-    for sdid in sdids:
-        logging.debug("Creating config file for SDID {}".format(sdid))
-        panel_t_lib = [lib['library_id'] for lib in libraries if
-                       lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] != "WGS"]
-        panel_n_lib = [lib['library_id'] for lib in libraries if
-                       lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] != "WGS"]
-        panel_p_libs = [lib['library_id'] for lib in libraries if
-                        lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] != "WGS"]
-
-        wgs_t_lib = [lib['library_id'] for lib in libraries if
-                     lib['sdid'] == sdid and lib['type'] == "T" and lib['capture_id'] == "WGS"]
-        wgs_n_lib = [lib['library_id'] for lib in libraries if
-                     lib['sdid'] == sdid and lib['type'] == "N" and lib['capture_id'] == "WGS"]
-        wgs_p_libs = [lib['library_id'] for lib in libraries if
-                      lib['sdid'] == sdid and lib['type'] == "CFDNA" and lib['capture_id'] == "WGS"]
-
-        def fix_lib(lib):
-            """lib is a vector of libraries.
-            If it has no contents, return None
-            If it has a single element, return it
-            If it has more than one element, raise error
-            """
-            if lib == []:
-                return None
-            if len(lib) == 1:
-                return lib[0]
-            if len(lib) > 1:
-                raise ValueError("Too many libs for SDID {}. Expected 1, got {}".format(sdid, lib))
-
-        panel_t_lib = fix_lib(panel_t_lib)
-        panel_n_lib = fix_lib(panel_n_lib)
-        wgs_t_lib = fix_lib(wgs_t_lib)
-        wgs_n_lib = fix_lib(wgs_n_lib)
-
-        d = {'sdid': sdid,
-             'panel': {
-                 'T': panel_t_lib,
-                 'N': panel_n_lib,
-                 'CFDNA': panel_p_libs
-             },
-             'wgs': {
-                 'T': wgs_t_lib,
-                 'N': wgs_n_lib,
-                 'CFDNA': wgs_p_libs
-             }
-        }
-        dicts[sdid] = d
-
-    return dicts
+            json.dump(sample_dict[sdid], f, sort_keys=True, indent=4)

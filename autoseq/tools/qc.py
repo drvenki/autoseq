@@ -83,7 +83,7 @@ class SambambaDepth(Job):
                required(">", self.output)
 
 
-class BedtoolsCoverageHistgram(Job):
+class BedtoolsCoverageHistogram(Job):
     def __init__(self):
         Job.__init__(self)
         self.input_bam = None

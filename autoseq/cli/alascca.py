@@ -26,10 +26,10 @@ def alascca(ctx, sample):
 
     ctx.obj['pipeline'] = AlasccaPipeline(sampledata=sampledata,
                                           refdata=ctx.obj['refdata'],
+                                          job_params=ctx.obj['job_params'],
                                           outdir=ctx.obj['outdir'],
                                           libdir=ctx.obj['libdir'],
                                           maxcores=ctx.obj['cores'],
-                                          analysis_id=sampledata['analysis_id'],
                                           runner=ctx.obj['runner'],
                                           jobdb=ctx.obj['jobdb'],
                                           dot_file=ctx.obj['dot_file'],

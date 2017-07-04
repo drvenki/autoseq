@@ -51,7 +51,7 @@ class CompileAlasccaGenomicJson(Job):
 
 
 class WriteAlasccaReport(Job):
-    def __init__(self, input_metadata_json, input_genomic_json, output_pdf):
+    def __init__(self, input_genomic_json, input_metadata_json, output_pdf):
         Job.__init__(self)
         self.input_metadata_json = input_metadata_json
         self.input_genomic_json = input_genomic_json

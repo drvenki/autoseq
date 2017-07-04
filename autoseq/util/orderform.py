@@ -1,40 +1,53 @@
 import logging
-import os
 
 from openpyxl import load_workbook
 
-from autoseq.util.library import get_libdict
-from autoseq.util.path import stripsuffix
 
+def parse_orderform_block(block_of_values):
+    """
+    Extract clinseq barcodes from the given list of order form fields. Looks
+    in the entries between <SAMPLE ENTRIES> and </SAMPLE ENTRIES> for clinseq barcodes.
 
-def parse_orderform(xlsx):
-    # orderform_name = stripsuffix(os.path.basename(xlsx), ".xlsx")
-    workbook = load_workbook(xlsx)
-    worksheet = workbook.worksheets[0]
-    first_idx = None
+    :param block_of_values: List of fields from which to extract clinseq barcodes
+    :return: List of (not-yet validated) clinseq barcode strings
+    """
 
-    libraries = []
-
-    for idx in range(1, 1000):
-        cell_value = worksheet.cell(column=1, row=idx).value
-        if cell_value == "<SAMPLE ENTRIES>":
-            first_idx = idx
-
-        # no need to parse after end tag
+    clinseq_barcode_strings = []
+    clinseq_barcodes_section = False
+    for cell_value in block_of_values:
         if cell_value == "</SAMPLE ENTRIES>":
-            break
+            clinseq_barcodes_section = False
+        if clinseq_barcodes_section:
+            clinseq_barcode_strings.append(cell_value)
+        if cell_value == "<SAMPLE ENTRIES>":
+            clinseq_barcodes_section = True
+        else:
+            logging.debug("Ignoring field from order form: " + cell_value)
 
-        if not cell_value:
-            continue
+    return clinseq_barcode_strings
 
-        if first_idx is not None and idx > first_idx:
-            library_name = str(worksheet.cell(column=1, row=idx).value)
 
-            lib = get_libdict(library_name)
-            logging.debug("Parsed library {}".format(lib))
-            if lib['type'] not in ['T', 'N', 'CFDNA']:
-                logging.warning(
-                    "Unexpected library type detected: {} for library {}".format(lib['type'], lib['library_id']))
-            libraries.append(lib)
+def parse_orderform_worksheet(order_form_worksheet):
+    """
+    Extract clinseq barcodes from the given order form excel spreadsheet worksheet.
 
-    return libraries
+    :param order_form_worksheet: An openpyxl worksheet.
+    :return: List of clinseq barcodes extracted from the worksheet.
+    """
+
+    first_column_vals = [row[0].value for row in list(order_form_worksheet.iter_rows()) if
+                         row[0].value is not None]
+
+    return parse_orderform_block(first_column_vals)
+
+
+def parse_orderform(order_form_filename):
+    """
+    Extract clinseq barcodes from the specified order form.
+
+    :param order_form_filename: An excel spreadsheet filename.
+    :return: List of clinseq barcodes extracted from the order form.
+    """
+
+    workbook = load_workbook(order_form_filename)
+    return parse_orderform_worksheet(workbook.worksheets[0])
