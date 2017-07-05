@@ -377,7 +377,8 @@ class ClinseqPipeline(PypedreamPipeline):
 
         qc_files = []
         for clinseq_barcode in self.get_all_clinseq_barcodes():
-            curr_fqs = find_fastqs(clinseq_barcode, self.libdir)
+            curr_fqs = reduce(lambda l1, l2: l1 + l2,
+                              find_fastqs(clinseq_barcode, self.libdir))
             for fq in curr_fqs:
                 fastqc = FastQC()
                 fastqc.input = fq
