@@ -375,7 +375,6 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of qc output filenames.
         """
 
-        qc_files = []
         for clinseq_barcode in self.get_all_clinseq_barcodes():
             curr_fqs = reduce(lambda l1, l2: l1 + l2,
                               find_fastqs(clinseq_barcode, self.libdir))
@@ -386,10 +385,8 @@ class ClinseqPipeline(PypedreamPipeline):
                 fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(
                     self.outdir, clinseq_barcode)
                 fastqc.jobname = "fastqc-{}".format(clinseq_barcode)
-                qc_files.append(fastqc.output)
+                self.qc_files.append(fastqc.output)
                 self.add(fastqc)
-
-        return qc_files
 
     def configure_align_and_merge(self):
         """
@@ -411,7 +408,7 @@ class ClinseqPipeline(PypedreamPipeline):
                                   ref=self.refdata['bwaIndex'],
                                   outdir= "{}/bams/{}".format(self.outdir, capture_kit),
                                   maxcores=self.maxcores,
-                                  remove_duplicates=False))
+                                  remove_duplicates=True))
 
             self.merge_and_rm_dup(unique_capture, curr_bamfiles)
 
