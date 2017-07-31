@@ -18,6 +18,9 @@ class LiqBioPipeline(ClinseqPipeline):
         ClinseqPipeline.__init__(self, sampledata, refdata, job_params, outdir, libdir,
                                  maxcores, scratch, **kwargs)
 
+        # Set the min alt frac value:
+        self.default_job_params["vardict-min-alt-frac"] = 0.01
+
         # Remove clinseq barcodes for which data is not available:
         self.check_sampledata()
 

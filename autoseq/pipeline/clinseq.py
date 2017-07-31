@@ -77,7 +77,8 @@ class ClinseqPipeline(PypedreamPipeline):
             "cov-high-thresh-fraction": 0.95,
             "cov-high-thresh-fold-cov": 100,
             "cov-low-thresh-fraction": 0.95,
-            "cov-low-thresh-fold-cov": 50
+            "cov-low-thresh-fold-cov": 50,
+            "vardict-min-alt-frac": 0.02
         }
 
         # Dictionary linking unique captures to corresponding generic single panel
@@ -585,7 +586,8 @@ class ClinseqPipeline(PypedreamPipeline):
             self, cancer_bam=cancer_bam, normal_bam=normal_bam,
             cancer_capture=cancer_capture, normal_capture=normal_capture,
             target_name=target_name,
-            outdir=self.outdir, callers=['vardict'], min_alt_frac=0.01)
+            outdir=self.outdir, callers=['vardict'],
+            min_alt_frac=self.get_job_param('vardict-min-alt-frac'))
 
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = \
             somatic_variants.values()[0]
