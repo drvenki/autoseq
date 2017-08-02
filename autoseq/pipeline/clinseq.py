@@ -78,7 +78,8 @@ class ClinseqPipeline(PypedreamPipeline):
             "cov-high-thresh-fold-cov": 100,
             "cov-low-thresh-fraction": 0.95,
             "cov-low-thresh-fold-cov": 50,
-            "vardict-min-alt-frac": 0.02
+            "vardict-min-alt-frac": 0.02,
+            "vep-additional-options": ""
         }
 
         # Dictionary linking unique captures to corresponding generic single panel
@@ -609,6 +610,7 @@ class ClinseqPipeline(PypedreamPipeline):
         vep.output_vcf = "{}/variants/{}-{}.somatic.vep.vcf.gz".format(
             self.outdir, cancer_capture_str, normal_capture_str)
         vep.jobname = "vep-freebayes-somatic/{}".format(cancer_capture_str)
+        vep.additional_options = self.get_job_param("vep-additional-options")
         self.add(vep)
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vepped_vcf = \
             vep.output_vcf

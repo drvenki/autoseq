@@ -97,6 +97,7 @@ class VEP(Job):
         self.reference_sequence = None
         self.vep_dir = None
         self.jobname = "vep"
+        self.additional_options = ""
 
     def command(self):
         bgzip = ""
@@ -107,7 +108,7 @@ class VEP(Job):
             bgzip = " | bgzip "
 
         cmdstr = "variant_effect_predictor.pl --vcf --output_file STDOUT " + \
-                 required("--dir ", self.vep_dir) + \
+                 self.additional_options + required("--dir ", self.vep_dir) + \
                  required("--fasta ", self.reference_sequence) + \
                  required("-i ", self.input_vcf) + \
                  " --check_alleles --check_existing  --total_length --allele_number " + \
