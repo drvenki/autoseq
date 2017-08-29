@@ -77,7 +77,9 @@ class ClinseqPipeline(PypedreamPipeline):
             "cov-high-thresh-fraction": 0.95,
             "cov-high-thresh-fold-cov": 100,
             "cov-low-thresh-fraction": 0.95,
-            "cov-low-thresh-fold-cov": 50
+            "cov-low-thresh-fold-cov": 50,
+            "vardict-min-alt-frac": 0.02,
+            "vep-additional-options": ""
         }
 
         # Dictionary linking unique captures to corresponding generic single panel
@@ -375,9 +377,9 @@ class ClinseqPipeline(PypedreamPipeline):
         :return: List of qc output filenames.
         """
 
-        qc_files = []
         for clinseq_barcode in self.get_all_clinseq_barcodes():
-            curr_fqs = find_fastqs(clinseq_barcode, self.libdir)
+            curr_fqs = reduce(lambda l1, l2: l1 + l2,
+                              find_fastqs(clinseq_barcode, self.libdir))
             for fq in curr_fqs:
                 fastqc = FastQC()
                 fastqc.input = fq
@@ -385,10 +387,8 @@ class ClinseqPipeline(PypedreamPipeline):
                 fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(
                     self.outdir, clinseq_barcode)
                 fastqc.jobname = "fastqc-{}".format(clinseq_barcode)
-                qc_files.append(fastqc.output)
+                self.qc_files.append(fastqc.output)
                 self.add(fastqc)
-
-        return qc_files
 
     def configure_align_and_merge(self):
         """
@@ -410,7 +410,7 @@ class ClinseqPipeline(PypedreamPipeline):
                                   ref=self.refdata['bwaIndex'],
                                   outdir= "{}/bams/{}".format(self.outdir, capture_kit),
                                   maxcores=self.maxcores,
-                                  remove_duplicates=False))
+                                  remove_duplicates=True))
 
             self.merge_and_rm_dup(unique_capture, curr_bamfiles)
 
@@ -587,7 +587,8 @@ class ClinseqPipeline(PypedreamPipeline):
             self, cancer_bam=cancer_bam, normal_bam=normal_bam,
             cancer_capture=cancer_capture, normal_capture=normal_capture,
             target_name=target_name,
-            outdir=self.outdir, callers=['vardict'], min_alt_frac=0.01)
+            outdir=self.outdir, callers=['vardict'],
+            min_alt_frac=self.get_job_param('vardict-min-alt-frac'))
 
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = \
             somatic_variants.values()[0]
@@ -609,6 +610,7 @@ class ClinseqPipeline(PypedreamPipeline):
         vep.output_vcf = "{}/variants/{}-{}.somatic.vep.vcf.gz".format(
             self.outdir, cancer_capture_str, normal_capture_str)
         vep.jobname = "vep-freebayes-somatic/{}".format(cancer_capture_str)
+        vep.additional_options = self.get_job_param("vep-additional-options")
         self.add(vep)
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vepped_vcf = \
             vep.output_vcf
