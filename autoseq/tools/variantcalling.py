@@ -48,7 +48,7 @@ class Freebayes(Job):
 
 class VarDict(Job):
     def __init__(self, input_tumor=None, input_normal=None, tumorid=None, normalid=None, reference_sequence=None,
-                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1):
+                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1, min_num_reads=None):
         Job.__init__(self)
         self.input_tumor = input_tumor
         self.input_normal = input_normal
@@ -59,6 +59,7 @@ class VarDict(Job):
         self.target_bed = target_bed
         self.output = output
         self.min_alt_frac = min_alt_frac
+        self.min_num_reads = min_num_reads
 
     def command(self):
         required("", self.input_tumor)
@@ -75,6 +76,7 @@ class VarDict(Job):
         cmd = "vardict-java " + required("-G ", self.reference_sequence) + \
               optional("-f ", self.min_alt_frac) + \
               required("-N ", self.tumorid) + \
+              optional("-M ", self.min_num_reads) + \
               " -b \"{}|{}\" ".format(self.input_tumor, self.input_normal) + \
               " -c 1 -S 2 -E 3 -g 4 -Q 10 " + required("", self.target_bed) + \
               " | testsomatic.R " + \
