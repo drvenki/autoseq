@@ -18,6 +18,7 @@ class AlasccaPipeline(ClinseqPipeline):
 
         self.referral_db_conf = referral_db_conf
         self.addresses = addresses
+        self.default_job_params["vardict-min-num-reads"] = 6
 
         # Check to ensure that the sample data is valid for an ALASCCA analysis:
         self.validate_sample_data_for_alascca()

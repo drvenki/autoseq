@@ -20,6 +20,7 @@ class LiqBioPipeline(ClinseqPipeline):
 
         # Set the min alt frac value:
         self.default_job_params["vardict-min-alt-frac"] = 0.01
+        self.default_job_params["vardict-min-num-reads"] = None
         self.default_job_params["vep-additional-options"] = " --pick --filter_common "
 
         # Remove clinseq barcodes for which data is not available:
