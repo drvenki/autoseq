@@ -76,7 +76,7 @@ class VarDict(Job):
         cmd = "vardict-java " + required("-G ", self.reference_sequence) + \
               optional("-f ", self.min_alt_frac) + \
               required("-N ", self.tumorid) + \
-              optional("-M ", self.min_num_reads) + \
+              optional("-r ", self.min_num_reads) + \
               " -b \"{}|{}\" ".format(self.input_tumor, self.input_normal) + \
               " -c 1 -S 2 -E 3 -g 4 -Q 10 " + required("", self.target_bed) + \
               " | testsomatic.R " + \
@@ -205,7 +205,7 @@ class InstallVep(Job):
 
 def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, normal_capture,
                           target_name, outdir, callers=['vardict', 'freebayes'],
-                          min_alt_frac=0.1):
+                          min_alt_frac=0.1, min_num_reads=None):
     """
     Configuring calling of somatic variants on a given pairing of cancer and normal bam files,
     using a set of specified algorithms.
@@ -250,7 +250,7 @@ def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, norm
                           reference_dict=pipeline.refdata['reference_dict'],
                           target_bed=pipeline.refdata['targets'][target_name]['targets-bed-slopped20'],
                           output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str),
-                          min_alt_frac=min_alt_frac
+                          min_alt_frac=min_alt_frac, min_num_reads=min_num_reads
                           )
 
         vardict.jobname = "vardict/{}".format(cancer_capture_str)

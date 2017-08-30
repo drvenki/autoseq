@@ -79,6 +79,7 @@ class ClinseqPipeline(PypedreamPipeline):
             "cov-low-thresh-fraction": 0.95,
             "cov-low-thresh-fold-cov": 50,
             "vardict-min-alt-frac": 0.02,
+            "vardict-min-num-reads": None,
             "vep-additional-options": ""
         }
 
@@ -588,7 +589,8 @@ class ClinseqPipeline(PypedreamPipeline):
             cancer_capture=cancer_capture, normal_capture=normal_capture,
             target_name=target_name,
             outdir=self.outdir, callers=['vardict'],
-            min_alt_frac=self.get_job_param('vardict-min-alt-frac'))
+            min_alt_frac=self.get_job_param('vardict-min-alt-frac'),
+            min_num_reads=self.get_job_param('vardict-min-num-reads'))
 
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].somatic_vcf = \
             somatic_variants.values()[0]
