@@ -680,7 +680,7 @@ class ClinseqPipeline(PypedreamPipeline):
         :param cancer_capture: Named tuple indicating cancer library capture.
         """
 
-        # Configure MSI sensor:
+        # Configure Msings:
         msings = Msings()
         cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
         msings.input_fasta = self.refdata['reference_genome']
@@ -693,10 +693,10 @@ class ClinseqPipeline(PypedreamPipeline):
             self.outdir, cancer_capture_str)
         # FIXME: This is nasty:
         bam_name = os.path.splitext(os.path.basename(msings.input_bam))
-        msings.output = "{}/{}.MSI_Analysis.txt".format(
-            msings.outdir, bam_name)
+        msings.output = "{}/{}/{}.MSI_Analysis.txt".format(
+            msings.outdir, bam_name, bam_name)
         msings.threads = self.maxcores
-        msings.jobname = "msisensor-{}".format(cancer_capture_str)
+        msings.jobname = "msings-{}".format(cancer_capture_str)
         self.capture_to_results[cancer_capture].msings_output = msings.output
         self.add(msings)
 
