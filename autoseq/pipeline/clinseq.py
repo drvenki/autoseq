@@ -6,7 +6,7 @@ from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
 from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
-from autoseq.tools.intervals import MsiSensor
+from autoseq.tools.msi import MsiSensor, Msings
 from autoseq.tools.cnvcalling import CNVkit
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat, CreateContestVCFs
 from autoseq.tools.qc import *
@@ -683,25 +683,22 @@ class ClinseqPipeline(PypedreamPipeline):
         # Configure MSI sensor:
         msings = Msings()
         cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
+        msings.input_fasta = self.refdata['reference_genome']
         msings.msings_baseline = self.refdata['targets'][cancer_capture_name]['msings-baseline']
         msings.msings_bed = self.refdata['targets'][cancer_capture_name]['msings-bed']
         msings.msings_intervals = self.refdata['targets'][cancer_capture_name]['msings-msi_intervals']
-        msings.input_tumor_bam = self.get_capture_bam(cancer_capture)
+        msings.input_bam = self.get_capture_bam(cancer_capture)
         cancer_capture_str = compose_lib_capture_str(cancer_capture)
         msings.outdir = "{}/msings-{}".format(
             self.outdir, cancer_capture_str)
         # FIXME: This is nasty:
-        bam_name = os.path.splitext(os.path.basename(msings.input_tumor_bam))
+        bam_name = os.path.splitext(os.path.basename(msings.input_bam))
         msings.output = "{}/{}.MSI_Analysis.txt".format(
             msings.outdir, bam_name)
         msings.threads = self.maxcores
         msings.jobname = "msisensor-{}".format(cancer_capture_str)
         self.capture_to_results[cancer_capture].msings_output = msings.output
         self.add(msings)
-
-    fastqc.outdir = "{}/qc/fastqc/".format(self.outdir)
-    fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(
-        self.outdir, clinseq_barcode)
 
     def configure_hz_conc(self, normal_capture, cancer_capture):
         """

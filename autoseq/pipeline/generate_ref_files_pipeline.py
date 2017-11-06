@@ -8,7 +8,8 @@ from pypedream.runners.shellrunner import Shellrunner
 
 from autoseq.tools.genes import FilterGTFChromosomes, GTF2GenePred, FilterGTFGenes
 from autoseq.tools.indexing import BwaIndex, SamtoolsFaidx, GenerateChrSizes
-from autoseq.tools.intervals import SlopIntervalList, IntervalListToBed, MsiSensorScan, IntersectMsiSites
+from autoseq.tools.intervals import SlopIntervalList, IntervalListToBed
+from autoseq.tools.msi import MsiSensorScan, IntersectMsiSites
 from autoseq.tools.picard import PicardCreateSequenceDictionary
 from autoseq.tools.qc import *
 from autoseq.tools.unix import Gunzip, Curl, Copy
