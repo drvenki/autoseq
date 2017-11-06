@@ -166,6 +166,19 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             else:
                 self.reference_data['targets'][kit_name]['cnvkit-ref'] = None
 
+            for msings_extn in ["baseline", "bed", "msi_intervals"]:
+                msings_ref_file = stripsuffix(file_full_path, ".interval_list") + ".msings." + msings_extn
+                if os.path.exists(msings_ref_file):
+                    copy_msings_ref = Copy(input_file=msings_ref_file,
+                                           output_file="{}/intervals/targets/{}".format(self.outdir,
+                                                                                        os.path.basename(
+                                                                                            msings_ref_file))
+                                           )
+                    self.add(copy_msings_ref)
+                    self.reference_data['targets'][kit_name]['msings-' + msings_extn] = copy_msings_ref.output
+                else:
+                    self.reference_data['targets'][kit_name]['msings-' + msings_extn] = None
+
             self.reference_data['targets'][kit_name]['targets-interval_list'] = copy_file.output
             self.reference_data['targets'][kit_name]['targets-interval_list-slopped20'] = slop_interval_list.output
             self.reference_data['targets'][kit_name]['targets-bed-slopped20'] = interval_list_to_bed.output

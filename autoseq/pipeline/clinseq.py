@@ -29,6 +29,10 @@ class SinglePanelResults(object):
         # Coverage QC call:
         self.cov_qc_call = None
 
+        # FIXME: Msings should never be run for normal samples => OO progr. fail. Refactor.
+        # Msings output:
+        self.msings_output = None
+
 
 class CancerVsNormalPanelResults(object):
     """
@@ -667,6 +671,37 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].msi_output = \
             msisensor.output
         self.add(msisensor)
+
+    def configure_msings(self, cancer_capture):
+        """
+        Configure msings analysis, which operates on a cancer capture bam
+        input file.
+
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
+
+        # Configure MSI sensor:
+        msings = Msings()
+        cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
+        msings.msings_baseline = self.refdata['targets'][cancer_capture_name]['msings-baseline']
+        msings.msings_bed = self.refdata['targets'][cancer_capture_name]['msings-bed']
+        msings.msings_intervals = self.refdata['targets'][cancer_capture_name]['msings-msi_intervals']
+        msings.input_tumor_bam = self.get_capture_bam(cancer_capture)
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        msings.outdir = "{}/msings-{}".format(
+            self.outdir, cancer_capture_str)
+        # FIXME: This is nasty:
+        bam_name = os.path.splitext(os.path.basename(msings.input_tumor_bam))
+        msings.output = "{}/{}.MSI_Analysis.txt".format(
+            msings.outdir, bam_name)
+        msings.threads = self.maxcores
+        msings.jobname = "msisensor-{}".format(cancer_capture_str)
+        self.capture_to_results[cancer_capture].msings_output = msings.output
+        self.add(msings)
+
+    fastqc.outdir = "{}/qc/fastqc/".format(self.outdir)
+    fastqc.output = "{}/qc/fastqc/{}_fastqc.zip".format(
+        self.outdir, clinseq_barcode)
 
     def configure_hz_conc(self, normal_capture, cancer_capture):
         """
