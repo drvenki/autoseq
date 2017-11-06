@@ -331,6 +331,12 @@ class TestClinseq(unittest.TestCase):
                 self.test_normal_capture, self.test_cancer_capture)].msi_output is not None)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
+    def test_configure_msings(self):
+        self.test_clinseq_pipeline.configure_msings(self.test_cancer_capture)
+        msings_result = self.test_clinseq_pipeline.capture_to_results[self.test_cancer_capture].msings_output
+        self.assertTrue(msings_result is not None)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+
     def test_configure_hz_conc(self):
         self.test_clinseq_pipeline.configure_hz_conc(self.test_normal_capture,
                                                      self.test_cancer_capture)

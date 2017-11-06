@@ -1,4 +1,3 @@
-import unittest
 from autoseq.tools.msi import *
 
 
@@ -33,3 +32,20 @@ def test_msi_sensor(self):
     self.assertIn('normal.bam', cmd)
     self.assertIn('tumor.bam', cmd)
     self.assertIn('test_output', cmd)
+
+
+def test_msings(self):
+    msings = Msings()
+    msings.input_fasta = "dummy.fasta"
+    msings.outdir = "test_output"
+    msings.msings_baseline = "dummy.baseline"
+    msings.msings_bed = "dummy.bed"
+    msings.msings_intervals = "dummy.intervals"
+    msings.input_bam = "input.bam"
+    cmd = msings.command()
+    self.assertIn("dummy.fasta", cmd)
+    self.assertIn("test_output", cmd)
+    self.assertIn("dummy.baseline", cmd)
+    self.assertIn("dummy.bed", cmd)
+    self.assertIn("dummy.intervals", cmd)
+    self.assertIn("input.bam", cmd)
