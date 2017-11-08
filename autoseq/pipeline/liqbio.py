@@ -32,6 +32,9 @@ class LiqBioPipeline(ClinseqPipeline):
         # Configure all panel analyses:
         self.configure_panel_analyses()
 
+        # Configure additional msings analysis:
+        self.configure_panel_msings_analyses()
+
         # Configure QC of all panel data:
         self.configure_all_panel_qcs()
 

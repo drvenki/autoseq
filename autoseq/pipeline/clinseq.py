@@ -6,12 +6,18 @@ from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
 from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
-from autoseq.tools.intervals import MsiSensor
+from autoseq.tools.msi import MsiSensor, Msings
 from autoseq.tools.cnvcalling import CNVkit
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat, CreateContestVCFs
 from autoseq.tools.qc import *
 from autoseq.util.clinseq_barcode import *
 import collections, logging
+
+
+class InvalidRefDataException(Exception):
+    """Custom exception indicating that the genome reference data is not valid
+    in the context of the current pipeline configuration."""
+    pass
 
 
 class SinglePanelResults(object):
@@ -28,6 +34,10 @@ class SinglePanelResults(object):
 
         # Coverage QC call:
         self.cov_qc_call = None
+
+        # FIXME: Msings should never be run for normal samples => OO progr. fail. Refactor.
+        # Msings output:
+        self.msings_output = None
 
 
 class CancerVsNormalPanelResults(object):
@@ -570,6 +580,18 @@ class ClinseqPipeline(PypedreamPipeline):
         for normal_capture in self.get_mapped_captures_normal():
             self.configure_panel_analysis_with_normal(normal_capture)
 
+    def configure_panel_msings_analyses(self):
+        """Configure msings analyses for all unique captures for which this is
+        possible."""
+
+        for unique_capture in self.get_mapped_captures_cancer():
+            try:
+                self.configure_msings(unique_capture)
+            except InvalidRefDataException:
+                # This indicates the reference data does not support configuring
+                # msings for this cancer capture => Ignore this and proceed to the next:
+                pass
+
     def configure_somatic_calling(self, normal_capture, cancer_capture):
         """
         Configure somatic variant calling in this pipeline, for a specified pairing
@@ -667,6 +689,38 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].msi_output = \
             msisensor.output
         self.add(msisensor)
+
+    def configure_msings(self, cancer_capture):
+        """
+        Configure msings analysis, which operates on a cancer capture bam
+        input file.
+
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
+
+        # Configure Msings:
+        msings = Msings()
+        cancer_capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
+        msings.input_fasta = self.refdata['reference_genome']
+        try:
+            msings.msings_baseline = self.refdata['targets'][cancer_capture_name]['msings-baseline']
+            msings.msings_bed = self.refdata['targets'][cancer_capture_name]['msings-bed']
+            msings.msings_intervals = self.refdata['targets'][cancer_capture_name]['msings-msi_intervals']
+        except KeyError:
+            raise InvalidRefDataException("Missing msings data.")
+
+        msings.input_bam = self.get_capture_bam(cancer_capture)
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        msings.outdir = "{}/msings-{}".format(
+            self.outdir, cancer_capture_str)
+        # FIXME: This is nasty:
+        bam_name = os.path.splitext(os.path.basename(msings.input_bam))
+        msings.output = "{}/{}/{}.MSI_Analysis.txt".format(
+            msings.outdir, bam_name, bam_name)
+        msings.threads = self.maxcores
+        msings.jobname = "msings-{}".format(cancer_capture_str)
+        self.capture_to_results[cancer_capture].msings_output = msings.output
+        self.add(msings)
 
     def configure_hz_conc(self, normal_capture, cancer_capture):
         """
