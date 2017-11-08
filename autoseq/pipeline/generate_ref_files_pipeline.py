@@ -126,7 +126,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         """
 
         file_full_path = "{}/target_intervals/{}".format(self.genome_resources, cnv_kit_ref_filename)
-        capture_library_sampletype = ".".split(stripsuffix(cnv_kit_ref_filename, ".interval_list"))
+        capture_library_sampletype = stripsuffix(cnv_kit_ref_filename, ".cnn").split(".")
 
         copy_cnvkit_ref = Copy(input_file=file_full_path,
                                output_file="{}/intervals/targets/{}".format(self.outdir,
