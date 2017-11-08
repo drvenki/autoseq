@@ -496,8 +496,7 @@ class ClinseqPipeline(PypedreamPipeline):
         cnvkit = CNVkit(input_bam=input_bam,
                         output_cnr="{}/cnv/{}.cnr".format(self.outdir, sample_str),
                         output_cns="{}/cnv/{}.cns".format(self.outdir, sample_str),
-                        scratch=self.scratch,
-                        fasta=self.refdata["reference_genome"])
+                        scratch=self.scratch)
 
         # FIXME: Improve this messy code for extracting the relevant cnvkit reference from self.refdata:
         cnvkit.reference = None
@@ -513,6 +512,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         if not cnvkit.reference:
             cnvkit.targets_bed = self.refdata['targets'][capture_kit_name]['targets-bed-slopped20']
+            cnvkit.fasta = self.refdata["reference_genome"]
 
         cnvkit.jobname = "cnvkit/{}".format(sample_str)
 
