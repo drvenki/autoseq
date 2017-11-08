@@ -9,14 +9,14 @@ class TestClinseq(unittest.TestCase):
     def setUp(self):
         self.test_single_panel_results = SinglePanelResults()
         self.test_cancer_vs_normal_results = CancerVsNormalPanelResults()
-        sample_data = {
+        self.sample_data = {
             "sdid": "P-NA12877",
             "T": ["AL-P-NA12877-T-03098849-TD1-TT1", "AL-P-NA12877-T-03098849-TD1-WGS"],
             "N": ["AL-P-NA12877-N-03098121-TD1-TT1", "AL-P-NA12877-N-03098121-TD1-WGS"],
             "CFDNA": ["LB-P-NA12877-CFDNA-03098850-TD1-TT1", "LB-P-NA12877-CFDNA-03098850-TD1-TT2",
                       "LB-P-NA12877-CFDNA-03098850-TD1-WGS"]
         }
-        ref_data = {
+        self.ref_data = {
             "bwaIndex": "bwa/test-genome-masked.fasta",
             "chrsizes": "genome/test-genome-masked.chrsizes.txt",
             "clinvar": "variants/clinvar_20160203.vcf.gz",
@@ -44,7 +44,7 @@ class TestClinseq(unittest.TestCase):
         self.test_cancer_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
         self.test_normal_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "TT")
         self.test_wg_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "WG")
-        self.test_clinseq_pipeline = ClinseqPipeline(sample_data, ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
+        self.test_clinseq_pipeline = ClinseqPipeline(self.sample_data, self.ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
 
     def test_single_panel_results(self):
         self.assertEquals(self.test_single_panel_results.merged_bamfile, None)
@@ -331,11 +331,23 @@ class TestClinseq(unittest.TestCase):
                 self.test_normal_capture, self.test_cancer_capture)].msi_output is not None)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
-    def test_configure_msings(self):
-        self.test_clinseq_pipeline.configure_msings(self.test_cancer_capture)
-        msings_result = self.test_clinseq_pipeline.capture_to_results[self.test_cancer_capture].msings_output
+    def test_configure_msings_invalid_refdata(self):
+        self.assertRaises(InvalidRefDataException,
+                          lambda: self.test_clinseq_pipeline.configure_msings(self.test_cancer_capture))
+
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
+    def test_configure_msings(self, mock_get_capture_bam):
+        capture_name = 'test-regions'
+        self.ref_data['targets'][capture_name]['msings-baseline'] = "intervals/targets/test-regions.msings.baseline"
+        self.ref_data['targets'][capture_name]['msings-bed'] = "intervals/targets/test-regions.msings.bed"
+        self.ref_data['targets'][capture_name]['msings-msi_intervals'] = "intervals/targets/test-regions.msings.msi_intervals"
+        test_clinseq_pipeline_2 = ClinseqPipeline(self.sample_data, self.ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
+        mock_get_capture_bam.return_value = 'dummy.bam'
+        test_clinseq_pipeline_2.configure_msings(self.test_cancer_capture)
+        msings_result = test_clinseq_pipeline_2.capture_to_results[self.test_cancer_capture].msings_output
         self.assertTrue(msings_result is not None)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(test_clinseq_pipeline_2.graph.nodes()), 1)
 
     def test_configure_hz_conc(self):
         self.test_clinseq_pipeline.configure_hz_conc(self.test_normal_capture,
