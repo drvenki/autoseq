@@ -580,6 +580,18 @@ class ClinseqPipeline(PypedreamPipeline):
         for normal_capture in self.get_mapped_captures_normal():
             self.configure_panel_analysis_with_normal(normal_capture)
 
+    def configure_panel_msings_analyses(self):
+        """Configure msings analyses for all unique captures for which this is
+        possible."""
+
+        for unique_capture in self.get_mapped_captures_cancer():
+            try:
+                self.configure_msings(unique_capture)
+            except InvalidRefDataException:
+                # This indicates the reference data does not support configuring
+                # msings for this cancer capture => Ignore this and proceed to the next:
+                pass
+
     def configure_somatic_calling(self, normal_capture, cancer_capture):
         """
         Configure somatic variant calling in this pipeline, for a specified pairing
