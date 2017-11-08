@@ -132,8 +132,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         for f in input_files:
             file_full_path = "{}/target_intervals/{}".format(self.genome_resources, f)
             logging.debug("Parsing intervals file {}".format(file_full_path))
-            kit_name = stripsuffix(f, ".interval_list")
-            self.reference_data['targets'][kit_name] = {}
+            capture_name = stripsuffix(f, ".interval_list")
+            self.reference_data['targets'][capture_name] = {}
 
             copy_file = Copy(input_file=file_full_path,
                              output_file="{}/intervals/targets/{}".format(self.outdir,
@@ -163,9 +163,9 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
                                                                                     os.path.basename(cnvkit_ref_file))
                                        )
                 self.add(copy_cnvkit_ref)
-                self.reference_data['targets'][kit_name]['cnvkit-ref'] = copy_cnvkit_ref.output
+                self.reference_data['targets'][capture_name]['cnvkit-ref'] = copy_cnvkit_ref.output
             else:
-                self.reference_data['targets'][kit_name]['cnvkit-ref'] = None
+                self.reference_data['targets'][capture_name]['cnvkit-ref'] = None
 
             for msings_extn in ["baseline", "bed", "msi_intervals"]:
                 msings_ref_file = stripsuffix(file_full_path, ".interval_list") + ".msings." + msings_extn
@@ -176,14 +176,14 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
                                                                                             msings_ref_file))
                                            )
                     self.add(copy_msings_ref)
-                    self.reference_data['targets'][kit_name]['msings-' + msings_extn] = copy_msings_ref.output
+                    self.reference_data['targets'][capture_name]['msings-' + msings_extn] = copy_msings_ref.output
                 else:
-                    self.reference_data['targets'][kit_name]['msings-' + msings_extn] = None
+                    self.reference_data['targets'][capture_name]['msings-' + msings_extn] = None
 
-            self.reference_data['targets'][kit_name]['targets-interval_list'] = copy_file.output
-            self.reference_data['targets'][kit_name]['targets-interval_list-slopped20'] = slop_interval_list.output
-            self.reference_data['targets'][kit_name]['targets-bed-slopped20'] = interval_list_to_bed.output
-            self.reference_data['targets'][kit_name]['msisites'] = intersect_msi.output_msi_sites
+            self.reference_data['targets'][capture_name]['targets-interval_list'] = copy_file.output
+            self.reference_data['targets'][capture_name]['targets-interval_list-slopped20'] = slop_interval_list.output
+            self.reference_data['targets'][capture_name]['targets-bed-slopped20'] = interval_list_to_bed.output
+            self.reference_data['targets'][capture_name]['msisites'] = intersect_msi.output_msi_sites
 
     def prepare_genes(self):
         curl_ensembl_gtf = Curl()
