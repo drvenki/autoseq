@@ -68,13 +68,15 @@ class AlasccaCNAPlot(Job):
 class CNVkit(Job):
     """Runs CNVkit. Either reference or targets_bed must be supplied"""
 
-    def __init__(self, input_bam, output_cns, output_cnr, reference=None, targets_bed=None, scratch="/tmp"):
+    def __init__(self, input_bam, output_cns, output_cnr, reference=None,
+                 targets_bed=None, scratch="/tmp", fasta = None):
         self.input_bam = input_bam
         self.reference = reference
         self.output_cnr = output_cnr
         self.output_cns = output_cns
         self.targets_bed = targets_bed
         self.scratch = scratch
+        self.fasta = fasta
 
     def command(self):
         if not self.reference and not self.targets_bed:
@@ -86,6 +88,7 @@ class CNVkit(Job):
         sample_prefix = stripsuffix(os.path.basename(self.input_bam), ".bam")
         cnvkit_cmd = "cnvkit.py batch " + required("", self.input_bam) + \
                      optional("-r ", self.reference) + \
+                     conditional(self.reference, "--fasta " + self.fasta + " --split") + \
                      conditional(self.targets_bed, "-n") + \
                      optional("-t ", self.targets_bed) + \
                      required("-d ", tmpdir)
