@@ -35,8 +35,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.reference_data = dict()
 
         self.exac_remote = "ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3.1/ExAC.r0.3.1.sites.vep.vcf.gz"
-        self.dbsnp_remote = "ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/archive/All_20160408.vcf.gz"
-        self.clinvar_remote = "ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/archive/2016/clinvar_20160203.vcf.gz"
+        self.dbsnp_remote = "ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b149_GRCh37p13/VCF/All_20161121.vcf.gz"
+        self.clinvar_remote = "ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/archive_1.0/2016/clinvar_20160203.vcf.gz"
         self.icgc_somatic_remote = "https://dcc.icgc.org/api/v1/download?fn=/release_20/Summary/simple_somatic_mutation.aggregated.vcf.gz"
         self.ensembl_version = "75"
         self.ensembl_gtf_remote = "ftp://ftp.ensembl.org/pub/release-" + self.ensembl_version + \
