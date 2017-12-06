@@ -180,6 +180,18 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
                 else:
                     self.reference_data['targets'][kit_name]['msings-' + msings_extn] = None
 
+            purecn_targets_file = stripsuffix(file_full_path, ".interval_list") + ".purecn.txt"
+            if os.path.exists(purecn_targets_file):
+                copy_purecn_targets = Copy(input_file=purecn_targets_file,
+                                       output_file="{}/intervals/targets/{}".format(self.outdir,
+                                                                                    os.path.basename(
+                                                                                        purecn_targets_file))
+                                       )
+                self.add(copy_purecn_targets)
+                self.reference_data['targets'][kit_name]['purecn_targets'] = copy_purecn_targets.output
+            else:
+                self.reference_data['targets'][kit_name]['purecn_targets'] = None
+
             self.reference_data['targets'][kit_name]['targets-interval_list'] = copy_file.output
             self.reference_data['targets'][kit_name]['targets-interval_list-slopped20'] = slop_interval_list.output
             self.reference_data['targets'][kit_name]['targets-bed-slopped20'] = interval_list_to_bed.output
