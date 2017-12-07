@@ -72,6 +72,27 @@ class TestVariantCalling(unittest.TestCase):
         self.assertIn('dummy_targets.bed', cmd)
         self.assertIn('output.txt', cmd)
 
+    def test_vardictForPureCN(self):
+        vardict = VarDictForPureCN()
+        vardict.input_tumor = "input_tumor.bam"
+        vardict.input_normal = "input_normal.bam"
+        vardict.tumorid = "tumor_id"
+        vardict.normalid = "normal_id"
+        vardict.reference_sequence = "dummy.fasta"
+        vardict.reference_dict = {}
+        vardict.target_bed = "dummy_targets.bed"
+        vardict.dbsnp = "dummy_dbsnp.vcf.gz"
+        vardict.output = "output.txt"
+        cmd = vardict.command()
+        self.assertIn('input_tumor.bam', cmd)
+        self.assertIn('input_normal.bam', cmd)
+        self.assertIn('tumor_id', cmd)
+        self.assertIn('normal_id', cmd)
+        self.assertIn('dummy.fasta', cmd)
+        self.assertIn('dummy_targets.bed', cmd)
+        self.assertIn('dummy_dbsnp.vcf.gz', cmd)
+        self.assertIn('output.txt', cmd)
+
     def test_vep(self):
         vep = VEP()
         vep.input_vcf = "input.vcf"
