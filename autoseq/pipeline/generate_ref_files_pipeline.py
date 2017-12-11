@@ -169,7 +169,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             else:
                 self.reference_data['targets'][capture_name]['msings-' + msings_extn] = None
 
-    # FIXME: The prepare_intervals() method is becoming very unweildy. Consider refactoring.
+    # FIXME: The prepare_intervals() method is becoming very unwieldy. Consider refactoring.
     def prepare_intervals(self):
         self.reference_data['targets'] = {}
         target_intervals_dir = "{}/target_intervals/".format(self.genome_resources)
