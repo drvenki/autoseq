@@ -121,12 +121,14 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
     def prepare_cnvkit(self, cnv_kit_ref_filename):
         """
 
-        :param cnv_kit_ref_filename: String name of a cnvkit reference (.cnn) file,
-        to be registered in self.ref_data.
+        :param cnv_kit_ref_filename: String name of a cnvkit reference file (either *.cnn
+        or *.cnvkitref.txt), to be registered in self.ref_data.
         """
 
         file_full_path = "{}/target_intervals/{}".format(self.genome_resources, cnv_kit_ref_filename)
-        capture_library_sampletype = stripsuffix(cnv_kit_ref_filename, ".cnn").split(".")
+
+        # Extract the capture+library+sampletype strings:
+        capture_library_sampletype = cnv_kit_ref_filename.split(".")[:2]
 
         copy_cnvkit_ref = Copy(input_file=file_full_path,
                                output_file="{}/intervals/targets/{}".format(self.outdir,
@@ -138,12 +140,16 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         library_kit_name = capture_library_sampletype[1]
         sample_type = capture_library_sampletype[2]
 
+        ref_type = "cnvkit-fix"
+        if cnv_kit_ref_filename.endswith(("cnn")):
+            ref_type = "cnvkit-ref"
+
         # FIXME: Ugly; refactor. This registers the cnvkit reference file copy in the autoseq genome dictionary:
-        if 'cnvkit-ref' not in self.reference_data['targets'][capture_name]:
-            self.reference_data['targets'][capture_name]['cnvkit-ref'] = {}
-        if library_kit_name not in self.reference_data['targets'][capture_name]['cnvkit-ref']:
-            self.reference_data['targets'][capture_name]['cnvkit-ref'][library_kit_name] = {}
-        self.reference_data['targets'][capture_name]['cnvkit-ref'][library_kit_name][sample_type] = \
+        if ref_type not in self.reference_data['targets'][capture_name]:
+            self.reference_data['targets'][capture_name][ref_type] = {}
+        if library_kit_name not in self.reference_data['targets'][capture_name][ref_type]:
+            self.reference_data['targets'][capture_name][ref_type][library_kit_name] = {}
+        self.reference_data['targets'][capture_name][ref_type][library_kit_name][sample_type] = \
             copy_cnvkit_ref.output
 
     def prepare_msings(self, filename_base, capture_name):
@@ -216,7 +222,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             self.reference_data['targets'][capture_name]['msisites'] = intersect_msi.output_msi_sites
 
         # Find all .cnn files and copy + register them for use in cnv kit:
-        for f in [f for f in os.listdir(target_intervals_dir) if f.endswith(".cnn")]:
+        for f in [f for f in os.listdir(target_intervals_dir) if (f.endswith(".cnn") or "cnvkit-fix" in f)]:
             self.prepare_cnvkit(f)
 
 
