@@ -500,7 +500,7 @@ class ClinseqPipeline(PypedreamPipeline):
 
         # FIXME: Improve this messy code for extracting the relevant cnvkit reference from self.refdata:
         cnvkit.reference = None
-        if ['cnvkit-ref'] in self.refdata['targets'][capture_kit_name]:
+        if 'cnvkit-ref' in self.refdata['targets'][capture_kit_name]:
             # Retrieve the first (in arbitrary order) reference available for this capture kit,
             # as a fall-back:
             cnvkit.reference = self.refdata['targets'][capture_kit_name]['cnvkit-ref'].values()[0].values()[0]
