@@ -118,6 +118,64 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         self.reference_data['icgc'] = curl_icgc.output
         self.reference_data['swegene_common'] = curl_swegene.output
 
+    def prepare_cnvkit(self, cnv_kit_ref_filename):
+        """
+
+        :param cnv_kit_ref_filename: String name of a cnvkit reference file (either *.cnn
+        or *.cnvkitref.txt), to be registered in self.ref_data.
+        """
+
+        file_full_path = "{}/target_intervals/{}".format(self.genome_resources, cnv_kit_ref_filename)
+
+        # Extract the capture+library+sampletype strings:
+        capture_library_sampletype = cnv_kit_ref_filename.split(".")[:2]
+
+        copy_cnvkit_ref = Copy(input_file=file_full_path,
+                               output_file="{}/intervals/targets/{}".format(self.outdir,
+                                                                            os.path.basename(file_full_path))
+                              )
+        self.add(copy_cnvkit_ref)
+
+        capture_name = capture_library_sampletype[0]
+        library_kit_name = capture_library_sampletype[1]
+        sample_type = capture_library_sampletype[2]
+
+        ref_type = "cnvkit-fix"
+        if cnv_kit_ref_filename.endswith(("cnn")):
+            ref_type = "cnvkit-ref"
+
+        # FIXME: Ugly; refactor. This registers the cnvkit reference file copy in the autoseq genome dictionary:
+        if ref_type not in self.reference_data['targets'][capture_name]:
+            self.reference_data['targets'][capture_name][ref_type] = {}
+        if library_kit_name not in self.reference_data['targets'][capture_name][ref_type]:
+            self.reference_data['targets'][capture_name][ref_type][library_kit_name] = {}
+        self.reference_data['targets'][capture_name][ref_type][library_kit_name][sample_type] = \
+            copy_cnvkit_ref.output
+
+    def prepare_msings(self, filename_base, capture_name):
+        """
+        Setup the copying of the relevant msings parameter files, for the given base
+        filename.
+
+        :param filename_base: String suffix for all potential msings parameter files.
+        :param capture_name: String capture name. Note: this information is also contained
+            in the filename_base parameter; should be refactored.
+        """
+
+        for msings_extn in ["baseline", "bed", "msi_intervals"]:
+            msings_ref_file = filename_base + ".msings." + msings_extn
+            if os.path.exists(msings_ref_file):
+                copy_msings_ref = Copy(input_file=msings_ref_file,
+                                       output_file="{}/intervals/targets/{}".format(self.outdir,
+                                                                                    os.path.basename(
+                                                                                        msings_ref_file))
+                                       )
+                self.add(copy_msings_ref)
+                self.reference_data['targets'][capture_name]['msings-' + msings_extn] = copy_msings_ref.output
+            else:
+                self.reference_data['targets'][capture_name]['msings-' + msings_extn] = None
+
+    # FIXME: The prepare_intervals() method is becoming very unwieldy. Consider refactoring.
     def prepare_intervals(self):
         self.reference_data['targets'] = {}
         target_intervals_dir = "{}/target_intervals/".format(self.genome_resources)
@@ -132,8 +190,8 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         for f in input_files:
             file_full_path = "{}/target_intervals/{}".format(self.genome_resources, f)
             logging.debug("Parsing intervals file {}".format(file_full_path))
-            kit_name = stripsuffix(f, ".interval_list")
-            self.reference_data['targets'][kit_name] = {}
+            capture_name = stripsuffix(f, ".interval_list")
+            self.reference_data['targets'][capture_name] = {}
 
             copy_file = Copy(input_file=file_full_path,
                              output_file="{}/intervals/targets/{}".format(self.outdir,
@@ -156,34 +214,17 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             intersect_msi.output_msi_sites = stripsuffix(interval_list_to_bed.output, ".bed") + ".msisites.tsv"
             self.add(intersect_msi)
 
-            cnvkit_ref_file = stripsuffix(file_full_path, ".interval_list") + ".cnn"
-            if os.path.exists(cnvkit_ref_file):
-                copy_cnvkit_ref = Copy(input_file=cnvkit_ref_file,
-                                       output_file="{}/intervals/targets/{}".format(self.outdir,
-                                                                                    os.path.basename(cnvkit_ref_file))
-                                       )
-                self.add(copy_cnvkit_ref)
-                self.reference_data['targets'][kit_name]['cnvkit-ref'] = copy_cnvkit_ref.output
-            else:
-                self.reference_data['targets'][kit_name]['cnvkit-ref'] = None
+            self.prepare_msings(stripsuffix(file_full_path, ".interval_list"), capture_name)
 
-            for msings_extn in ["baseline", "bed", "msi_intervals"]:
-                msings_ref_file = stripsuffix(file_full_path, ".interval_list") + ".msings." + msings_extn
-                if os.path.exists(msings_ref_file):
-                    copy_msings_ref = Copy(input_file=msings_ref_file,
-                                           output_file="{}/intervals/targets/{}".format(self.outdir,
-                                                                                        os.path.basename(
-                                                                                            msings_ref_file))
-                                           )
-                    self.add(copy_msings_ref)
-                    self.reference_data['targets'][kit_name]['msings-' + msings_extn] = copy_msings_ref.output
-                else:
-                    self.reference_data['targets'][kit_name]['msings-' + msings_extn] = None
+            self.reference_data['targets'][capture_name]['targets-interval_list'] = copy_file.output
+            self.reference_data['targets'][capture_name]['targets-interval_list-slopped20'] = slop_interval_list.output
+            self.reference_data['targets'][capture_name]['targets-bed-slopped20'] = interval_list_to_bed.output
+            self.reference_data['targets'][capture_name]['msisites'] = intersect_msi.output_msi_sites
 
-            self.reference_data['targets'][kit_name]['targets-interval_list'] = copy_file.output
-            self.reference_data['targets'][kit_name]['targets-interval_list-slopped20'] = slop_interval_list.output
-            self.reference_data['targets'][kit_name]['targets-bed-slopped20'] = interval_list_to_bed.output
-            self.reference_data['targets'][kit_name]['msisites'] = intersect_msi.output_msi_sites
+        # Find all .cnn files and copy + register them for use in cnv kit:
+        for f in [f for f in os.listdir(target_intervals_dir) if (f.endswith(".cnn") or "cnvkit-fix" in f)]:
+            self.prepare_cnvkit(f)
+
 
     def prepare_genes(self):
         curl_ensembl_gtf = Curl()

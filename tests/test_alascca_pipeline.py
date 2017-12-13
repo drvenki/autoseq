@@ -34,7 +34,17 @@ class TestAlascca(unittest.TestCase):
             "swegene_common": "variants/swegen_common.vcf.gz",
             "targets": {
                 "test-regions": {
-                    "cnvkit-ref": None,
+                    "cnvkit-ref": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnn", 
+                            "N": "intervals/targets/progression.THRUPLEX_PLASMASEQ.N.cnn"
+                        }
+                    },
+                    "cnvkit-fix": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnvkit-fix.tsv" 
+                        }
+                    },
                     "msisites": "intervals/targets/test-regions.msisites.tsv",
                     "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
