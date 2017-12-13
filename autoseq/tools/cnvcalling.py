@@ -96,3 +96,15 @@ class CNVkit(Job):
         copy_cnr_cmd = "cp {}/{}.cnr ".format(tmpdir, sample_prefix) + required(" ", self.output_cnr)
         rm_cmd = "rm -r {}".format(tmpdir)
         return " && ".join([cnvkit_cmd, copy_cns_cmd, copy_cnr_cmd, rm_cmd])
+
+
+class Cns2Seg(Job):
+    """Converts CNVkit segment format (.cns files) to DNAcopy segment format (.seg files). """
+
+    def __init__(self, input_cns, output_seg):
+        self.input_cns = input_cns
+        self.output_seg = output_seg
+
+    def command(self):
+        cmd = "cnvkit.py export seg " + required("-o ", self.output_seg) + required("", self.input_cns)
+        return cmd

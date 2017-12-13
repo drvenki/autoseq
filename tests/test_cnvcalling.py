@@ -66,3 +66,9 @@ class TestCNVCalling(unittest.TestCase):
         cnvkit = CNVkit("input.bam", "output.cns", "output.cnr")
         self.assertRaises(ValueError,
                           lambda: cnvkit.command())
+
+    def test_cns2seg(self):
+        cns2seg = Cns2Seg("input.cns", "output.seg")
+        cmd = cns2seg.command()
+        self.assertIn('input.cns', cmd)
+        self.assertIn('output.seg', cmd)
