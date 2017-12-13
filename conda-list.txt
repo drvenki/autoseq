@@ -8,6 +8,7 @@ cryptography=1.8.1
 fastqc=0.11.4
 freebayes=1.0.1
 htslib=1.6
+igvtools=2.3.93
 lofreq=2.1.2
 matplotlib=2.0.2
 nose=1.3.7
