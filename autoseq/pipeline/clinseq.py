@@ -481,9 +481,6 @@ class ClinseqPipeline(PypedreamPipeline):
             self.configure_panel_analysis_cancer_vs_normal(
                 normal_capture, cancer_capture)
 
-    def cnvkit_ref_exists(self, capture_kit_name):
-        return self.refdata['targets'][capture_kit_name]['cnvkit-ref'] != None
-
     def configure_single_capture_analysis(self, unique_capture):
         """
         Configure all general analyses to perform given a single sample library capture.
@@ -492,6 +489,8 @@ class ClinseqPipeline(PypedreamPipeline):
         input_bam = self.get_capture_bam(unique_capture)
         sample_str = compose_lib_capture_str(unique_capture)
         capture_kit_name = self.get_capture_name(unique_capture.capture_kit_id)
+        library_kit_name = self.get_prep_kit_name(unique_capture.library_kit_id)
+        sample_type = unique_capture.sample_type
 
         # Configure CNV kit analysis:
         cnvkit = CNVkit(input_bam=input_bam,
@@ -499,11 +498,21 @@ class ClinseqPipeline(PypedreamPipeline):
                         output_cns="{}/cnv/{}.cns".format(self.outdir, sample_str),
                         scratch=self.scratch)
 
-        # If we have a CNVkit reference
-        if self.cnvkit_ref_exists(capture_kit_name):
-            cnvkit.reference = self.refdata['targets'][capture_kit_name]['cnvkit-ref']
-        else:
+        # FIXME: Improve this messy code for extracting the relevant cnvkit reference from self.refdata:
+        cnvkit.reference = None
+        if 'cnvkit-ref' in self.refdata['targets'][capture_kit_name]:
+            # Retrieve the first (in arbitrary order) reference available for this capture kit,
+            # as a fall-back:
+            cnvkit.reference = self.refdata['targets'][capture_kit_name]['cnvkit-ref'].values()[0].values()[0]
+        try:
+            # Try to get a more specific reference, if it available:
+            cnvkit.reference = self.refdata['targets'][capture_kit_name]['cnvkit-ref'][library_kit_name][sample_type]
+        except KeyError:
+            pass
+
+        if not cnvkit.reference:
             cnvkit.targets_bed = self.refdata['targets'][capture_kit_name]['targets-bed-slopped20']
+            cnvkit.fasta = self.refdata["reference_genome"]
 
         cnvkit.jobname = "cnvkit/{}".format(sample_str)
 
