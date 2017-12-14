@@ -2,7 +2,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
-from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks
+from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks, MakeQDNAseqTracks
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
@@ -495,6 +495,7 @@ class ClinseqPipeline(PypedreamPipeline):
             self.outdir, sample_str)
         make_cnvkit_tracks.output_segments_bedgraph = "{}/cnv/{}_segments.bedGraph".format(
             self.outdir, sample_str)
+        self.add(make_cnvkit_tracks)
 
     def configure_single_capture_analysis(self, unique_capture):
         """
@@ -546,6 +547,17 @@ class ClinseqPipeline(PypedreamPipeline):
         for unique_wgs in self.get_mapped_captures_only_wgs():
             self.configure_single_wgs_analyses(unique_wgs)
 
+    def configure_make_qdnaseq_tracks(self, qdnaseq_output, sample_str):
+        make_qdnaseq_tracks = MakeQDNAseqTracks()
+        make_qdnaseq_tracks.input_qdnaseq_file = qdnaseq_output
+        make_qdnaseq_tracks.output_segments_bedgraph = "{}/cnv/{}_qdnaseq_segments.bedGraph".format(
+            self.outdir, sample_str)
+        make_qdnaseq_tracks.output_copynumber_tdf = "{}/cnv/{}_qdnaseq_copynumber.tdf".format(
+            self.outdir, sample_str)
+        make_qdnaseq_tracks.output_readcount_tdf = "{}/cnv/{}_qdnaseq_readcount.tdf".format(
+            self.outdir, sample_str)
+        self.add(make_qdnaseq_tracks)
+
     def configure_single_wgs_analyses(self, unique_wgs):
         """
         Configure generic analyses of a single WGS item in the pipeline.
@@ -559,8 +571,10 @@ class ClinseqPipeline(PypedreamPipeline):
         qdnaseq = QDNASeq(input_bam,
                           output_segments="{}/cnv/{}-qdnaseq.segments.txt".format(
                               self.outdir, sample_str),
-                          background=None
-                          )
+                          background=None)
+
+        self.configure_make_qdnaseq_tracks(qdnaseq.output, sample_str)
+
         self.add(qdnaseq)
 
     def run_wgs_bam_qc(self, bams):
