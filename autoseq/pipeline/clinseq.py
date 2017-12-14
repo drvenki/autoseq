@@ -2,6 +2,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
+from autoseq.tools.igv import MakeAllelicFractionTrack
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
@@ -648,7 +649,7 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vepped_vcf = \
             vep.output_vcf
 
-    def configure_make_allelic_fraction_tracks(self, normal_capture, cancer_capture):
+    def configure_make_allelic_fraction_track(self, normal_capture, cancer_capture):
         """
         Configure a small job for converting the germline variant somatic allelic fraction
         information into tracks for displaying in IGV.
@@ -658,14 +659,14 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         vcf = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vcf_addsample_output
-        make_allelic_fraction_tracks = MakeAllelicFractionTracks()
-        make_allelic_fraction_tracks.input_vcf = vcf
+        make_allelic_fraction_track = MakeAllelicFractionTrack()
+        make_allelic_fraction_track.input_vcf = vcf
         normal_capture_str = compose_lib_capture_str(normal_capture)
         cancer_capture_str = compose_lib_capture_str(cancer_capture)
-        make_allelic_fraction_tracks.output_bedgraph = \
+        make_allelic_fraction_track.output_bedgraph = \
             "{}/variants/{}-and-{}.germline-variants-somatic-afs.bedGraph".format(
             self.outdir, normal_capture_str, cancer_capture_str)
-        self.add(make_allelic_fraction_tracks)
+        self.add(make_allelic_fraction_track)
 
     def configure_vcf_add_sample(self, normal_capture, cancer_capture):
         """
@@ -893,7 +894,7 @@ class ClinseqPipeline(PypedreamPipeline):
         self.configure_somatic_calling(normal_capture, cancer_capture)
         self.configure_vep(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
-        self.configure_make_allelic_fraction_tracks(normal_capture, cancer_capture)
+        self.configure_make_allelic_fraction_track(normal_capture, cancer_capture)
         self.configure_msi_sensor(normal_capture, cancer_capture)
         self.configure_hz_conc(normal_capture, cancer_capture)
         self.configure_contamination_estimate(normal_capture, cancer_capture)
