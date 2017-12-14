@@ -2,7 +2,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
-from autoseq.tools.igv import MakeAllelicFractionTrack
+from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
@@ -482,6 +482,20 @@ class ClinseqPipeline(PypedreamPipeline):
             self.configure_panel_analysis_cancer_vs_normal(
                 normal_capture, cancer_capture)
 
+    def configure_make_cnvkit_tracks(self, unique_capture):
+        input_cnr = self.capture_to_results[unique_capture].cnr
+        input_cns = self.capture_to_results[unique_capture].cns
+
+        sample_str = compose_lib_capture_str(unique_capture)
+
+        make_cnvkit_tracks = MakeCNVkitTracks()
+        make_cnvkit_tracks.input_cnr = input_cnr
+        make_cnvkit_tracks.input_cns = input_cns
+        make_cnvkit_tracks.output_profile_bedgraph = "{}/cnv/{}_profile.bedGraph".format(
+            self.outdir, sample_str)
+        make_cnvkit_tracks.output_segments_bedgraph = "{}/cnv/{}_segments.bedGraph".format(
+            self.outdir, sample_str)
+
     def configure_single_capture_analysis(self, unique_capture):
         """
         Configure all general analyses to perform given a single sample library capture.
@@ -585,6 +599,7 @@ class ClinseqPipeline(PypedreamPipeline):
         # Configure analyses to be run on all unique panel captures individually:
         for unique_capture in self.get_mapped_captures_no_wgs():
             self.configure_single_capture_analysis(unique_capture)
+            self.configure_make_cnvkit_tracks(unique_capture)
 
         # Configure a separate group of analyses for each unique normal library capture:
         for normal_capture in self.get_mapped_captures_normal():
