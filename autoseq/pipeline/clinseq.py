@@ -1,14 +1,13 @@
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
-from autoseq.tools.cnvcalling import QDNASeq
+from autoseq.tools.cnvcalling import CNVkit, CNVkitFix, QDNASeq
 from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks, MakeQDNAseqTracks
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
 from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
 from autoseq.tools.msi import MsiSensor, Msings
-from autoseq.tools.cnvcalling import CNVkit
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat, CreateContestVCFs
 from autoseq.tools.qc import *
 from autoseq.util.clinseq_barcode import *
@@ -497,6 +496,29 @@ class ClinseqPipeline(PypedreamPipeline):
             self.outdir, sample_str)
         self.add(make_cnvkit_tracks)
 
+    def configure_fix_cnvkit(self, unique_capture, cnr, cns, cnvkit_fix_filename):
+        """
+        Configure a job to fix the cnvkit output for the specified unique capture.
+
+        :param unique_capture: Named tuple identifying a sample library capture.
+        :param cnr: String indicating unfixed cnr file location
+        :param cns: String indicating unfixed cns file location
+        :param cnvkit_fix_filename: File containing table of data used to fix the outputs.
+        """
+
+        sample_str = compose_lib_capture_str(unique_capture)
+
+        cnvkit_fix = CNVkitFix(input_cnr=cnr,
+                               input_cns=cns,
+                               input_ref=cnvkit_fix_filename,
+                               output_cnr="{}/cnv/{}-fixed.cnr".format(self.outdir, sample_str),
+                               output_cns="{}/cnv/{}-fixed.cns".format(self.outdir, sample_str))
+
+        self.set_capture_cnr(unique_capture, cnvkit_fix.output_cnr)
+        self.set_capture_cns(unique_capture, cnvkit_fix.output_cns)
+
+        self.add(cnvkit_fix)
+
     def configure_single_capture_analysis(self, unique_capture):
         """
         Configure all general analyses to perform given a single sample library capture.
@@ -535,6 +557,15 @@ class ClinseqPipeline(PypedreamPipeline):
         # Register the result of this analysis:
         self.set_capture_cnr(unique_capture, cnvkit.output_cnr)
         self.set_capture_cns(unique_capture, cnvkit.output_cns)
+
+        # FIXME: This extra step (fixing the cnv kit output) should perhaps go elsewhere.
+        try:
+            # Only fix the CNV-kit output if the required file is available:
+            cnvkit_fix_filename = \
+                self.refdata['targets'][capture_kit_name]["cnvkit-fix"][library_kit_name][sample_type]
+            self.configure_fix_cnvkit(unique_capture, cnvkit.output_cnr, cnvkit.output_cns, cnvkit_fix_filename)
+        except KeyError:
+            pass
 
         self.add(cnvkit)
 

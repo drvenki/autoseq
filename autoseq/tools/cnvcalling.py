@@ -98,6 +98,29 @@ class CNVkit(Job):
         return " && ".join([cnvkit_cmd, copy_cns_cmd, copy_cnr_cmd, rm_cmd])
 
 
+class CNVkitFix(Job):
+    """Fixes the output of CNV-kit, using a specified table of reference data that should be
+    specific to the sample type, capture kit, and library prep kit.
+    """
+
+    def __init__(self, input_cnr, input_cns, input_ref, output_cnr, output_cns):
+        self.input_cnr = input_cnr
+        self.input_cns = input_cns
+        self.input_ref = input_ref
+        self.output_cns = output_cns
+        self.output_cnr = output_cnr
+
+    def command(self):
+        return "fix_cnvkit.py --input-cnr {input_cnr} --input-cns {input_cns} " + \
+               "--input-reference {input_ref} --output-cnr {output_cnr} " + \
+               "--output-cns {output_cns}".format(
+                   input_cnr=self.input_cnr,
+                   input_cns=self.input_cns,
+                   input_ref=self.input_ref,
+                   output_cns=self.output_cns,
+                   output_cnr=self.output_cnr)
+
+
 class Cns2Seg(Job):
     """Converts CNVkit segment format (.cns files) to DNAcopy segment format (.seg files). """
 
