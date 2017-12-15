@@ -260,7 +260,7 @@ class TestClinseq(unittest.TestCase):
     def test_configure_single_wgs_analyses(self, mock_get_capture_bam):
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_wgs_analyses(self.test_wg_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     def test_run_wgs_bam_qc(self):
         self.assertEquals(len(self.test_clinseq_pipeline.run_wgs_bam_qc(["test1.bam", "test2.bam"])),
@@ -400,7 +400,7 @@ class TestClinseq(unittest.TestCase):
         self.test_clinseq_pipeline.refdata['vep_dir'] = "dummy_vep_dir"
         self.test_clinseq_pipeline.configure_panel_analysis_cancer_vs_normal(self.test_normal_capture,
                                                                              self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 9)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 10)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_only_wgs')
     def test_configure_all_lowpass_qcs(self, mock_get_mapped_captures_only_wgs):

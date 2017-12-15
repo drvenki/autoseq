@@ -2,6 +2,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import QDNASeq
+from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks, MakeQDNAseqTracks
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
@@ -481,6 +482,21 @@ class ClinseqPipeline(PypedreamPipeline):
             self.configure_panel_analysis_cancer_vs_normal(
                 normal_capture, cancer_capture)
 
+    def configure_make_cnvkit_tracks(self, unique_capture):
+        input_cnr = self.capture_to_results[unique_capture].cnr
+        input_cns = self.capture_to_results[unique_capture].cns
+
+        sample_str = compose_lib_capture_str(unique_capture)
+
+        make_cnvkit_tracks = MakeCNVkitTracks()
+        make_cnvkit_tracks.input_cnr = input_cnr
+        make_cnvkit_tracks.input_cns = input_cns
+        make_cnvkit_tracks.output_profile_bedgraph = "{}/cnv/{}_profile.bedGraph".format(
+            self.outdir, sample_str)
+        make_cnvkit_tracks.output_segments_bedgraph = "{}/cnv/{}_segments.bedGraph".format(
+            self.outdir, sample_str)
+        self.add(make_cnvkit_tracks)
+
     def configure_single_capture_analysis(self, unique_capture):
         """
         Configure all general analyses to perform given a single sample library capture.
@@ -531,6 +547,17 @@ class ClinseqPipeline(PypedreamPipeline):
         for unique_wgs in self.get_mapped_captures_only_wgs():
             self.configure_single_wgs_analyses(unique_wgs)
 
+    def configure_make_qdnaseq_tracks(self, qdnaseq_output, sample_str):
+        make_qdnaseq_tracks = MakeQDNAseqTracks()
+        make_qdnaseq_tracks.input_qdnaseq_file = qdnaseq_output
+        make_qdnaseq_tracks.output_segments_bedgraph = "{}/cnv/{}_qdnaseq_segments.bedGraph".format(
+            self.outdir, sample_str)
+        make_qdnaseq_tracks.output_copynumber_tdf = "{}/cnv/{}_qdnaseq_copynumber.tdf".format(
+            self.outdir, sample_str)
+        make_qdnaseq_tracks.output_readcount_tdf = "{}/cnv/{}_qdnaseq_readcount.tdf".format(
+            self.outdir, sample_str)
+        self.add(make_qdnaseq_tracks)
+
     def configure_single_wgs_analyses(self, unique_wgs):
         """
         Configure generic analyses of a single WGS item in the pipeline.
@@ -544,8 +571,10 @@ class ClinseqPipeline(PypedreamPipeline):
         qdnaseq = QDNASeq(input_bam,
                           output_segments="{}/cnv/{}-qdnaseq.segments.txt".format(
                               self.outdir, sample_str),
-                          background=None
-                          )
+                          background=None)
+
+        self.configure_make_qdnaseq_tracks(qdnaseq.output, sample_str)
+
         self.add(qdnaseq)
 
     def run_wgs_bam_qc(self, bams):
@@ -584,6 +613,7 @@ class ClinseqPipeline(PypedreamPipeline):
         # Configure analyses to be run on all unique panel captures individually:
         for unique_capture in self.get_mapped_captures_no_wgs():
             self.configure_single_capture_analysis(unique_capture)
+            self.configure_make_cnvkit_tracks(unique_capture)
 
         # Configure a separate group of analyses for each unique normal library capture:
         for normal_capture in self.get_mapped_captures_normal():
@@ -648,6 +678,24 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vepped_vcf = \
             vep.output_vcf
 
+    def configure_make_allelic_fraction_track(self, normal_capture, cancer_capture):
+        """
+        Configure a small job for converting the germline variant somatic allelic fraction
+        information into tracks for displaying in IGV.
+
+        :param normal_capture: Named tuple indicating normal library capture.
+        :param cancer_capture: Named tuple indicating cancer library capture.
+        """
+
+        vcf = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vcf_addsample_output
+        make_allelic_fraction_track = MakeAllelicFractionTrack()
+        make_allelic_fraction_track.input_vcf = vcf
+        normal_capture_str = compose_lib_capture_str(normal_capture)
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        make_allelic_fraction_track.output_bedgraph = \
+            "{}/variants/{}-and-{}.germline-variants-somatic-afs.bedGraph".format(
+            self.outdir, normal_capture_str, cancer_capture_str)
+        self.add(make_allelic_fraction_track)
 
     def configure_vcf_add_sample(self, normal_capture, cancer_capture):
         """
@@ -875,6 +923,7 @@ class ClinseqPipeline(PypedreamPipeline):
         self.configure_somatic_calling(normal_capture, cancer_capture)
         self.configure_vep(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
+        self.configure_make_allelic_fraction_track(normal_capture, cancer_capture)
         self.configure_msi_sensor(normal_capture, cancer_capture)
         self.configure_hz_conc(normal_capture, cancer_capture)
         self.configure_contamination_estimate(normal_capture, cancer_capture)
