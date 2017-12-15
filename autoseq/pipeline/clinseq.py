@@ -1,12 +1,12 @@
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
-from autoseq.tools.cnvcalling import CNVkit, CNVkitFix, QDNASeq
+from autoseq.tools.cnvcalling import Cns2Seg, CNVkit, CNVkitFix, QDNASeq
 from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks, MakeQDNAseqTracks
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
-from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
+from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, VarDictForPureCN, call_somatic_variants
 from autoseq.tools.msi import MsiSensor, Msings
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat, CreateContestVCFs
 from autoseq.tools.qc import *
@@ -31,6 +31,7 @@ class SinglePanelResults(object):
         # CNV kit outputs:
         self.cnr = None
         self.cns = None
+        self.seg = None
 
         # Coverage QC call:
         self.cov_qc_call = None
@@ -169,6 +170,15 @@ class ClinseqPipeline(PypedreamPipeline):
         :param cnr: CNS output filename.
         """
         self.capture_to_results[unique_capture].cns = cns
+
+    def set_capture_seg(self, unique_capture, seg):
+        """
+        Record the seg file (converted CNV kit output) for the given library capture.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param cnr: CNS output filename.
+        """
+        self.capture_to_results[unique_capture].seg = seg
 
     def get_capture_bam(self, unique_capture):
         """
@@ -569,6 +579,12 @@ class ClinseqPipeline(PypedreamPipeline):
 
         self.add(cnvkit)
 
+        # Configure conversion of CNV kit output to seg format:
+        seg_filename = "{}/cnv/{}.seg".format(
+            self.outdir, sample_str)
+        cns2seg = Cns2Seg(self.capture_to_results[unique_capture].cns, seg_filename)
+        self.set_capture_seg(unique_capture, cns2seg.output_seg)
+
     def configure_lowpass_analyses(self):
         """
         Configure generic analyses of all low-pass whole-genome sequencing
@@ -934,6 +950,43 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].cancer_contam_call = \
             cancer_contam_call
 
+    def configure_purecn(self, normal_capture, cancer_capture):
+        """
+        Configure PureCN, and also configure the custom run of VarDict, which is
+        required for PureCN.
+
+        :param normal_capture: A unique normal sample library capture
+        :param cancer_capture: A unique cancer sample library capture
+        """
+
+        cancer_bam = self.get_capture_bam(cancer_capture)
+        normal_bam = self.get_capture_bam(normal_capture)
+        target_name = self.get_capture_name(cancer_capture.capture_kit_id)
+
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        normal_capture_str = compose_lib_capture_str(normal_capture)
+
+        # Configure the PureCN-specific VarDict job:
+        vardict_pureCN = VarDictForPureCN()
+        vardict_pureCN.input_tumor = cancer_bam
+        vardict_pureCN.input_normal = normal_bam
+        vardict_pureCN.tumorid = cancer_capture_str
+        vardict_pureCN.normalid = normal_capture_str
+        vardict_pureCN.reference_sequence = self.refdata['reference_genome']
+        vardict_pureCN.reference_dict = self.refdata['reference_dict']
+        vardict_pureCN.target_bed = self.refdata['targets'][target_name]['targets-bed-slopped20']
+        vardict_pureCN.dbsnp = self.refdata["dbSNP"]
+        vardict_pureCN.output = "{}/variants/{}-{}.vardict-somatic-purecn.vcf.gz".format(
+            self.outdir, cancer_capture_str, normal_capture_str)
+        vardict_pureCN.jobname = "vardict_purecn/{}-{}".format(cancer_capture_str, normal_capture_str)
+        self.add(vardict_pureCN)
+
+        # Retrieve the relevant seg-format file:
+        seg_filename = self.capture_to_results[cancer_capture].seg
+
+        # Configure PureCN itself:
+        # XXX
+
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture):
         """
         Configures standard paired cancer vs normal panel analyses for the specified unique
@@ -952,6 +1005,9 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         self.configure_somatic_calling(normal_capture, cancer_capture)
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        if self.refdata['targets'][cancer_capture_str]['purecn_targets']:
+            self.configure_purecn(normal_capture, cancer_capture)
         self.configure_vep(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
         self.configure_make_allelic_fraction_track(normal_capture, cancer_capture)
