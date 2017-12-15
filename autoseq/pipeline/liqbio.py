@@ -1,13 +1,6 @@
-import logging
-
 from autoseq.pipeline.clinseq import ClinseqPipeline
-from autoseq.tools.alignment import align_library
-from autoseq.tools.cnvcalling import QDNASeq
-from autoseq.tools.picard import PicardCollectWgsMetrics
-from autoseq.tools.picard import PicardCollectInsertSizeMetrics
-from autoseq.tools.qc import *
-from autoseq.util.library import find_fastqs
-from autoseq.util.path import stripsuffix
+from autoseq.tools.cnvcalling import LiqbioCNAPlot
+from autoseq.util.clinseq_barcode import *
 
 __author__ = 'dankle'
 
@@ -32,6 +25,9 @@ class LiqBioPipeline(ClinseqPipeline):
         # Configure all panel analyses:
         self.configure_panel_analyses()
 
+        # Configure liqbio-specific panel analyses:
+        self.configure_panel_analyses_liqbio()
+
         # Configure additional msings analysis:
         self.configure_panel_msings_analyses()
 
@@ -49,3 +45,55 @@ class LiqBioPipeline(ClinseqPipeline):
 
         # Configure MultiQC:
         self.configure_multi_qc()
+
+    def configure_panel_analyses_liqbio(self):
+        for normal_capture in self.get_mapped_captures_normal():
+            for cancer_capture in self.get_mapped_captures_cancer():
+                self.configure_panel_analysis_cancer_vs_normal_liqbio(
+                    normal_capture, cancer_capture)
+
+    def configure_liqbio_cna(self, normal_capture, cancer_capture):
+        tumor_vs_normal_results = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)]
+        tumor_results = self.capture_to_results[cancer_capture]
+
+        # Configure the liqbio frankenplots:
+        # NOTE: Get PureCN outputs:
+        pureCN_outputs = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].pureCN_outputs
+
+        cancer_str = compose_lib_capture_str(cancer_capture)
+
+        liqbio_cna = LiqbioCNAPlot()
+        liqbio_cna.tumor_cnr = self.capture_to_results[cancer_capture].cnr
+        liqbio_cna.tumor_cns = self.capture_to_results[cancer_capture].cns
+        liqbio_cna.normal_cnr = self.capture_to_results[normal_capture].cnr
+        liqbio_cna.normal_cns = self.capture_to_results[normal_capture].cns
+        liqbio_cna.het_snps_vcf = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vcf_addsample_output
+        liqbio_cna.purecn_csv = pureCN_outputs["csv"]
+        liqbio_cna.purecn_genes_csv = pureCN_outputs["genes_csv"]
+        liqbio_cna.purecn_loh_csv = pureCN_outputs["loh_csv"]
+        liqbio_cna.purecn_variants_csv = pureCN_outputs["variants_csv"]
+        liqbio_cna.svcaller_T_DEL = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.svcaller_T_DUP = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.svcaller_T_INV = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.svcaller_T_TRA = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.svcaller_N_DEL = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.svcaller_N_DUP = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.svcaller_N_INV = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.svcaller_N_TRA = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.germline_mut_vcf = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.somatic_mut_vcf = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.plot_png = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.output_cna = # XXX CONTINUE HERE: FILL THESE IN
+        liqbio_cna.output_purity = # XXX CONTINUE HERE: FILL THESE IN
+
+        return liqbio_cna.output_cna, liqbio_cna.output_purity
+
+    def configure_panel_analysis_cancer_vs_normal_liqbio(self, normal_capture, cancer_capture):
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+
+        # XXX CONFIGURE SVCALLER, AND STORE THE OUTPUT FILES SOMEHOW -> 
+
+        if self.refdata['targets'][cancer_capture_str]['purecn_targets']:
+            self.configure_purecn(normal_capture, cancer_capture)
+
+            self.configure_liqbio_cna(normal_capture, cancer_capture)

@@ -65,6 +65,60 @@ class AlasccaCNAPlot(Job):
                required("--json.purity ", self.output_purity)
 
 
+class LiqbioCNAPlot(Job):
+    def __init__(self):
+        Job.__init__(self)
+        self.tumor_cnr = None
+        self.tumor_cns = None
+        self.normal_cnr = None
+        self.normal_cns = None
+        self.het_snps_vcf = None
+        self.purecn_csv = None
+        self.purecn_genes_csv = None
+        self.purecn_loh_csv = None
+        self.purecn_variants_csv = None
+        self.svcaller_T_DEL = None
+        self.svcaller_T_DUP = None
+        self.svcaller_T_INV = None
+        self.svcaller_T_TRA = None
+        self.svcaller_N_DEL = None
+        self.svcaller_N_DUP = None
+        self.svcaller_N_INV = None
+        self.svcaller_N_TRA = None
+        self.germline_mut_vcf = None
+        self.somatic_mut_vcf = None
+        self.plot_png = None
+        self.output_cna = None
+        self.output_purity = None
+
+        self.jobname = "liqbio-cna"
+
+    def command(self):
+        return "liqbioCNA.R" + \
+        required("--tumor_cnr", self.tumor_cnr) + \
+        required("--tumor_cns", self.tumor_cns) + \
+        required("--normal_cnr", self.normal_cnr) + \
+        required("--normal_cns", self.normal_cns) + \
+        required("--het_snps_vcf", self.het_snps_vcf) + \
+        required("--purecn_csv", self.purecn_csv) + \
+        required("--purecn_genes_csv", self.purecn_genes_csv) + \
+        required("--purecn_loh_csv", self.purecn_loh_csv) + \
+        required("--purecn_variants_csv", self.purecn_variants_csv) + \
+        required("--svcaller_T_DEL", self.svcaller_T_DEL) + \
+        required("--svcaller_T_DUP", self.svcaller_T_DUP) + \
+        required("--svcaller_T_INV", self.svcaller_T_INV) + \
+        required("--svcaller_T_TRA", self.svcaller_T_TRA) + \
+        required("--svcaller_N_DEL", self.svcaller_N_DEL) + \
+        required("--svcaller_N_DUP", self.svcaller_N_DUP) + \
+        required("--svcaller_N_INV", self.svcaller_N_INV) + \
+        required("--svcaller_N_TRA", self.svcaller_N_TRA) + \
+        required("--germline_mut_vcf", self.germline_mut_vcf) + \
+        required("--somatic_mut_vcf", self.somatic_mut_vcf) + \
+        required("--plot_png", self.plot_png) + \
+        required("--cna_json", self.output_cna) + \
+        required("--purity_json", self.output_purity)
+
+
 class CNVkit(Job):
     """Runs CNVkit. Either reference or targets_bed must be supplied"""
 

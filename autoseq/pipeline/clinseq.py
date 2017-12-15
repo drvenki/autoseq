@@ -2,6 +2,7 @@ from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
 from autoseq.tools.cnvcalling import Cns2Seg, CNVkit, CNVkitFix, QDNASeq
+from autoseq.tools.purity import PureCN
 from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks, MakeQDNAseqTracks
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
@@ -54,6 +55,7 @@ class CancerVsNormalPanelResults(object):
         self.normal_contest_output = None
         self.cancer_contest_output = None
         self.cancer_contam_call = None
+        self.pureCN_outputs = None
 
 
 class ClinseqPipeline(PypedreamPipeline):
@@ -985,7 +987,27 @@ class ClinseqPipeline(PypedreamPipeline):
         seg_filename = self.capture_to_results[cancer_capture].seg
 
         # Configure PureCN itself:
-        # XXX
+        pureCN = PureCN()
+        pureCN.input_seg = seg_filename
+        pureCN.input_vcf = vardict_pureCN.output
+        # should be the same as the ID in the seg file -> I think this is true:
+        pureCN.tumorid = cancer_capture_str
+        pureCN.outdir = self.outdir
+        pureCN.gcgene_file = self.refdata['targets'][cancer_capture_str]['purecn_targets']
+        self.add(pureCN)
+
+        # FIXME: This seems like a nasty hack to include a dictionary here, and perhaps belongs elsewhere:
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].pureCN_outputs = {
+            "csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, ".csv"),
+            "genes_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_genes.csv"),
+            "loh_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_loh.csv"),
+            "variants_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_variants.csv"),
+        }
+
+
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        if self.refdata['targets'][cancer_capture_str]['purecn_targets']:
+            self.configure_purecn(normal_capture, cancer_capture)
 
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture):
         """
@@ -1005,9 +1027,6 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         self.configure_somatic_calling(normal_capture, cancer_capture)
-        cancer_capture_str = compose_lib_capture_str(cancer_capture)
-        if self.refdata['targets'][cancer_capture_str]['purecn_targets']:
-            self.configure_purecn(normal_capture, cancer_capture)
         self.configure_vep(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
         self.configure_make_allelic_fraction_track(normal_capture, cancer_capture)

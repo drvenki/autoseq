@@ -24,6 +24,12 @@ class PureCN(Job):
         # activating conda env
         activate_cmd = "source activate purecn-env"
 
+        # Determining output here purely as a means of determining when the job has
+        # completed; PureCN itself determines the output file paths based on the
+        # specified "--out" and "--sampleid" arguments.
+        self.output = "{}/{}_genes.csv".format(
+            self.outdir, self.tumorid)
+
         # running PureCN
         running_cmd = "Rscript PureCN.R " + required("--out ", self.outdir) + \
                        required("--sampleid ", self.tumorid) + \
