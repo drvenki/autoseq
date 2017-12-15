@@ -48,7 +48,8 @@ class Freebayes(Job):
 
 class VarDict(Job):
     def __init__(self, input_tumor=None, input_normal=None, tumorid=None, normalid=None, reference_sequence=None,
-                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1, min_num_reads=None):
+                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1, min_num_reads=None,
+                 blacklist_bed=None):
         Job.__init__(self)
         self.input_tumor = input_tumor
         self.input_normal = input_normal
@@ -57,6 +58,7 @@ class VarDict(Job):
         self.reference_sequence = reference_sequence
         self.reference_dict = reference_dict
         self.target_bed = target_bed
+        self.blacklist_bed = blacklist_bed
         self.output = output
         self.min_alt_frac = min_alt_frac
         self.min_num_reads = min_num_reads
@@ -73,6 +75,8 @@ class VarDict(Job):
                           "| sed 's/REJECT,Description=\".*\">/REJECT,Description=\"Not Somatic via VarDict\">/' "
                           "| %s -c 'from autoseq.util.bcbio import call_somatic; import sys; print call_somatic(sys.stdin.read())' " % sys.executable)
 
+        blacklist_filter = " | intersectBed -a . -b {} | ".format(self.blacklist_bed)
+
         cmd = "vardict-java " + required("-G ", self.reference_sequence) + \
               optional("-f ", self.min_alt_frac) + \
               required("-N ", self.tumorid) + \
@@ -87,6 +91,7 @@ class VarDict(Job):
               " | " + vt_split_and_leftaln(self.reference_sequence) + \
               " | bcftools view --apply-filters .,PASS " + \
               " | vcfsorter.pl {} /dev/stdin ".format(self.reference_dict) + \
+              conditional(blacklist_filter, self.blacklist_bed) + \
               " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         return cmd
 
@@ -294,6 +299,8 @@ def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, norm
         pipeline.add(freebayes)
         d['freebayes'] = freebayes.output
 
+    blacklist_bed = pipeline.reference_dict["targets"][cancer_capture_str]["blacklist-bed"]
+
     if 'vardict' in callers:
         vardict = VarDict(input_tumor=cancer_bam, input_normal=normal_bam, tumorid=tumor_sample_str,
                           normalid=normal_sample_str,
@@ -301,7 +308,8 @@ def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, norm
                           reference_dict=pipeline.refdata['reference_dict'],
                           target_bed=pipeline.refdata['targets'][target_name]['targets-bed-slopped20'],
                           output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str),
-                          min_alt_frac=min_alt_frac, min_num_reads=min_num_reads
+                          min_alt_frac=min_alt_frac, min_num_reads=min_num_reads,
+                          blacklist_bed=blacklist_bed
                           )
 
         vardict.jobname = "vardict/{}".format(cancer_capture_str)
