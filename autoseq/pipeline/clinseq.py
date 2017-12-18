@@ -127,24 +127,24 @@ class ClinseqPipeline(PypedreamPipeline):
         else:
             return self.default_job_params[param_name]
 
-    def set_germline_vcf(self, normal_capture, vcf_filename):
+    def set_germline_vcf(self, normal_capture, vcfs):
         """
         Registers the specified vcf filename for the specified normal capture item,
         for this analysis.
 
         :param normal_capture: Normal panel capture identifier.
-        :param vcf_filename: VCF filename to store.
+        :param vcfs: Tuple specifying (germline_variants_vcf, vepped_germline_variants_vcf)
         """
 
-        self.normal_capture_to_vcf[normal_capture] = vcf_filename
+        self.normal_capture_to_vcf[normal_capture] = vcfs
 
-    def get_germline_vcf(self, normal_capture):
+    def get_germline_vcfs(self, normal_capture):
         """
-        Obtain the germline VCF for the given normal sample capture item.
+        Obtain the germline VCFs (original and vepped) for the given normal sample capture item.
 
         :param normal_capture: Named tuple indicating a unique library capture.
-        :return: The germline VCF filename for the specified normal capture item, or None
-        if this has not been configured.
+        :return: Tuple of (original_germline_variants_vcf, vepped_germline_variants_vcf), if available,
+            otherwise None.
         """
         if normal_capture in self.normal_capture_to_vcf:
             return self.normal_capture_to_vcf[normal_capture]
@@ -488,19 +488,19 @@ class ClinseqPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(capture_str)
         self.add(freebayes)
 
-#        if self.vep_data_is_available():
-#            vep_freebayes = VEP()
-#            vep_freebayes.input_vcf = freebayes.output
-#            vep_freebayes.threads = self.maxcores
-#            vep_freebayes.reference_sequence = self.refdata['reference_genome']
-#            vep_freebayes.vep_dir = self.refdata['vep_dir']
-#            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, capture_str)
-#            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
-#            self.add(vep_freebayes)
-#
-#            self.set_germline_vcf(normal_capture, vep_freebayes.output_vcf)
-#        else:
-        self.set_germline_vcf(normal_capture, freebayes.output)
+        vepped_vcf = None
+        if self.vep_data_is_available():
+            vep_freebayes = VEP()
+            vep_freebayes.input_vcf = freebayes.output
+            vep_freebayes.threads = self.maxcores
+            vep_freebayes.reference_sequence = self.refdata['reference_genome']
+            vep_freebayes.vep_dir = self.refdata['vep_dir']
+            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, capture_str)
+            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
+            self.add(vep_freebayes)
+            vepped_vcf = vep_freebayes.output_vcf
+
+        self.set_germline_vcf(normal_capture, (freebayes.output, vepped_vcf))
 
     def configure_panel_analysis_with_normal(self, normal_capture):
         """

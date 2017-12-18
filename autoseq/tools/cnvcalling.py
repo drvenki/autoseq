@@ -88,8 +88,8 @@ class LiqbioCNAPlot(Job):
         self.germline_mut_vcf = None
         self.somatic_mut_vcf = None
         self.plot_png = None
-        self.output_cna = None
-        self.output_purity = None
+        self.output_cna_json = None
+        self.output_purity_json = None
 
         self.jobname = "liqbio-cna"
 
@@ -115,8 +115,8 @@ class LiqbioCNAPlot(Job):
         required("--germline_mut_vcf", self.germline_mut_vcf) + \
         required("--somatic_mut_vcf", self.somatic_mut_vcf) + \
         required("--plot_png", self.plot_png) + \
-        required("--cna_json", self.output_cna) + \
-        required("--purity_json", self.output_purity)
+        required("--cna_json", self.output_cna_json) + \
+        required("--purity_json", self.output_purity_json)
 
 
 class CNVkit(Job):

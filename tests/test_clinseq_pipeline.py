@@ -74,15 +74,16 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(self.test_clinseq_pipeline.get_job_param("cov-high-thresh-fold-cov"), 100)
 
     def test_set_germline_vcf(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_cancer_capture], "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, ("test1.vcf", "test2.vcf"))
+        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_cancer_capture],
+                          ("test1.vcf", "test2.vcf"))
 
     def test_get_germline_vcf_exists(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, ("test1.vcf", "test2.vcf"))
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcfs(self.test_cancer_capture), ("test1.vcf", "test2.vcf"))
 
     def test_get_germline_vcf_none(self):
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), None)
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcfs(self.test_cancer_capture), None)
 
     def test_set_capture_bam(self):
         self.test_clinseq_pipeline.set_capture_bam(self.test_cancer_capture, "test.bam")
