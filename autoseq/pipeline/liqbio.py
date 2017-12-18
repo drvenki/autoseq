@@ -121,7 +121,7 @@ class LiqBioPipeline(ClinseqPipeline):
         liqbio_cna.svcaller_N_DUP = self.capture_to_results[normal_capture]["DUP"][1]
         liqbio_cna.svcaller_N_INV = self.capture_to_results[normal_capture]["INV"][1]
         liqbio_cna.svcaller_N_TRA = self.capture_to_results[normal_capture]["TRA"][1]
-        liqbio_cna.germline_mut_vcf = self.get_germline_vcfs(normal_capture)[1] # Vepped germline variants
+        liqbio_cna.germline_mut_vcf = self.get_vepped_germline_vcf(normal_capture) # Vepped germline variants
         liqbio_cna.somatic_mut_vcf = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vepped_vcf
         liqbio_cna.plot_png = "{}/qc/{}-{}-liqbio-cna.png".format(self.outdir, normal_str, cancer_str)
         liqbio_cna.output_cna_json = "{}/variants/{}-{}-liqbio-cna.json".format(self.outdir, normal_str, cancer_str)

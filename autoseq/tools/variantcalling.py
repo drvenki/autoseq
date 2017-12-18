@@ -299,7 +299,8 @@ def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, norm
         pipeline.add(freebayes)
         d['freebayes'] = freebayes.output
 
-    blacklist_bed = pipeline.reference_dict["targets"][cancer_capture_str]["blacklist-bed"]
+    capture_name = pipeline.get_capture_name(cancer_capture.capture_kit_id)
+    blacklist_bed = pipeline.refdata["targets"][capture_name]["blacklist-bed"]
 
     if 'vardict' in callers:
         vardict = VarDict(input_tumor=cancer_bam, input_normal=normal_bam, tumorid=tumor_sample_str,

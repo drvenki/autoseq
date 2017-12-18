@@ -41,7 +41,8 @@ class TestLiqbio(unittest.TestCase):
                     "msisites": "intervals/targets/test-regions.msisites.tsv",
                     "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
-                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list"
+                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
+                    "blacklist-bed": None,
                 }
             },
             "contest_vcfs": {

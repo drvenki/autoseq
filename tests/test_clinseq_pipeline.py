@@ -43,7 +43,8 @@ class TestClinseq(unittest.TestCase):
                     "msisites": "intervals/targets/test-regions.msisites.tsv",
                     "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
-                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list"
+                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
+                    "blacklist-bed": None,
                 }
             },
             "contest_vcfs": {
@@ -80,10 +81,10 @@ class TestClinseq(unittest.TestCase):
 
     def test_get_germline_vcf_exists(self):
         self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, ("test1.vcf", "test2.vcf"))
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcfs(self.test_cancer_capture), ("test1.vcf", "test2.vcf"))
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), "test1.vcf")
 
     def test_get_germline_vcf_none(self):
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcfs(self.test_cancer_capture), None)
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), None)
 
     def test_set_capture_bam(self):
         self.test_clinseq_pipeline.set_capture_bam(self.test_cancer_capture, "test.bam")
@@ -353,6 +354,7 @@ class TestClinseq(unittest.TestCase):
         self.assertTrue(msings_result is not None)
         self.assertEquals(len(test_clinseq_pipeline_2.graph.nodes()), 1)
 
+    # XXX DEBUGGING UNIT TESTS: CONTINUE FROM HERE:
     def test_configure_hz_conc(self):
         self.test_clinseq_pipeline.configure_hz_conc(self.test_normal_capture,
                                                      self.test_cancer_capture)

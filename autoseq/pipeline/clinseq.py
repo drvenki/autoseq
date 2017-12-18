@@ -138,16 +138,27 @@ class ClinseqPipeline(PypedreamPipeline):
 
         self.normal_capture_to_vcf[normal_capture] = vcfs
 
-    def get_germline_vcfs(self, normal_capture):
+    def get_germline_vcf(self, normal_capture):
         """
-        Obtain the germline VCFs (original and vepped) for the given normal sample capture item.
+        Obtain the germline VCF (original, un-vepped) for the given normal sample capture item.
 
         :param normal_capture: Named tuple indicating a unique library capture.
-        :return: Tuple of (original_germline_variants_vcf, vepped_germline_variants_vcf), if available,
-            otherwise None.
+        :return: Original (un-vepped) germline VCF if available, otherwise None.
         """
         if normal_capture in self.normal_capture_to_vcf:
-            return self.normal_capture_to_vcf[normal_capture]
+            return self.normal_capture_to_vcf[normal_capture][0]
+        else:
+            return None
+
+    def get_vepped_germline_vcf(self, normal_capture):
+        """
+        Obtain the VEPped germline VCFs (original) for the given normal sample capture item.
+
+        :param normal_capture: Named tuple indicating a unique library capture.
+        :return: VEPped germline VCF if available, otherwise None.
+        """
+        if normal_capture in self.normal_capture_to_vcf:
+            return self.normal_capture_to_vcf[normal_capture][1]
         else:
             return None
 
@@ -1023,7 +1034,7 @@ class ClinseqPipeline(PypedreamPipeline):
         pureCN.gcgene_file = self.refdata['targets'][cancer_capture_str]['purecn_targets']
         self.add(pureCN)
 
-        # FIXME: This seems like a nasty hack to include a dictionary here, and perhaps belongs elsewhere:
+        # FIXME: It seems like a nasty hack to include a dictionary here, perhaps this belongs elsewhere?
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].pureCN_outputs = {
             "csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, ".csv"),
             "genes_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_genes.csv"),

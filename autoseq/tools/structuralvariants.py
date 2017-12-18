@@ -31,16 +31,16 @@ class Svcaller(Job):
 class Sveffect(Job):
     def __init__(self):
         Job.__init__(self)
-            self.input_del_gtf = None
-            self.input_dup_gtf = None
-            self.input_inv_gtf = None
-            self.input_tra_gtf = None
-            self.ts_regions = None
-            self.ar_regions = None
-            self.fusion_regions = None
-            self.output_combined_bed = None
-            self.output_effects_json = None
-            self.jobname = "sveffect"
+        self.input_del_gtf = None
+        self.input_dup_gtf = None
+        self.input_inv_gtf = None
+        self.input_tra_gtf = None
+        self.ts_regions = None
+        self.ar_regions = None
+        self.fusion_regions = None
+        self.output_combined_bed = None
+        self.output_effects_json = None
+        self.jobname = "sveffect"
 
     def command(self):
         make_bed_cmd = "sveffect make-bed " + \
@@ -68,4 +68,7 @@ class Sveffect(Job):
                           combined_effects_bed=self.output_combined_bed,
                       )
 
-        return "{} && {}".format(make_bed_cmd, predict_cmd)
+        return "{} && {}".format(
+            make_bed_cmd,
+            predict_cmd,
+        )
