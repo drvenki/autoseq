@@ -37,6 +37,11 @@ class SinglePanelResults(object):
         # Coverage QC call:
         self.cov_qc_call = None
 
+        # Structural variants, organised as a dictionary with event type as key,
+        # and their effects:
+        self.svs = {}
+        self.sv_effects = None
+
         # FIXME: Msings should never be run for normal samples => OO progr. fail. Refactor.
         # Msings output:
         self.msings_output = None
@@ -154,6 +159,28 @@ class ClinseqPipeline(PypedreamPipeline):
         :param bam: The bam filename.
         """
         self.capture_to_results[unique_capture].merged_bamfile = bam
+
+    def set_capture_sveffect(self, unique_capture, effects_json):
+        """
+        Record the structural variants effect prediction.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param effects_json: String indicating JSON file of predicted effects
+        """
+
+        self.capture_to_results[unique_capture].sv_effects = effects_json
+
+    def set_capture_svs(self, unique_capture, event_type, svs_tup):
+        """
+        Record the structural variants results for the given library capture and event type.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param event_type: String indicating structural variant event type
+        :param svs_tup: Tuple containing (bam_filename, gtf_filename)
+        """
+
+        # FIXME: This approach is become unwieldy.
+        self.capture_to_results[unique_capture].svs[event_type] = svs_tup
 
     def set_capture_cnr(self, unique_capture, cnr):
         """
