@@ -236,10 +236,11 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             self.reference_data['targets'][capture_name]['blacklist-bed'] = None
             blacklist_bed = stripsuffix(file_full_path, ".interval_list") + ".blacklist.bed"
             if os.path.exists(blacklist_bed):
-                blacklist_copy = Copy()
-                blacklist_copy.input_file = blacklist_bed
-                blacklist_copy.output_file = "{}/intervals/targets/{}".format(
-                    self.outdir, os.path.basename(blacklist_bed))
+                blacklist_copy = Copy(input_file=blacklist_bed,
+                                      output_file="{}/intervals/targets/{}".format(
+                                          self.outdir,
+                                          os.path.basename(blacklist_bed),
+                                      ))
                 self.add(blacklist_copy)
 
             purecn_targets_file = stripsuffix(file_full_path, ".interval_list") + ".purecn.txt"
