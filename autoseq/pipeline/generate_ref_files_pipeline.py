@@ -46,6 +46,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
 
         self.prepare_reference_genome()
         self.prepare_genes()
+        self.prepare_sveffect_regions()
         self.prepare_intervals()
         self.prepare_variants()
 
@@ -59,6 +60,22 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
 
         with open("{}/autoseq-genome.json".format(self.outdir), "w") as output_file:
             json.dump(self.reference_data, output_file, indent=4, sort_keys=True)
+
+    def prepare_sveffect_regions(self):
+        for regions_name in ["ar_regions", "ts_regions", "fusion_regions"]:
+            file_full_path = "{}/{}.bed".format(
+                self.genome_resources,
+                regions_name,
+            )
+
+            copy_cnvkit_ref = Copy(input_file=file_full_path,
+                                   output_file="{}/intervals/{}".format(
+                                       self.outdir,
+                                       os.path.basename(file_full_path),
+                                   ))
+
+            self.add(copy_cnvkit_ref)
+
 
     def prepare_variants(self):
         curl_dbsnp = CurlSplitAndLeftAlign()
