@@ -1061,7 +1061,8 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         self.configure_somatic_calling(normal_capture, cancer_capture)
-        self.configure_vep(normal_capture, cancer_capture)
+        if self.vep_data_is_available():
+            self.configure_vep(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
         self.configure_make_allelic_fraction_track(normal_capture, cancer_capture)
         self.configure_msi_sensor(normal_capture, cancer_capture)

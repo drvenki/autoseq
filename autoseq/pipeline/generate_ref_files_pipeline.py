@@ -242,6 +242,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
                                           os.path.basename(blacklist_bed),
                                       ))
                 self.add(blacklist_copy)
+                self.reference_data['targets'][capture_name]['blacklist-bed'] = blacklist_copy.output
 
             purecn_targets_file = stripsuffix(file_full_path, ".interval_list") + ".purecn.txt"
             if os.path.exists(purecn_targets_file):
