@@ -67,10 +67,10 @@ class LiqBioPipeline(ClinseqPipeline):
         # FIXME: This code is kind of nasty, as the self.capture_to_results data structure is
         # getting "pushed too far" in it's usage:
         sveffect = Sveffect()
-        sveffect.input_del_gtf = self.capture_to_results[unique_capture]["DEL"][1]
-        sveffect.input_dup_gtf = self.capture_to_results[unique_capture]["DUP"][1]
-        sveffect.input_inv_gtf = self.capture_to_results[unique_capture]["INV"][1]
-        sveffect.input_tra_gtf = self.capture_to_results[unique_capture]["TRA"][1]
+        sveffect.input_del_gtf = self.capture_to_results[unique_capture].svs["DEL"][1]
+        sveffect.input_dup_gtf = self.capture_to_results[unique_capture].svs["DUP"][1]
+        sveffect.input_inv_gtf = self.capture_to_results[unique_capture].svs["INV"][1]
+        sveffect.input_tra_gtf = self.capture_to_results[unique_capture].svs["TRA"][1]
         sveffect.ts_regions = self.refdata["ts_regions"]
         sveffect.ar_regions = self.refdata["ar_regions"]
         sveffect.fusion_regions = self.refdata["fusion_regions"]
@@ -113,14 +113,14 @@ class LiqBioPipeline(ClinseqPipeline):
         liqbio_cna.purecn_genes_csv = pureCN_outputs["genes_csv"]
         liqbio_cna.purecn_loh_csv = pureCN_outputs["loh_csv"]
         liqbio_cna.purecn_variants_csv = pureCN_outputs["variants_csv"]
-        liqbio_cna.svcaller_T_DEL = self.capture_to_results[cancer_capture]["DEL"][1]
-        liqbio_cna.svcaller_T_DUP = self.capture_to_results[cancer_capture]["DUP"][1]
-        liqbio_cna.svcaller_T_INV = self.capture_to_results[cancer_capture]["INV"][1]
-        liqbio_cna.svcaller_T_TRA = self.capture_to_results[cancer_capture]["TRA"][1]
-        liqbio_cna.svcaller_N_DEL = self.capture_to_results[normal_capture]["DEL"][1]
-        liqbio_cna.svcaller_N_DUP = self.capture_to_results[normal_capture]["DUP"][1]
-        liqbio_cna.svcaller_N_INV = self.capture_to_results[normal_capture]["INV"][1]
-        liqbio_cna.svcaller_N_TRA = self.capture_to_results[normal_capture]["TRA"][1]
+        liqbio_cna.svcaller_T_DEL = self.capture_to_results[cancer_capture].svs["DEL"][1]
+        liqbio_cna.svcaller_T_DUP = self.capture_to_results[cancer_capture].svs["DUP"][1]
+        liqbio_cna.svcaller_T_INV = self.capture_to_results[cancer_capture].svs["INV"][1]
+        liqbio_cna.svcaller_T_TRA = self.capture_to_results[cancer_capture].svs["TRA"][1]
+        liqbio_cna.svcaller_N_DEL = self.capture_to_results[normal_capture].svs["DEL"][1]
+        liqbio_cna.svcaller_N_DUP = self.capture_to_results[normal_capture].svs["DUP"][1]
+        liqbio_cna.svcaller_N_INV = self.capture_to_results[normal_capture].svs["INV"][1]
+        liqbio_cna.svcaller_N_TRA = self.capture_to_results[normal_capture].svs["TRA"][1]
         liqbio_cna.germline_mut_vcf = self.get_vepped_germline_vcf(normal_capture) # Vepped germline variants
         liqbio_cna.somatic_mut_vcf = self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].vepped_vcf
         liqbio_cna.plot_png = "{}/qc/{}-{}-liqbio-cna.png".format(self.outdir, normal_str, cancer_str)
@@ -129,8 +129,8 @@ class LiqBioPipeline(ClinseqPipeline):
         self.add(liqbio_cna)
 
     def configure_panel_analysis_cancer_vs_normal_liqbio(self, normal_capture, cancer_capture):
-        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
 
-        if self.refdata['targets'][cancer_capture_str]['purecn_targets']:
+        if self.refdata['targets'][capture_name]['purecn_targets']:
             self.configure_purecn(normal_capture, cancer_capture)
             self.configure_liqbio_cna(normal_capture, cancer_capture)

@@ -25,6 +25,9 @@ class TestLiqbio(unittest.TestCase):
             "reference_dict": "genome/test-genome-masked.dict",
             "reference_genome": "genome/test-genome-masked.fasta",
             "swegene_common": "variants/swegen_common.vcf.gz",
+            "ar_regions": "intervals/ar_regions.bed",
+            "ts_regions": "intervals/ts_regions.bed",
+            "fusion_regions": "intervals/fusion_regions.bed",
             "targets": {
                 "test-regions": {
                     "cnvkit-ref": {
@@ -43,6 +46,7 @@ class TestLiqbio(unittest.TestCase):
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
                     "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
                     "blacklist-bed": None,
+                    "purecn_targets": "intervals/targets/purecn.bed",
                 }
             },
             "contest_vcfs": {

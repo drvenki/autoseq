@@ -1004,6 +1004,7 @@ class ClinseqPipeline(PypedreamPipeline):
         target_name = self.get_capture_name(cancer_capture.capture_kit_id)
 
         cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
         normal_capture_str = compose_lib_capture_str(normal_capture)
 
         # Configure the PureCN-specific VarDict job:
@@ -1031,7 +1032,7 @@ class ClinseqPipeline(PypedreamPipeline):
         # should be the same as the ID in the seg file -> I think this is true:
         pureCN.tumorid = cancer_capture_str
         pureCN.outdir = self.outdir
-        pureCN.gcgene_file = self.refdata['targets'][cancer_capture_str]['purecn_targets']
+        pureCN.gcgene_file = self.refdata['targets'][capture_name]['purecn_targets']
         self.add(pureCN)
 
         # FIXME: It seems like a nasty hack to include a dictionary here, perhaps this belongs elsewhere?
@@ -1041,11 +1042,6 @@ class ClinseqPipeline(PypedreamPipeline):
             "loh_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_loh.csv"),
             "variants_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_variants.csv"),
         }
-
-
-        cancer_capture_str = compose_lib_capture_str(cancer_capture)
-        if self.refdata['targets'][cancer_capture_str]['purecn_targets']:
-            self.configure_purecn(normal_capture, cancer_capture)
 
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture):
         """
