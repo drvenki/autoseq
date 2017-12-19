@@ -25,6 +25,7 @@ class TestLiqbio(unittest.TestCase, VariantAssertions, ReadAssertions):
             " --scratch /scratch/tmp/autoseq-integration-tests/liqbio --jobdb {} --cores 2 ".format(cls.jobdb) + \
             " liqbio " + \
             " tests/liqbio-test-sample.json"
+        import sys; print >> sys.stderr, command
         subprocess.check_call(command, shell=True)
 
     def test_jobdb(self):

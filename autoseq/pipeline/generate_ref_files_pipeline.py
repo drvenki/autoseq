@@ -68,13 +68,15 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
                 regions_name,
             )
 
-            copy_cnvkit_ref = Copy(input_file=file_full_path,
-                                   output_file="{}/intervals/{}".format(
-                                       self.outdir,
-                                       os.path.basename(file_full_path),
-                                   ))
+            copy_regions = Copy(input_file=file_full_path,
+                                output_file="{}/intervals/{}".format(
+                                    self.outdir,
+                                    os.path.basename(file_full_path),
+                                ))
 
-            self.add(copy_cnvkit_ref)
+            self.reference_data[regions_name] = copy_regions.output
+
+            self.add(copy_regions)
 
 
     def prepare_variants(self):
