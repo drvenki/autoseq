@@ -61,7 +61,7 @@ class MakeQDNAseqTracks(Job):
         readcount_wig = "{scratch}/readcount-{uuid}.wig".format(
             scratch=self.scratch, uuid=uuid.uuid4())
 
-        qdnaseq_to_bedgraph_cmd = "qdnaseq_to_bedgraph.py {} {} {}".format(
+        qdnaseq_to_bedgraph_cmd = "qdnaseq_to_bedgraph.py {} {}".format(
             self.input_qdnaseq_file, self.output_segments_bedgraph)
 
         qdnaseq_to_wig_cmd = "qdnaseq_to_wig.py {} {} {}".format(
