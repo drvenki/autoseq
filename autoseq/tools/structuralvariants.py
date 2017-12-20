@@ -54,12 +54,12 @@ class Sveffect(Job):
     def command(self):
         activate_env_cmd = "source activate svcallerenv"
 
-        make_bed_cmd = "sveffect make-bed " + \
-                       "--del-gtf {del_gtf} " + \
-                       "--dup-gtf {dup_gtf} " + \
-                       "--inv-gtf {inv_gtf} " + \
-                       "--tra-gtf {tra_gtf} " + \
-                       "{output_combined_bed}".format(
+        make_bed_cmd = ("sveffect make-bed " +
+                       "--del-gtf {del_gtf} " +
+                       "--dup-gtf {dup_gtf} " +
+                       "--inv-gtf {inv_gtf} " +
+                       "--tra-gtf {tra_gtf} " +
+                       "{output_combined_bed}").format(
                            del_gtf=self.input_del_gtf,
                            dup_gtf=self.input_dup_gtf,
                            inv_gtf=self.input_inv_gtf,

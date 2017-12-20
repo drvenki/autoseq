@@ -14,12 +14,20 @@ class QDNASeq(Job):
         self.jobname = "qdnaseq"
 
     def command(self):
+        activate_env_cmd = "source activate qdnaseqenv"
+
         qdnaseq_cmd = "qdnaseq.R " + \
                       required("--bam ", self.input) + \
                       required("--output ", self.output) + \
                       optional("--background ", self.background)
 
-        return qdnaseq_cmd
+        deactivate_env_cmd = "source deactivate"
+
+        return "{} && {} && {} ".format(
+            activate_env_cmd,
+            qdnaseq_cmd,
+            deactivate_env_cmd,
+        )
 
 
 class QDNASeq2Bed(Job):
