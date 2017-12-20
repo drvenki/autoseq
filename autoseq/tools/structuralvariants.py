@@ -13,11 +13,13 @@ class Svcaller(Job):
         self.jobname = "svcaller-run-all"
 
     def command(self):
-        run_all_cmd = "svcaller run-all --tmp-dir {scratch} " + \
-                      "--event-type {event_type} " + \
-                      "--fasta-filename {reference_seq} " + \
-                      "--filter-event-overlap --events-gtf {output_gtf} " + \
-                      "--events-bam {output_bam} {input_bam}".format(
+        activate_env_cmd = "source activate svcallerenv"
+
+        run_all_cmd = ("svcaller run-all --tmp-dir {scratch} " +
+                      "--event-type {event_type} " +
+                      "--fasta-filename {reference_seq} " +
+                      "--filter-event-overlap --events-gtf {output_gtf} "
+                      "--events-bam {output_bam} {input_bam}").format(
                           scratch=self.scratch,
                           event_type=self.event_type,
                           reference_seq=self.reference_sequence,
@@ -25,7 +27,14 @@ class Svcaller(Job):
                           output_bam=self.output_bam,
                           input_bam=self.input_bam,
                       )
-        return run_all_cmd
+
+        deactivate_env_cmd = "source deactivate"
+
+        return "{} && {} && {}".format(
+            activate_env_cmd,
+            run_all_cmd,
+            deactivate_env_cmd,
+        )
 
 
 class Sveffect(Job):
@@ -43,6 +52,8 @@ class Sveffect(Job):
         self.jobname = "sveffect"
 
     def command(self):
+        activate_env_cmd = "source activate svcallerenv"
+
         make_bed_cmd = "sveffect make-bed " + \
                        "--del-gtf {del_gtf} " + \
                        "--dup-gtf {dup_gtf} " + \
@@ -56,11 +67,11 @@ class Sveffect(Job):
                            output_combined_bed=self.output_combined_bed
                        )
 
-        predict_cmd = "sveffect predict " + \
-                      "--ts-regions {ts_regions} " + \
-                      "--ar-regions {ar_regions} " + \
-                      "--fusion-regions {fusion_regions} " + \
-                      "--effects-filename {output_effects_json} {combined_effects_bed}".format(
+        predict_cmd = ("sveffect predict " +
+                      "--ts-regions {ts_regions} " +
+                      "--ar-regions {ar_regions} " +
+                      "--fusion-regions {fusion_regions} " +
+                      "--effects-filename {output_effects_json} {combined_effects_bed}").format(
                           ts_regions=self.ts_regions,
                           ar_regions=self.ar_regions,
                           fusion_regions=self.fusion_regions,
@@ -68,7 +79,11 @@ class Sveffect(Job):
                           combined_effects_bed=self.output_combined_bed,
                       )
 
-        return "{} && {}".format(
+        deactivate_env_cmd = "source deactivate"
+
+        return "{} && {} && {} && {}".format(
+            activate_env_cmd,
             make_bed_cmd,
             predict_cmd,
+            deactivate_env_cmd,
         )

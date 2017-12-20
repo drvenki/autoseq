@@ -354,7 +354,6 @@ class TestClinseq(unittest.TestCase):
         self.assertTrue(msings_result is not None)
         self.assertEquals(len(test_clinseq_pipeline_2.graph.nodes()), 1)
 
-    # XXX DEBUGGING UNIT TESTS: CONTINUE FROM HERE:
     def test_configure_hz_conc(self):
         self.test_clinseq_pipeline.configure_hz_conc(self.test_normal_capture,
                                                      self.test_cancer_capture)
