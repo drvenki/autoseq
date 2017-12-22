@@ -853,6 +853,10 @@ class ClinseqPipeline(PypedreamPipeline):
         except KeyError:
             raise InvalidRefDataException("Missing msings data.")
 
+        # FIXME: The above logic could be cleaned up.
+        if not msings.msings_bed:
+            raise InvalidRefDataException("Missing msings data.")
+
         msings.input_bam = self.get_capture_bam(cancer_capture)
         cancer_capture_str = compose_lib_capture_str(cancer_capture)
         msings.outdir = "{}/msings-{}".format(
