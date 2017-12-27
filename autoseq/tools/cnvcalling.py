@@ -139,6 +139,7 @@ class CNVkit(Job):
         self.output_cns = output_cns
         self.targets_bed = targets_bed
         self.scratch = scratch
+        self.jobname = "cnvkit"
 
     def command(self):
         if not self.reference and not self.targets_bed:
@@ -171,11 +172,12 @@ class CNVkitFix(Job):
         self.input_ref = input_ref
         self.output_cns = output_cns
         self.output_cnr = output_cnr
+        self.jobname = "cnvkit-fix"
 
     def command(self):
-        return "fix_cnvkit.py --input-cnr {input_cnr} --input-cns {input_cns} " + \
-               "--input-reference {input_ref} --output-cnr {output_cnr} " + \
-               "--output-cns {output_cns}".format(
+        return ("fix_cnvkit.py --input-cnr {input_cnr} --input-cns {input_cns} " +
+                "--input-reference {input_ref} --output-cnr {output_cnr} " +
+                "--output-cns {output_cns}").format(
                    input_cnr=self.input_cnr,
                    input_cns=self.input_cns,
                    input_ref=self.input_ref,
