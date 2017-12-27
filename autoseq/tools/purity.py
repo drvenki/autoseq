@@ -27,13 +27,15 @@ class PureCN(Job):
         self.output = "{}/{}_genes.csv".format(
             self.outdir, self.tumorid)
 
+        self.jobname = "purecn"
+
     def command(self):
 
         # activating conda env
         activate_cmd = "source activate purecn-env"
 
         # running PureCN
-        running_cmd = "Rscript PureCN.R " + required("--out ", self.outdir) + \
+        running_cmd = "PureCN.R " + required("--out ", self.outdir) + \
                        required("--sampleid ", self.tumorid) + \
                        required("--segfile ", self.input_seg) + \
                        required("--vcf ", self.input_vcf) + \

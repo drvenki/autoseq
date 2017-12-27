@@ -623,6 +623,8 @@ class ClinseqPipeline(PypedreamPipeline):
         seg_filename = "{}/cnv/{}.seg".format(
             self.outdir, sample_str)
         cns2seg = Cns2Seg(self.capture_to_results[unique_capture].cns, seg_filename)
+        self.add(cns2seg)
+
         self.set_capture_seg(unique_capture, cns2seg.output_seg)
 
     def configure_lowpass_analyses(self):
