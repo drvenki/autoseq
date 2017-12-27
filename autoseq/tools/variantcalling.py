@@ -139,7 +139,7 @@ class VarDictForPureCN(Job):
         # annotate variants with dbSNP id
         annotate_cmd = "bcftools annotate --annotation {} --columns ID ".format(self.dbsnp) + \
                        " --output-type z --output {} ".format(self.output) + tmp_vcf + \
-                       " && tabix -p vcf ".format(self.output)
+                       " && tabix -p vcf {}".format(self.output)
 
         # remove temporary vcf and tabix
         rm_tmp_cmd = "rm " + tmp_vcf + "*"

@@ -862,7 +862,7 @@ class ClinseqPipeline(PypedreamPipeline):
         msings.outdir = "{}/msings-{}".format(
             self.outdir, cancer_capture_str)
         # FIXME: This is nasty:
-        bam_name = os.path.splitext(os.path.basename(msings.input_bam))
+        bam_name = os.path.splitext(os.path.basename(msings.input_bam))[0]
         msings.output = "{}/{}/{}.MSI_Analysis.txt".format(
             msings.outdir, bam_name, bam_name)
         msings.threads = self.maxcores
