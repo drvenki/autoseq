@@ -1032,21 +1032,22 @@ class ClinseqPipeline(PypedreamPipeline):
         seg_filename = self.capture_to_results[cancer_capture].seg
 
         # Configure PureCN itself:
-        pureCN = PureCN()
-        pureCN.input_seg = seg_filename
-        pureCN.input_vcf = vardict_pureCN.output
-        # should be the same as the ID in the seg file -> I think this is true:
-        pureCN.tumorid = cancer_capture_str
-        pureCN.outdir = self.outdir
-        pureCN.gcgene_file = self.refdata['targets'][capture_name]['purecn_targets']
+        # FIXME: NOTE: The Job params *must* be specified as arguments in the case of PureCN:
+        pureCN = PureCN(
+            input_seg=seg_filename,
+            input_vcf=vardict_pureCN.output,
+            tumorid=cancer_capture_str,
+            gcgene_file=self.refdata['targets'][capture_name]['purecn_targets'],
+            outdir=self.outdir,
+        )
         self.add(pureCN)
 
         # FIXME: It seems like a nasty hack to include a dictionary here, perhaps this belongs elsewhere?
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].pureCN_outputs = {
-            "csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, ".csv"),
-            "genes_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_genes.csv"),
-            "loh_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_loh.csv"),
-            "variants_csv": "{}/{}.{}".format(pureCN.outdir, pureCN.tumorid, "_variants.csv"),
+            "csv": "{}/{}.csv".format(pureCN.outdir, pureCN.tumorid),
+            "genes_csv": "{}/{}_genes.csv".format(pureCN.outdir, pureCN.tumorid),
+            "loh_csv": "{}/{}_loh.csv".format(pureCN.outdir, pureCN.tumorid),
+            "variants_csv": "{}/{}_variants.csv".format(pureCN.outdir, pureCN.tumorid),
         }
 
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture):
