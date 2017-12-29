@@ -25,13 +25,28 @@ class TestLiqbio(unittest.TestCase):
             "reference_dict": "genome/test-genome-masked.dict",
             "reference_genome": "genome/test-genome-masked.fasta",
             "swegene_common": "variants/swegen_common.vcf.gz",
+            "ar_regions": "intervals/ar_regions.bed",
+            "ts_regions": "intervals/ts_regions.bed",
+            "fusion_regions": "intervals/fusion_regions.bed",
             "targets": {
                 "test-regions": {
-                    "cnvkit-ref": None,
+                    "cnvkit-ref": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnn",
+                            "N": "intervals/targets/progression.THRUPLEX_PLASMASEQ.N.cnn"
+                        }
+                    },
+                    "cnvkit-fix": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnvkit-fix.tsv"
+                        }
+                    },
                     "msisites": "intervals/targets/test-regions.msisites.tsv",
                     "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
-                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list"
+                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
+                    "blacklist-bed": None,
+                    "purecn_targets": "intervals/targets/purecn.bed",
                 }
             },
             "contest_vcfs": {

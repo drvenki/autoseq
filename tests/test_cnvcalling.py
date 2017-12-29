@@ -48,11 +48,13 @@ class TestCNVCalling(unittest.TestCase):
         self.assertIn('output.cnr', cmd)
 
     def test_cnv_kit_targets(self):
-        cnvkit = CNVkit("input.bam", "output.cns", "output.cnr", targets_bed="dummy_targets.bed")
+        cnvkit = CNVkit("input.bam", "output.cns", "output.cnr", targets_bed="dummy_targets.bed", fasta="dummy_fasta.fa")
         cmd = cnvkit.command()
         self.assertIn('input.cns', cmd)
         self.assertIn('output.cns', cmd)
         self.assertIn('output.cnr', cmd)
+        self.assertIn('dummy_fasta.fa', cmd)
+        self.assertIn('dummy_targets.bed', cmd)
 
     def test_cnv_kit_both(self):
         cnvkit = CNVkit("input.bam", "output.cns", "output.cnr", reference="dummy_reference.txt",
@@ -64,3 +66,9 @@ class TestCNVCalling(unittest.TestCase):
         cnvkit = CNVkit("input.bam", "output.cns", "output.cnr")
         self.assertRaises(ValueError,
                           lambda: cnvkit.command())
+
+    def test_cns2seg(self):
+        cns2seg = Cns2Seg("input.cns", "output.seg")
+        cmd = cns2seg.command()
+        self.assertIn('input.cns', cmd)
+        self.assertIn('output.seg', cmd)

@@ -9,14 +9,14 @@ class TestClinseq(unittest.TestCase):
     def setUp(self):
         self.test_single_panel_results = SinglePanelResults()
         self.test_cancer_vs_normal_results = CancerVsNormalPanelResults()
-        sample_data = {
+        self.sample_data = {
             "sdid": "P-NA12877",
             "T": ["AL-P-NA12877-T-03098849-TD1-TT1", "AL-P-NA12877-T-03098849-TD1-WGS"],
             "N": ["AL-P-NA12877-N-03098121-TD1-TT1", "AL-P-NA12877-N-03098121-TD1-WGS"],
             "CFDNA": ["LB-P-NA12877-CFDNA-03098850-TD1-TT1", "LB-P-NA12877-CFDNA-03098850-TD1-TT2",
                       "LB-P-NA12877-CFDNA-03098850-TD1-WGS"]
         }
-        ref_data = {
+        self.ref_data = {
             "bwaIndex": "bwa/test-genome-masked.fasta",
             "chrsizes": "genome/test-genome-masked.chrsizes.txt",
             "clinvar": "variants/clinvar_20160203.vcf.gz",
@@ -29,11 +29,22 @@ class TestClinseq(unittest.TestCase):
             "swegene_common": "variants/swegen_common.vcf.gz",
             "targets": {
                 "test-regions": {
-                    "cnvkit-ref": None,
+                    "cnvkit-ref": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnn",
+                            "N": "intervals/targets/progression.THRUPLEX_PLASMASEQ.N.cnn"
+                        }
+                    },
+                    "cnvkit-fix": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnvkit-fix.tsv"
+                        }
+                    },
                     "msisites": "intervals/targets/test-regions.msisites.tsv",
                     "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
-                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list"
+                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
+                    "blacklist-bed": None,
                 }
             },
             "contest_vcfs": {
@@ -44,12 +55,12 @@ class TestClinseq(unittest.TestCase):
         self.test_cancer_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
         self.test_normal_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "TT")
         self.test_wg_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "WG")
-        self.test_clinseq_pipeline = ClinseqPipeline(sample_data, ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
+        self.test_clinseq_pipeline = ClinseqPipeline(self.sample_data, self.ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
 
-    def test_single_panel_results(self):
+    def test_single_panel_results_output(self):
         self.assertEquals(self.test_single_panel_results.merged_bamfile, None)
 
-    def test_cancer_vs_normal_results(self):
+    def test_cancer_against_normal_results(self):
         self.assertEquals(self.test_cancer_vs_normal_results.somatic_vcf, None)
 
     def test_pipeline_constructor(self):
@@ -64,12 +75,13 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(self.test_clinseq_pipeline.get_job_param("cov-high-thresh-fold-cov"), 100)
 
     def test_set_germline_vcf(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_cancer_capture], "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, ("test1.vcf", "test2.vcf"))
+        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_cancer_capture],
+                          ("test1.vcf", "test2.vcf"))
 
     def test_get_germline_vcf_exists(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, ("test1.vcf", "test2.vcf"))
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), "test1.vcf")
 
     def test_get_germline_vcf_none(self):
         self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), None)
@@ -220,30 +232,23 @@ class TestClinseq(unittest.TestCase):
                           lambda: self.test_clinseq_pipeline.configure_panel_analysis_with_normal(
                               self.test_cancer_capture))
 
-    def test_cnvkit_ref_exists(self):
-        self.assertFalse(self.test_clinseq_pipeline.cnvkit_ref_exists("test-regions"))
-
-    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.cnvkit_ref_exists')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_name')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
     def test_configure_single_capture_analysis(self, mock_get_capture_bam,
-                                               mock_get_capture_name, mock_cnvkit_ref_exists):
-        mock_cnvkit_ref_exists.return_value = True
+                                               mock_get_capture_name):
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
-    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.cnvkit_ref_exists')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_name')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
     def test_configure_single_capture_analysis_no_ref(self, mock_get_capture_bam,
-                                                      mock_get_capture_name, mock_cnvkit_ref_exists):
-        mock_cnvkit_ref_exists.return_value = False
+                                                      mock_get_capture_name):
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_wgs_analyses')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_only_wgs')
@@ -257,7 +262,7 @@ class TestClinseq(unittest.TestCase):
     def test_configure_single_wgs_analyses(self, mock_get_capture_bam):
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_wgs_analyses(self.test_wg_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     def test_run_wgs_bam_qc(self):
         self.assertEquals(len(self.test_clinseq_pipeline.run_wgs_bam_qc(["test1.bam", "test2.bam"])),
@@ -331,6 +336,24 @@ class TestClinseq(unittest.TestCase):
                 self.test_normal_capture, self.test_cancer_capture)].msi_output is not None)
         self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
 
+    def test_configure_msings_invalid_refdata(self):
+        self.assertRaises(InvalidRefDataException,
+                          lambda: self.test_clinseq_pipeline.configure_msings(self.test_cancer_capture))
+
+
+    @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
+    def test_configure_msings(self, mock_get_capture_bam):
+        capture_name = 'test-regions'
+        self.ref_data['targets'][capture_name]['msings-baseline'] = "intervals/targets/test-regions.msings.baseline"
+        self.ref_data['targets'][capture_name]['msings-bed'] = "intervals/targets/test-regions.msings.bed"
+        self.ref_data['targets'][capture_name]['msings-msi_intervals'] = "intervals/targets/test-regions.msings.msi_intervals"
+        test_clinseq_pipeline_2 = ClinseqPipeline(self.sample_data, self.ref_data, {"cov-low-thresh-fraction": 0.8}, "/tmp", "/nfs/LIQBIO/INBOX/exomes")
+        mock_get_capture_bam.return_value = 'dummy.bam'
+        test_clinseq_pipeline_2.configure_msings(self.test_cancer_capture)
+        msings_result = test_clinseq_pipeline_2.capture_to_results[self.test_cancer_capture].msings_output
+        self.assertTrue(msings_result is not None)
+        self.assertEquals(len(test_clinseq_pipeline_2.graph.nodes()), 1)
+
     def test_configure_hz_conc(self):
         self.test_clinseq_pipeline.configure_hz_conc(self.test_normal_capture,
                                                      self.test_cancer_capture)
@@ -379,7 +402,7 @@ class TestClinseq(unittest.TestCase):
         self.test_clinseq_pipeline.refdata['vep_dir'] = "dummy_vep_dir"
         self.test_clinseq_pipeline.configure_panel_analysis_cancer_vs_normal(self.test_normal_capture,
                                                                              self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 9)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 10)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_only_wgs')
     def test_configure_all_lowpass_qcs(self, mock_get_mapped_captures_only_wgs):

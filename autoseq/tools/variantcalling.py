@@ -48,7 +48,8 @@ class Freebayes(Job):
 
 class VarDict(Job):
     def __init__(self, input_tumor=None, input_normal=None, tumorid=None, normalid=None, reference_sequence=None,
-                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1, min_num_reads=None):
+                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1, min_num_reads=None,
+                 blacklist_bed=None):
         Job.__init__(self)
         self.input_tumor = input_tumor
         self.input_normal = input_normal
@@ -57,6 +58,7 @@ class VarDict(Job):
         self.reference_sequence = reference_sequence
         self.reference_dict = reference_dict
         self.target_bed = target_bed
+        self.blacklist_bed = blacklist_bed
         self.output = output
         self.min_alt_frac = min_alt_frac
         self.min_num_reads = min_num_reads
@@ -73,6 +75,8 @@ class VarDict(Job):
                           "| sed 's/REJECT,Description=\".*\">/REJECT,Description=\"Not Somatic via VarDict\">/' "
                           "| %s -c 'from autoseq.util.bcbio import call_somatic; import sys; print call_somatic(sys.stdin.read())' " % sys.executable)
 
+        blacklist_filter = " | intersectBed -a . -b {} | ".format(self.blacklist_bed)
+
         cmd = "vardict-java " + required("-G ", self.reference_sequence) + \
               optional("-f ", self.min_alt_frac) + \
               required("-N ", self.tumorid) + \
@@ -87,8 +91,60 @@ class VarDict(Job):
               " | " + vt_split_and_leftaln(self.reference_sequence) + \
               " | bcftools view --apply-filters .,PASS " + \
               " | vcfsorter.pl {} /dev/stdin ".format(self.reference_dict) + \
+              conditional(blacklist_filter, self.blacklist_bed) + \
               " | bgzip > {output} && tabix -p vcf {output}".format(output=self.output)
         return cmd
+
+
+class VarDictForPureCN(Job):
+    def __init__(self, input_tumor=None, input_normal=None, tumorid=None, normalid=None, reference_sequence=None,
+                 reference_dict=None, target_bed=None, output=None, min_alt_frac=0.1, min_num_reads=None, dbsnp=None):
+        Job.__init__(self)
+        self.input_tumor = input_tumor
+        self.input_normal = input_normal
+        self.tumorid = tumorid
+        self.normalid = normalid
+        self.reference_sequence = reference_sequence
+        self.reference_dict = reference_dict
+        self.target_bed = target_bed
+        self.output = output
+        self.min_alt_frac = min_alt_frac
+        self.min_num_reads = min_num_reads
+        self.dbsnp = dbsnp
+
+    def command(self):
+        required("", self.input_tumor)
+        required("", self.input_normal)
+
+        tmp_vcf = "{scratch}/{uuid}.vcf.gz".format(scratch=self.scratch, uuid=uuid.uuid4())
+
+        # run vardict without removing non-somatic variants, and adding "SOMATIC" INFO field for somatic variants
+        vardict_cmd = "vardict-java " + required("-G ", self.reference_sequence) + \
+                      optional("-f ", self.min_alt_frac) + \
+                      required("-N ", self.tumorid) + \
+                      optional("-r ", self.min_num_reads) + \
+                      " -b \"{}|{}\" ".format(self.input_tumor, self.input_normal) + \
+                      " -c 1 -S 2 -E 3 -g 4 -Q 10 " + required("", self.target_bed) + \
+                      " | testsomatic.R " + \
+                      " | var2vcf_paired.pl -P 0.9 -m 4.25 " + required("-f ", self.min_alt_frac) + \
+                      " -N \"{}|{}\" ".format(self.tumorid, self.normalid) + \
+                      " | " + fix_ambiguous_cl() + " | " + remove_dup_cl() + \
+                      " | sed 's/Somatic;/Somatic;SOMATIC;/g' " + \
+                      " | sed '/^#CHROM/i ##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Somatic event\">' " + \
+                      " | vcfstreamsort -w 1000 " + \
+                      " | bcftools view --apply-filters .,PASS " + \
+                      " | vcfsorter.pl {} /dev/stdin ".format(self.reference_dict) + \
+                      " | bgzip > " + tmp_vcf + " && tabix -p vcf " + tmp_vcf
+
+        # annotate variants with dbSNP id
+        annotate_cmd = "bcftools annotate --annotation {} --columns ID ".format(self.dbsnp) + \
+                       " --output-type z --output {} ".format(self.output) + tmp_vcf + \
+                       " && tabix -p vcf {}".format(self.output)
+
+        # remove temporary vcf and tabix
+        rm_tmp_cmd = "rm " + tmp_vcf + "*"
+
+        return " && ".join([vardict_cmd, annotate_cmd, rm_tmp_cmd])
 
 
 class VEP(Job):
@@ -243,6 +299,9 @@ def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, norm
         pipeline.add(freebayes)
         d['freebayes'] = freebayes.output
 
+    capture_name = pipeline.get_capture_name(cancer_capture.capture_kit_id)
+    blacklist_bed = pipeline.refdata["targets"][capture_name]["blacklist-bed"]
+
     if 'vardict' in callers:
         vardict = VarDict(input_tumor=cancer_bam, input_normal=normal_bam, tumorid=tumor_sample_str,
                           normalid=normal_sample_str,
@@ -250,7 +309,8 @@ def call_somatic_variants(pipeline, cancer_bam, normal_bam, cancer_capture, norm
                           reference_dict=pipeline.refdata['reference_dict'],
                           target_bed=pipeline.refdata['targets'][target_name]['targets-bed-slopped20'],
                           output="{}/variants/{}-{}.vardict-somatic.vcf.gz".format(outdir, cancer_capture_str, normal_capture_str),
-                          min_alt_frac=min_alt_frac, min_num_reads=min_num_reads
+                          min_alt_frac=min_alt_frac, min_num_reads=min_num_reads,
+                          blacklist_bed=blacklist_bed
                           )
 
         vardict.jobname = "vardict/{}".format(cancer_capture_str)

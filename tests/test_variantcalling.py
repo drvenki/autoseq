@@ -23,19 +23,34 @@ class TestVariantCalling(unittest.TestCase):
             "reference_dict": "genome/test-genome-masked.dict",
             "reference_genome": "genome/test-genome-masked.fasta",
             "swegene_common": "variants/swegen_common.vcf.gz",
+            "ar_regions": "intervals/ar_regions.bed",
+            "ts_regions": "intervals/ts_regions.bed",
+            "fusion_regions": "intervals/fusion_regions.bed",
             "targets": {
                 "test-regions": {
-                    "cnvkit-ref": None,
+                    "cnvkit-ref": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnn",
+                            "N": "intervals/targets/progression.THRUPLEX_PLASMASEQ.N.cnn"
+                        }
+                    },
+                    "cnvkit-fix": {
+                        "THRUPLEX_PLASMASEQ": {
+                            "CFDNA": "intervals/targets/progression.THRUPLEX_PLASMASEQ.CFDNA.cnvkit-fix.tsv"
+                        }
+                    },
                     "msisites": "intervals/targets/test-regions.msisites.tsv",
                     "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
-                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list"
+                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
+                    "blacklist-bed": None,
+                    "purecn_targets": "intervals/targets/purecn.bed",
                 }
             },
             "contest_vcfs": {
                 "test-regions": "test_contest.vcf"
             },
-            "vep_dir": None
+            "vep_dir": "dummy_vep_dir"
         }
         self.test_cancer_capture = UniqueCapture("AL", "P-NA12877", "CFDNA", "03098850", "TD", "TT")
         self.test_normal_capture = UniqueCapture("AL", "P-NA12877", "N", "03098121", "TD", "TT")
@@ -70,6 +85,27 @@ class TestVariantCalling(unittest.TestCase):
         self.assertIn('normal_id', cmd)
         self.assertIn('dummy.fasta', cmd)
         self.assertIn('dummy_targets.bed', cmd)
+        self.assertIn('output.txt', cmd)
+
+    def test_vardictForPureCN(self):
+        vardict = VarDictForPureCN()
+        vardict.input_tumor = "input_tumor.bam"
+        vardict.input_normal = "input_normal.bam"
+        vardict.tumorid = "tumor_id"
+        vardict.normalid = "normal_id"
+        vardict.reference_sequence = "dummy.fasta"
+        vardict.reference_dict = {}
+        vardict.target_bed = "dummy_targets.bed"
+        vardict.dbsnp = "dummy_dbsnp.vcf.gz"
+        vardict.output = "output.txt"
+        cmd = vardict.command()
+        self.assertIn('input_tumor.bam', cmd)
+        self.assertIn('input_normal.bam', cmd)
+        self.assertIn('tumor_id', cmd)
+        self.assertIn('normal_id', cmd)
+        self.assertIn('dummy.fasta', cmd)
+        self.assertIn('dummy_targets.bed', cmd)
+        self.assertIn('dummy_dbsnp.vcf.gz', cmd)
         self.assertIn('output.txt', cmd)
 
     def test_vep(self):

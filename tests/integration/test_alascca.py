@@ -20,12 +20,13 @@ class TestAlasccaPurity(unittest.TestCase, VariantAssertions, ReadAssertions):
 
     @classmethod
     def setUpClass(cls):
-        subprocess.check_call("autoseq " +
-                              " --ref /tmp/test-genome/autoseq-genome.json " +
-                              " --outdir {} ".format(cls.outdir) +
-                              " --libdir /tmp/libraries " +
-                              " --scratch /scratch/tmp/autoseq-integration-tests/alascca --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
-                              " tests/alascca-test-sample_low_purity.json", shell=True)
+        cmd_str = "autoseq " + \
+                  " --ref /tmp/test-genome/autoseq-genome.json " + \
+                  " --outdir {} ".format(cls.outdir) + \
+                  " --libdir /tmp/libraries " + \
+                  " --scratch /scratch/tmp/autoseq-integration-tests/alascca --jobdb {} --cores 2 alascca ".format(cls.jobdb) + \
+                  " tests/alascca-test-sample_low_purity.json"
+        subprocess.check_call(cmd_str, shell=True)
 
     def test_purity_estimate_file(self):
         purity_json_fn = "{}/variants/AL-P-NA12877-T-03098849-TD-TT-alascca-purity.json".format(self.outdir)
@@ -49,14 +50,14 @@ class TestAlascca(unittest.TestCase, VariantAssertions, ReadAssertions):
 
     @classmethod
     def setUpClass(cls):
-
-        subprocess.check_call("autoseq " +
-                              " --ref /tmp/test-genome/autoseq-genome.json " +
-                              " --outdir {} ".format(cls.outdir) +
-                              " --job-params tests/alascca-test-sample-params.json " +
-                              " --libdir /tmp/libraries " +
-                              " --scratch /scratch/tmp/autoseq-integration-tests/alascca --jobdb {} --cores 2 alascca ".format(cls.jobdb) +
-                              " tests/alascca-test-sample.json", shell=True)
+        cmd_str = "autoseq " + \
+                  " --ref /tmp/test-genome/autoseq-genome.json " + \
+                  " --outdir {} ".format(cls.outdir) + \
+                  " --job-params tests/alascca-test-sample-params.json " + \
+                  " --libdir /tmp/libraries " + \
+                  " --scratch /scratch/tmp/autoseq-integration-tests/alascca --jobdb {} --cores 2 alascca ".format(cls.jobdb) + \
+                  " tests/alascca-test-sample.json"
+        subprocess.check_call(cmd_str, shell=True)
 
     def test_jobdb(self):
         jobdb = json.load(open(self.jobdb, 'r'))
