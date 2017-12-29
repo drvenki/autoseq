@@ -239,7 +239,7 @@ class TestClinseq(unittest.TestCase):
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_name')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
@@ -248,7 +248,7 @@ class TestClinseq(unittest.TestCase):
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_wgs_analyses')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_only_wgs')
