@@ -46,6 +46,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
 
         self.prepare_reference_genome()
         self.prepare_genes()
+        self.prepare_sveffect_regions()
         self.prepare_intervals()
         self.prepare_variants()
 
@@ -59,6 +60,24 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
 
         with open("{}/autoseq-genome.json".format(self.outdir), "w") as output_file:
             json.dump(self.reference_data, output_file, indent=4, sort_keys=True)
+
+    def prepare_sveffect_regions(self):
+        for regions_name in ["ar_regions", "ts_regions", "fusion_regions"]:
+            file_full_path = "{}/{}.bed".format(
+                self.genome_resources,
+                regions_name,
+            )
+
+            copy_regions = Copy(input_file=file_full_path,
+                                output_file="{}/intervals/{}".format(
+                                    self.outdir,
+                                    os.path.basename(file_full_path),
+                                ))
+
+            self.reference_data[regions_name] = copy_regions.output
+
+            self.add(copy_regions)
+
 
     def prepare_variants(self):
         curl_dbsnp = CurlSplitAndLeftAlign()
@@ -128,7 +147,7 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
         file_full_path = "{}/target_intervals/{}".format(self.genome_resources, cnv_kit_ref_filename)
 
         # Extract the capture+library+sampletype strings:
-        capture_library_sampletype = cnv_kit_ref_filename.split(".")[:2]
+        capture_library_sampletype = cnv_kit_ref_filename.split(".")[:3]
 
         copy_cnvkit_ref = Copy(input_file=file_full_path,
                                output_file="{}/intervals/targets/{}".format(self.outdir,
@@ -215,6 +234,17 @@ class GenerateRefFilesPipeline(PypedreamPipeline):
             self.add(intersect_msi)
 
             self.prepare_msings(stripsuffix(file_full_path, ".interval_list"), capture_name)
+
+            self.reference_data['targets'][capture_name]['blacklist-bed'] = None
+            blacklist_bed = stripsuffix(file_full_path, ".interval_list") + ".blacklist.bed"
+            if os.path.exists(blacklist_bed):
+                blacklist_copy = Copy(input_file=blacklist_bed,
+                                      output_file="{}/intervals/targets/{}".format(
+                                          self.outdir,
+                                          os.path.basename(blacklist_bed),
+                                      ))
+                self.add(blacklist_copy)
+                self.reference_data['targets'][capture_name]['blacklist-bed'] = blacklist_copy.output
 
             purecn_targets_file = stripsuffix(file_full_path, ".interval_list") + ".purecn.txt"
             if os.path.exists(purecn_targets_file):

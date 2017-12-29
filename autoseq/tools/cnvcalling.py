@@ -14,12 +14,20 @@ class QDNASeq(Job):
         self.jobname = "qdnaseq"
 
     def command(self):
+        activate_env_cmd = "source activate qdnaseqenv"
+
         qdnaseq_cmd = "qdnaseq.R " + \
                       required("--bam ", self.input) + \
                       required("--output ", self.output) + \
                       optional("--background ", self.background)
 
-        return qdnaseq_cmd
+        deactivate_env_cmd = "source deactivate"
+
+        return "{} && {} && {} ".format(
+            activate_env_cmd,
+            qdnaseq_cmd,
+            deactivate_env_cmd,
+        )
 
 
 class QDNASeq2Bed(Job):
@@ -65,6 +73,60 @@ class AlasccaCNAPlot(Job):
                required("--json.purity ", self.output_purity)
 
 
+class LiqbioCNAPlot(Job):
+    def __init__(self):
+        Job.__init__(self)
+        self.input_tumor_cnr = None
+        self.input_tumor_cns = None
+        self.input_normal_cnr = None
+        self.input_normal_cns = None
+        self.input_het_snps_vcf = None
+        self.input_purecn_csv = None
+        self.input_purecn_genes_csv = None
+        self.input_purecn_loh_csv = None
+        self.input_purecn_variants_csv = None
+        self.input_svcaller_T_DEL = None
+        self.input_svcaller_T_DUP = None
+        self.input_svcaller_T_INV = None
+        self.input_svcaller_T_TRA = None
+        self.input_svcaller_N_DEL = None
+        self.input_svcaller_N_DUP = None
+        self.input_svcaller_N_INV = None
+        self.input_svcaller_N_TRA = None
+        self.input_germline_mut_vcf = None
+        self.input_somatic_mut_vcf = None
+        self.output_plot_png = None
+        self.output_cna_json = None
+        self.output_purity_json = None
+
+        self.jobname = "liqbio-cna"
+
+    def command(self):
+        return "liqbioCNA.R" + \
+        required("--tumor_cnr ", self.input_tumor_cnr) + \
+        required("--tumor_cns ", self.input_tumor_cns) + \
+        required("--normal_cnr ", self.input_normal_cnr) + \
+        required("--normal_cns ", self.input_normal_cns) + \
+        required("--het_snps_vcf ", self.input_het_snps_vcf) + \
+        required("--purecn_csv ", self.input_purecn_csv) + \
+        required("--purecn_genes_csv ", self.input_purecn_genes_csv) + \
+        required("--purecn_loh_csv ", self.input_purecn_loh_csv) + \
+        required("--purecn_variants_csv ", self.input_purecn_variants_csv) + \
+        required("--svcaller_T_DEL ", self.input_svcaller_T_DEL) + \
+        required("--svcaller_T_DUP ", self.input_svcaller_T_DUP) + \
+        required("--svcaller_T_INV ", self.input_svcaller_T_INV) + \
+        required("--svcaller_T_TRA ", self.input_svcaller_T_TRA) + \
+        required("--svcaller_N_DEL ", self.input_svcaller_N_DEL) + \
+        required("--svcaller_N_DUP ", self.input_svcaller_N_DUP) + \
+        required("--svcaller_N_INV ", self.input_svcaller_N_INV) + \
+        required("--svcaller_N_TRA ", self.input_svcaller_N_TRA) + \
+        required("--germline_mut_vcf ", self.input_germline_mut_vcf) + \
+        required("--somatic_mut_vcf ", self.input_somatic_mut_vcf) + \
+        required("--plot_png ", self.output_plot_png) + \
+        required("--cna_json ", self.output_cna_json) + \
+        required("--purity_json ", self.output_purity_json)
+
+
 class CNVkit(Job):
     """Runs CNVkit. Either reference or targets_bed must be supplied"""
 
@@ -77,6 +139,7 @@ class CNVkit(Job):
         self.output_cns = output_cns
         self.targets_bed = targets_bed
         self.scratch = scratch
+        self.jobname = "cnvkit"
 
     def command(self):
         if not self.reference and not self.targets_bed:
@@ -88,7 +151,7 @@ class CNVkit(Job):
         sample_prefix = stripsuffix(os.path.basename(self.input_bam), ".bam")
         cnvkit_cmd = "cnvkit.py batch " + required("", self.input_bam) + \
                      optional("-r ", self.reference) + \
-                     conditional(self.targets_bed, "--fasta " + str(self.fasta) + " --split") + \
+                     conditional(self.targets_bed, "--fasta " + str(self.fasta) + " --split ") + \
                      conditional(self.targets_bed, "-n") + \
                      optional("-t ", self.targets_bed) + \
                      required("-d ", tmpdir)
@@ -96,6 +159,30 @@ class CNVkit(Job):
         copy_cnr_cmd = "cp {}/{}.cnr ".format(tmpdir, sample_prefix) + required(" ", self.output_cnr)
         rm_cmd = "rm -r {}".format(tmpdir)
         return " && ".join([cnvkit_cmd, copy_cns_cmd, copy_cnr_cmd, rm_cmd])
+
+
+class CNVkitFix(Job):
+    """Fixes the output of CNV-kit, using a specified table of reference data that should be
+    specific to the sample type, capture kit, and library prep kit.
+    """
+
+    def __init__(self, input_cnr, input_cns, input_ref, output_cnr, output_cns):
+        self.input_cnr = input_cnr
+        self.input_cns = input_cns
+        self.input_ref = input_ref
+        self.output_cns = output_cns
+        self.output_cnr = output_cnr
+        self.jobname = "cnvkit-fix"
+
+    def command(self):
+        return ("fix_cnvkit.py --input-cnr {input_cnr} --input-cns {input_cns} " +
+                "--input-reference {input_ref} --output-cnr {output_cnr} " +
+                "--output-cns {output_cns}").format(
+                   input_cnr=self.input_cnr,
+                   input_cns=self.input_cns,
+                   input_ref=self.input_ref,
+                   output_cns=self.output_cns,
+                   output_cnr=self.output_cnr)
 
 
 class Cns2Seg(Job):

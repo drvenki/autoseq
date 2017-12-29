@@ -35,10 +35,10 @@ class MakeCNVkitTracks(Job):
         self.jobname = "make_cnvkit_tracks"
 
     def command(self):
-        awk_cmd1 = "awk '$1 != \"chromosome\" \{print $1\"\\t\"$2\"\\t\"$3\"\\t\"$5\}' {} > {}".format(
-            self.input_cnr, self.output_profile_bedgraph)
-        awk_cmd2 = "awk '$1 != \"chromosome\" \{print $1\"\\t\"$2\"\\t\"$3\"\\t\"$5\}' {} > {}".format(
-            self.input_cns, self.output_segments_bedgraph)
+        awk_cmd1 = "awk '$1 != \"chromosome\" {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$5}' %s > %s" % \
+                   (self.input_cnr, self.output_profile_bedgraph)
+        awk_cmd2 = "awk '$1 != \"chromosome\" {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$5}' %s > %s" % \
+                   (self.input_cns, self.output_segments_bedgraph)
         return "{} && {}".format(awk_cmd1, awk_cmd2)
 
 
@@ -61,7 +61,7 @@ class MakeQDNAseqTracks(Job):
         readcount_wig = "{scratch}/readcount-{uuid}.wig".format(
             scratch=self.scratch, uuid=uuid.uuid4())
 
-        qdnaseq_to_bedgraph_cmd = "qdnaseq_to_bedgraph.py {} {} {}".format(
+        qdnaseq_to_bedgraph_cmd = "qdnaseq_to_bedgraph.py {} {}".format(
             self.input_qdnaseq_file, self.output_segments_bedgraph)
 
         qdnaseq_to_wig_cmd = "qdnaseq_to_wig.py {} {} {}".format(

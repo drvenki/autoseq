@@ -1,14 +1,14 @@
 from pypedream.pipeline.pypedreampipeline import PypedreamPipeline
 from autoseq.util.path import normpath, stripsuffix
 from autoseq.tools.alignment import align_library
-from autoseq.tools.cnvcalling import QDNASeq
+from autoseq.tools.cnvcalling import Cns2Seg, CNVkit, CNVkitFix, QDNASeq
+from autoseq.tools.purity import PureCN
 from autoseq.tools.igv import MakeAllelicFractionTrack, MakeCNVkitTracks, MakeQDNAseqTracks
 from autoseq.util.library import find_fastqs
 from autoseq.tools.picard import PicardCollectInsertSizeMetrics, PicardCollectOxoGMetrics, \
     PicardMergeSamFiles, PicardMarkDuplicates, PicardCollectHsMetrics, PicardCollectWgsMetrics
-from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, call_somatic_variants
+from autoseq.tools.variantcalling import Freebayes, VEP, VcfAddSample, VarDictForPureCN, call_somatic_variants
 from autoseq.tools.msi import MsiSensor, Msings
-from autoseq.tools.cnvcalling import CNVkit
 from autoseq.tools.contamination import ContEst, ContEstToContamCaveat, CreateContestVCFs
 from autoseq.tools.qc import *
 from autoseq.util.clinseq_barcode import *
@@ -32,9 +32,15 @@ class SinglePanelResults(object):
         # CNV kit outputs:
         self.cnr = None
         self.cns = None
+        self.seg = None
 
         # Coverage QC call:
         self.cov_qc_call = None
+
+        # Structural variants, organised as a dictionary with event type as key,
+        # and their effects:
+        self.svs = {}
+        self.sv_effects = None
 
         # FIXME: Msings should never be run for normal samples => OO progr. fail. Refactor.
         # Msings output:
@@ -54,6 +60,7 @@ class CancerVsNormalPanelResults(object):
         self.normal_contest_output = None
         self.cancer_contest_output = None
         self.cancer_contam_call = None
+        self.pureCN_outputs = None
 
 
 class ClinseqPipeline(PypedreamPipeline):
@@ -120,27 +127,38 @@ class ClinseqPipeline(PypedreamPipeline):
         else:
             return self.default_job_params[param_name]
 
-    def set_germline_vcf(self, normal_capture, vcf_filename):
+    def set_germline_vcf(self, normal_capture, vcfs):
         """
         Registers the specified vcf filename for the specified normal capture item,
         for this analysis.
 
         :param normal_capture: Normal panel capture identifier.
-        :param vcf_filename: VCF filename to store.
+        :param vcfs: Tuple specifying (germline_variants_vcf, vepped_germline_variants_vcf)
         """
 
-        self.normal_capture_to_vcf[normal_capture] = vcf_filename
+        self.normal_capture_to_vcf[normal_capture] = vcfs
 
     def get_germline_vcf(self, normal_capture):
         """
-        Obtain the germline VCF for the given normal sample capture item.
+        Obtain the germline VCF (original, un-vepped) for the given normal sample capture item.
 
         :param normal_capture: Named tuple indicating a unique library capture.
-        :return: The germline VCF filename for the specified normal capture item, or None
-        if this has not been configured.
+        :return: Original (un-vepped) germline VCF if available, otherwise None.
         """
         if normal_capture in self.normal_capture_to_vcf:
-            return self.normal_capture_to_vcf[normal_capture]
+            return self.normal_capture_to_vcf[normal_capture][0]
+        else:
+            return None
+
+    def get_vepped_germline_vcf(self, normal_capture):
+        """
+        Obtain the VEPped germline VCFs (original) for the given normal sample capture item.
+
+        :param normal_capture: Named tuple indicating a unique library capture.
+        :return: VEPped germline VCF if available, otherwise None.
+        """
+        if normal_capture in self.normal_capture_to_vcf:
+            return self.normal_capture_to_vcf[normal_capture][1]
         else:
             return None
 
@@ -152,6 +170,28 @@ class ClinseqPipeline(PypedreamPipeline):
         :param bam: The bam filename.
         """
         self.capture_to_results[unique_capture].merged_bamfile = bam
+
+    def set_capture_sveffect(self, unique_capture, effects_json):
+        """
+        Record the structural variants effect prediction.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param effects_json: String indicating JSON file of predicted effects
+        """
+
+        self.capture_to_results[unique_capture].sv_effects = effects_json
+
+    def set_capture_svs(self, unique_capture, event_type, svs_tup):
+        """
+        Record the structural variants results for the given library capture and event type.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param event_type: String indicating structural variant event type
+        :param svs_tup: Tuple containing (bam_filename, gtf_filename)
+        """
+
+        # FIXME: This approach is become unwieldy.
+        self.capture_to_results[unique_capture].svs[event_type] = svs_tup
 
     def set_capture_cnr(self, unique_capture, cnr):
         """
@@ -170,6 +210,15 @@ class ClinseqPipeline(PypedreamPipeline):
         :param cnr: CNS output filename.
         """
         self.capture_to_results[unique_capture].cns = cns
+
+    def set_capture_seg(self, unique_capture, seg):
+        """
+        Record the seg file (converted CNV kit output) for the given library capture.
+
+        :param unique_capture: Named tuple indicating unique library capture.
+        :param cnr: CNS output filename.
+        """
+        self.capture_to_results[unique_capture].seg = seg
 
     def get_capture_bam(self, unique_capture):
         """
@@ -450,19 +499,19 @@ class ClinseqPipeline(PypedreamPipeline):
         freebayes.jobname = "freebayes-germline-{}".format(capture_str)
         self.add(freebayes)
 
-#        if self.vep_data_is_available():
-#            vep_freebayes = VEP()
-#            vep_freebayes.input_vcf = freebayes.output
-#            vep_freebayes.threads = self.maxcores
-#            vep_freebayes.reference_sequence = self.refdata['reference_genome']
-#            vep_freebayes.vep_dir = self.refdata['vep_dir']
-#            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, capture_str)
-#            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
-#            self.add(vep_freebayes)
-#
-#            self.set_germline_vcf(normal_capture, vep_freebayes.output_vcf)
-#        else:
-        self.set_germline_vcf(normal_capture, freebayes.output)
+        vepped_vcf = None
+        if self.vep_data_is_available():
+            vep_freebayes = VEP()
+            vep_freebayes.input_vcf = freebayes.output
+            vep_freebayes.threads = self.maxcores
+            vep_freebayes.reference_sequence = self.refdata['reference_genome']
+            vep_freebayes.vep_dir = self.refdata['vep_dir']
+            vep_freebayes.output_vcf = "{}/variants/{}.freebayes-germline.vep.vcf.gz".format(self.outdir, capture_str)
+            vep_freebayes.jobname = "vep-freebayes-germline-{}".format(capture_str)
+            self.add(vep_freebayes)
+            vepped_vcf = vep_freebayes.output_vcf
+
+        self.set_germline_vcf(normal_capture, (freebayes.output, vepped_vcf))
 
     def configure_panel_analysis_with_normal(self, normal_capture):
         """
@@ -496,6 +545,29 @@ class ClinseqPipeline(PypedreamPipeline):
         make_cnvkit_tracks.output_segments_bedgraph = "{}/cnv/{}_segments.bedGraph".format(
             self.outdir, sample_str)
         self.add(make_cnvkit_tracks)
+
+    def configure_fix_cnvkit(self, unique_capture, cnr, cns, cnvkit_fix_filename):
+        """
+        Configure a job to fix the cnvkit output for the specified unique capture.
+
+        :param unique_capture: Named tuple identifying a sample library capture.
+        :param cnr: String indicating unfixed cnr file location
+        :param cns: String indicating unfixed cns file location
+        :param cnvkit_fix_filename: File containing table of data used to fix the outputs.
+        """
+
+        sample_str = compose_lib_capture_str(unique_capture)
+
+        cnvkit_fix = CNVkitFix(input_cnr=cnr,
+                               input_cns=cns,
+                               input_ref=cnvkit_fix_filename,
+                               output_cnr="{}/cnv/{}-fixed.cnr".format(self.outdir, sample_str),
+                               output_cns="{}/cnv/{}-fixed.cns".format(self.outdir, sample_str))
+
+        self.set_capture_cnr(unique_capture, cnvkit_fix.output_cnr)
+        self.set_capture_cns(unique_capture, cnvkit_fix.output_cns)
+
+        self.add(cnvkit_fix)
 
     def configure_single_capture_analysis(self, unique_capture):
         """
@@ -536,7 +608,24 @@ class ClinseqPipeline(PypedreamPipeline):
         self.set_capture_cnr(unique_capture, cnvkit.output_cnr)
         self.set_capture_cns(unique_capture, cnvkit.output_cns)
 
+        # FIXME: This extra step (fixing the cnv kit output) should perhaps go elsewhere.
+        try:
+            # Only fix the CNV-kit output if the required file is available:
+            cnvkit_fix_filename = \
+                self.refdata['targets'][capture_kit_name]["cnvkit-fix"][library_kit_name][sample_type]
+            self.configure_fix_cnvkit(unique_capture, cnvkit.output_cnr, cnvkit.output_cns, cnvkit_fix_filename)
+        except KeyError:
+            pass
+
         self.add(cnvkit)
+
+        # Configure conversion of CNV kit output to seg format:
+        seg_filename = "{}/cnv/{}.seg".format(
+            self.outdir, sample_str)
+        cns2seg = Cns2Seg(self.capture_to_results[unique_capture].cns, seg_filename)
+        self.add(cns2seg)
+
+        self.set_capture_seg(unique_capture, cns2seg.output_seg)
 
     def configure_lowpass_analyses(self):
         """
@@ -766,12 +855,16 @@ class ClinseqPipeline(PypedreamPipeline):
         except KeyError:
             raise InvalidRefDataException("Missing msings data.")
 
+        # FIXME: The above logic could be cleaned up.
+        if not msings.msings_bed:
+            raise InvalidRefDataException("Missing msings data.")
+
         msings.input_bam = self.get_capture_bam(cancer_capture)
         cancer_capture_str = compose_lib_capture_str(cancer_capture)
         msings.outdir = "{}/msings-{}".format(
             self.outdir, cancer_capture_str)
         # FIXME: This is nasty:
-        bam_name = os.path.splitext(os.path.basename(msings.input_bam))
+        bam_name = os.path.splitext(os.path.basename(msings.input_bam))[0]
         msings.output = "{}/{}/{}.MSI_Analysis.txt".format(
             msings.outdir, bam_name, bam_name)
         msings.threads = self.maxcores
@@ -903,6 +996,60 @@ class ClinseqPipeline(PypedreamPipeline):
         self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].cancer_contam_call = \
             cancer_contam_call
 
+    def configure_purecn(self, normal_capture, cancer_capture):
+        """
+        Configure PureCN, and also configure the custom run of VarDict, which is
+        required for PureCN.
+
+        :param normal_capture: A unique normal sample library capture
+        :param cancer_capture: A unique cancer sample library capture
+        """
+
+        cancer_bam = self.get_capture_bam(cancer_capture)
+        normal_bam = self.get_capture_bam(normal_capture)
+        target_name = self.get_capture_name(cancer_capture.capture_kit_id)
+
+        cancer_capture_str = compose_lib_capture_str(cancer_capture)
+        capture_name = self.get_capture_name(cancer_capture.capture_kit_id)
+        normal_capture_str = compose_lib_capture_str(normal_capture)
+
+        # Configure the PureCN-specific VarDict job:
+        vardict_pureCN = VarDictForPureCN()
+        vardict_pureCN.input_tumor = cancer_bam
+        vardict_pureCN.input_normal = normal_bam
+        vardict_pureCN.tumorid = cancer_capture_str
+        vardict_pureCN.normalid = normal_capture_str
+        vardict_pureCN.reference_sequence = self.refdata['reference_genome']
+        vardict_pureCN.reference_dict = self.refdata['reference_dict']
+        vardict_pureCN.target_bed = self.refdata['targets'][target_name]['targets-bed-slopped20']
+        vardict_pureCN.dbsnp = self.refdata["dbSNP"]
+        vardict_pureCN.output = "{}/variants/{}-{}.vardict-somatic-purecn.vcf.gz".format(
+            self.outdir, cancer_capture_str, normal_capture_str)
+        vardict_pureCN.jobname = "vardict_purecn/{}-{}".format(cancer_capture_str, normal_capture_str)
+        self.add(vardict_pureCN)
+
+        # Retrieve the relevant seg-format file:
+        seg_filename = self.capture_to_results[cancer_capture].seg
+
+        # Configure PureCN itself:
+        # FIXME: NOTE: The Job params *must* be specified as arguments in the case of PureCN:
+        pureCN = PureCN(
+            input_seg=seg_filename,
+            input_vcf=vardict_pureCN.output,
+            tumorid=cancer_capture_str,
+            gcgene_file=self.refdata['targets'][capture_name]['purecn_targets'],
+            outdir=self.outdir,
+        )
+        self.add(pureCN)
+
+        # FIXME: It seems like a nasty hack to include a dictionary here, perhaps this belongs elsewhere?
+        self.normal_cancer_pair_to_results[(normal_capture, cancer_capture)].pureCN_outputs = {
+            "csv": "{}/{}.csv".format(pureCN.outdir, pureCN.tumorid),
+            "genes_csv": "{}/{}_genes.csv".format(pureCN.outdir, pureCN.tumorid),
+            "loh_csv": "{}/{}_loh.csv".format(pureCN.outdir, pureCN.tumorid),
+            "variants_csv": "{}/{}_variants.csv".format(pureCN.outdir, pureCN.tumorid),
+        }
+
     def configure_panel_analysis_cancer_vs_normal(self, normal_capture, cancer_capture):
         """
         Configures standard paired cancer vs normal panel analyses for the specified unique
@@ -921,7 +1068,8 @@ class ClinseqPipeline(PypedreamPipeline):
         """
 
         self.configure_somatic_calling(normal_capture, cancer_capture)
-        self.configure_vep(normal_capture, cancer_capture)
+        if self.vep_data_is_available():
+            self.configure_vep(normal_capture, cancer_capture)
         self.configure_vcf_add_sample(normal_capture, cancer_capture)
         self.configure_make_allelic_fraction_track(normal_capture, cancer_capture)
         self.configure_msi_sensor(normal_capture, cancer_capture)

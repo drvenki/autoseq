@@ -43,7 +43,8 @@ class TestClinseq(unittest.TestCase):
                     "msisites": "intervals/targets/test-regions.msisites.tsv",
                     "targets-bed-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.bed",
                     "targets-interval_list": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
-                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list"
+                    "targets-interval_list-slopped20": "intervals/targets/test-regions-GRCh37.slopped20.interval_list",
+                    "blacklist-bed": None,
                 }
             },
             "contest_vcfs": {
@@ -74,12 +75,13 @@ class TestClinseq(unittest.TestCase):
         self.assertEquals(self.test_clinseq_pipeline.get_job_param("cov-high-thresh-fold-cov"), 100)
 
     def test_set_germline_vcf(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_cancer_capture], "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, ("test1.vcf", "test2.vcf"))
+        self.assertEquals(self.test_clinseq_pipeline.normal_capture_to_vcf[self.test_cancer_capture],
+                          ("test1.vcf", "test2.vcf"))
 
     def test_get_germline_vcf_exists(self):
-        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, "test.vcf")
-        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), "test.vcf")
+        self.test_clinseq_pipeline.set_germline_vcf(self.test_cancer_capture, ("test1.vcf", "test2.vcf"))
+        self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), "test1.vcf")
 
     def test_get_germline_vcf_none(self):
         self.assertEquals(self.test_clinseq_pipeline.get_germline_vcf(self.test_cancer_capture), None)
@@ -237,7 +239,7 @@ class TestClinseq(unittest.TestCase):
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_name')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_capture_bam')
@@ -246,7 +248,7 @@ class TestClinseq(unittest.TestCase):
         mock_get_capture_name.return_value = "test-regions"
         mock_get_capture_bam.return_value = "test.bam"
         self.test_clinseq_pipeline.configure_single_capture_analysis(self.test_cancer_capture)
-        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 1)
+        self.assertEquals(len(self.test_clinseq_pipeline.graph.nodes()), 2)
 
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.configure_single_wgs_analyses')
     @patch('autoseq.pipeline.clinseq.ClinseqPipeline.get_mapped_captures_only_wgs')
