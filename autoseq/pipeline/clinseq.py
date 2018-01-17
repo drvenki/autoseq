@@ -1039,6 +1039,7 @@ class ClinseqPipeline(PypedreamPipeline):
             tumorid=cancer_capture_str,
             gcgene_file=self.refdata['targets'][capture_name]['purecn_targets'],
             outdir=self.outdir,
+            postopt=True,
         )
         self.add(pureCN)
 
