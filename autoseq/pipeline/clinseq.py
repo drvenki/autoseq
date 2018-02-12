@@ -1038,7 +1038,8 @@ class ClinseqPipeline(PypedreamPipeline):
             input_vcf=vardict_pureCN.output,
             tumorid=cancer_capture_str,
             gcgene_file=self.refdata['targets'][capture_name]['purecn_targets'],
-            outdir=self.outdir,
+            outdir="{}/purecn".format(self.outdir),
+            postopt=True,
         )
         self.add(pureCN)
 
