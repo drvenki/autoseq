@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from pypedream.job import Job, required
+from pypedream.job import Job, required, conditional
 
 
 class CompileMetadata(Job):
@@ -51,11 +51,12 @@ class CompileAlasccaGenomicJson(Job):
 
 
 class WriteAlasccaReport(Job):
-    def __init__(self, input_genomic_json, input_metadata_json, output_pdf):
+    def __init__(self, input_genomic_json, input_metadata_json, output_pdf, alascca_only=False):
         Job.__init__(self)
         self.input_metadata_json = input_metadata_json
         self.input_genomic_json = input_genomic_json
         self.output_pdf = output_pdf
+        self.alascca_only = alascca_only
 
     def command(self):
         tmpdir = "{}/write-alascca-report-{}".format(self.scratch, uuid.uuid4())
@@ -64,6 +65,7 @@ class WriteAlasccaReport(Job):
         cmd = 'writeAlasccaReport ' + \
               required(' --tmp_dir ', tmpdir) + \
               required(' --output_dir ', tmpdir) + \
+              conditional(self.alascca_only, " --alascca_only ") + \
               required('', self.input_genomic_json) + \
               required('', self.input_metadata_json)
 
