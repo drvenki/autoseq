@@ -26,9 +26,18 @@ class TestReports(unittest.TestCase):
         self.assertIn('dummy_ncov.json', cmd)
         self.assertIn('output.json', cmd)
 
-    def test_write_alascca_report(self):
+    def test_write_alascca_report_full(self):
         test_job = WriteAlasccaReport("dummy_genomic.json", "dummy_metadata.json", "output.pdf")
         cmd = test_job.command()
         self.assertIn('dummy_genomic.json', cmd)
         self.assertIn('dummy_metadata.json', cmd)
         self.assertIn('output.pdf', cmd)
+        self.assertNotIn("--alascca_only", cmd)
+
+    def test_write_alascca_report_alascca_only(self):
+        test_job = WriteAlasccaReport("dummy_genomic.json", "dummy_metadata.json", "output.pdf", True)
+        cmd = test_job.command()
+        self.assertIn('dummy_genomic.json', cmd)
+        self.assertIn('dummy_metadata.json', cmd)
+        self.assertIn('output.pdf', cmd)
+        self.assertIn("--alascca_only", cmd)

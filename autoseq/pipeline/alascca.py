@@ -4,6 +4,7 @@ from autoseq.pipeline.clinseq import ClinseqPipeline
 from autoseq.tools.cnvcalling import AlasccaCNAPlot
 from autoseq.tools.reports import CompileMetadata, CompileAlasccaGenomicJson, WriteAlasccaReport
 from autoseq.pipeline.clinseq import compose_lib_capture_str
+from autoseq.util.report_type import only_alascca_class_report
 
 __author__ = 'dankle'
 
@@ -135,10 +136,11 @@ class AlasccaPipeline(ClinseqPipeline):
              self, normal_capture, tumor_capture, metadata_json, genomic_json):
         blood_barcode = normal_capture.sample_id
         tumor_barcode = tumor_capture.sample_id
+        only_alascca = only_alascca_class_report(blood_barcode, tumor_barcode, self.referral_db_conf)
 
         pdf = "{}/report/AlasccaReport-{}-{}.pdf".format(self.outdir, blood_barcode, tumor_barcode)
         write_alascca_pdf = WriteAlasccaReport(
-            genomic_json, metadata_json, pdf)
+            genomic_json, metadata_json, pdf, only_alascca)
         write_alascca_pdf.jobname = "writeAlasccaPdf/{}-{}".format(tumor_barcode, blood_barcode)
         self.add(write_alascca_pdf)
 
