@@ -1,6 +1,6 @@
 # autoseq
 
-[![Coverage Status](https://coveralls.io/repos/github/dakl/autoseq/badge.svg?branch=master)](https://coveralls.io/github/dakl/autoseq?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/clinseq/autoseq/badge.svg?branch=master)](https://coveralls.io/github/clinseq/autoseq?branch=master)
 
 ## Clinseq barcodes
 
